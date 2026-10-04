@@ -13,7 +13,9 @@
 //! A scalar and a batched run of the same model on the same inputs must agree, and that
 //! requirement is a test rather than a hope. When they disagree, APORIA has found something:
 //! that is the differential channel, and it only works because semantics live in exactly one place.
+pub mod interp;
 pub mod ops;
 pub mod value;
 
+pub use interp::{Outcome, run};
 pub use value::{ExecConfig, Flags, FpMode, Value};
