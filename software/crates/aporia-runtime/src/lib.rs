@@ -7,6 +7,8 @@
 //! - [`value`] — runtime values, the flags an execution raises, and the floating-point modes
 //! - [`ops`] — the arithmetic itself, called by every backend
 //! - [`interp`] — the scalar interpreter, which is the reference for what a model means
+//! - [`exec`] — the execution boundary a campaign is actually given, with the interpreter as one
+//!   implementation of it
 //! - [`batch`] — many candidates through the same model, lane-major, the shape a vector or GPU
 //!   backend copies directly
 //!
@@ -14,12 +16,14 @@
 //! requirement is a test rather than a hope. When they disagree, APORIA has found something:
 //! that is the differential channel, and it only works because semantics live in exactly one place.
 pub mod batch;
+pub mod exec;
 pub mod interp;
 pub mod observe;
 pub mod ops;
 pub mod value;
 
 pub use batch::{BatchOutcome, run_batch};
+pub use exec::{Executor, Interp};
 pub use interp::{Outcome, run};
 pub use observe::{Observation, Records};
 pub use value::{ExecConfig, Flags, FpMode, Value};
