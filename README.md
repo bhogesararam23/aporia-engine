@@ -60,6 +60,7 @@ software/crates/
                     atlas CSV, and bit-exact replay against the archive's own A-IR
   aporia-bench      the measurement harness: corpus registry, ground truth, metrics, strategy
                     comparison, verdict, explanation
+  aporia-cli        the command line: `aporia run <model.ap>` analyses a model without a corpus
 software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
 software/scripts/     dev-env, test runner, and the gate that build-verifies every committed tree
 ```
@@ -71,12 +72,22 @@ Rust 1.88 or newer (`stable-msvc` on Windows; the workspace builds with MSVC 14.
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 369 tests
+cargo test --release                  # 393 tests
+cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
 cargo run --release -p aporia-bench -- verify    # ground truth against direct evaluation
 cargo run --release -p aporia-bench -- run --budgets 40,80,160,320,640 --seeds 1,2,3
 cargo run --release -p aporia-bench -- explain analytic/sqrt_domain --budget 640
 ```
+
+`aporia run <model.ap>` is the instrument's own front door: it compiles the file with the DSL
+pipeline, spends an evaluation budget on it with the same campaign driver the benchmark uses, and
+prints the atlas summary, the calibration it measured against, and up to three findings with the
+loudest piece of evidence behind each. Exit status is `0` when nothing was flagged, `1` when
+SUSPICIOUS regions were reported, `2` for bad usage and `3` when the model could not be read,
+compiled or verified — so a CI job can fail on the difference between those. It writes no archive,
+reports no minimised case, and reaches no benchmark internals; `--budget N` sets the evaluation
+budget (default 640).
 
 `aporia-bench run` refuses to produce numbers when a declared region does not hold against direct
 evaluation of the model's own rules, archives every top-of-ladder run, and replays each archive before
