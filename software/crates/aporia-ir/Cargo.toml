@@ -1,0 +1,16 @@
+[package]
+name = "aporia-ir"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "A-IR: the small, backend-neutral intermediate representation at the centre of APORIA."
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[dev-dependencies]

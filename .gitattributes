@@ -24,3 +24,6 @@
 *.lib binary
 *.dll binary
 *.obj binary
+Cargo.lock text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
