@@ -1,0 +1,23 @@
+[package]
+name = "aporia-search"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "APORIA's adaptive multi-evidence boundary search and the baseline strategies it is measured against."
+
+[dependencies]
+aporia-ir = { path = "../aporia-ir" }
+aporia-runtime = { path = "../aporia-runtime" }
+aporia-numerics = { path = "../aporia-numerics" }
+aporia-evidence = { path = "../aporia-evidence" }
+aporia-properties = { path = "../aporia-properties" }
+aporia-boundary = { path = "../aporia-boundary" }
+
+[dev-dependencies]
+aporia-dsl = { path = "../aporia-dsl" }
+
+[lints]
+workspace = true

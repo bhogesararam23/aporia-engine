@@ -54,3 +54,16 @@ dependencies = [
  "aporia-dsl",
  "aporia-ir",
 ]
+
+[[package]]
+name = "aporia-search"
+version = "0.1.0"
+dependencies = [
+ "aporia-boundary",
+ "aporia-dsl",
+ "aporia-evidence",
+ "aporia-ir",
+ "aporia-numerics",
+ "aporia-properties",
+ "aporia-runtime",
+]

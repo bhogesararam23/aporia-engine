@@ -5,6 +5,7 @@ members = [
     "crates/aporia-boundary",
     "crates/aporia-evidence",
     "crates/aporia-ir",
+    "crates/aporia-search",
     "crates/aporia-properties",
     "crates/aporia-numerics",
     "crates/aporia-runtime",
@@ -43,6 +44,18 @@ ignored_unit_patterns = "allow"
 # Naming a `Result` return type is fine; forcing every fallible parser to document an
 # error section produces boilerplate, not information.
 wildcard_imports = "allow"
+# IEEE equality is a question with a definite yes/no answer, and this project asks it a lot:
+# "did these two runs produce the same bits" is the differential channel. The pedantic rule that
+# bans `==` on floats is written for accumulation of rounding error, not for bit comparison.
+float_cmp = "allow"
+# Tests are the main victim: a fall-through arm that prints what it caught is the useful form,
+# and `assert!(x.is_empty())` says what is wrong better than the suggested spelling.
+wildcard_enum_match_arm = "allow"
+assert_is_empty = "allow"
+assertions_on_result_states = "allow"
+# Lane-indexed loops in the batched interpreter are the algorithm: the index is the SIMD lane or
+# the GPU thread, so rewriting them as iterator zip chains hides what is actually being expressed.
+needless_range_loop = "allow"
 
 [profile.bench]
 lto = "fat"
