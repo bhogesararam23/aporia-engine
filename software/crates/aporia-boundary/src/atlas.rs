@@ -25,6 +25,9 @@ pub struct Point {
     pub risk: f64,
     /// Which channels produced evidence about this evaluation.
     pub channels: u8,
+    /// Whether one of those channels stated a fact rather than a measurement: a rule that fired, an
+    /// output that left the real numbers. See [`Policy::suspicious_channels`].
+    pub fact: bool,
     /// Which channels were *applied* to this evaluation, whether or not they had anything to say.
     ///
     /// The distinction is what makes TRUSTED reachable. A cell that was checked against the model's
@@ -55,6 +58,10 @@ pub struct Cell {
     /// Which channels have spoken inside this cell. A cell that only ever heard one channel is
     /// reported as less well understood than one that heard four.
     pub channels: u8,
+    /// How many evaluations inside this cell carried an absolute fact. Zero does not mean the cell is
+    /// clean; it means whatever is wrong here is wrong by measurement rather than by the model's own
+    /// declaration. See [`Policy::suspicious_channels`].
+    pub facts: u32,
     /// Which channels have been applied inside this cell. See [`Point::measured`]: this is the mask
     /// an earned TRUSTED is judged against, and `channels` is not.
     pub measured: u8,
@@ -75,6 +82,7 @@ impl Cell {
         self.risk_max = self.points.iter().fold(0.0f64, |a, p| a.max(p.risk));
         self.channels = self.points.iter().fold(0u8, |a, p| a | p.channels);
         self.measured = self.points.iter().fold(0u8, |a, p| a | p.measured);
+        self.facts = self.points.iter().filter(|p| p.fact).count() as u32;
         self.label = Label::Unknown;
     }
 
@@ -198,6 +206,21 @@ pub struct Policy {
     pub max_depth: u8,
     /// Mean risk below which a cell is worth splitting again looking for the transition.
     pub refine_below: f64,
+    /// How many channels must have spoken about the *same evaluation* for that evaluation to make a
+    /// cell suspicious on measurement alone.
+    ///
+    /// One channel's opinion, however loud, is a lead: it says this quantity behaves unusually here,
+    /// which a correct model does all the time. A square-root domain has an infinite slope at the
+    /// edge of its own legal region; a symplectic integrator over a long horizon genuinely swings
+    /// 700x harder in one part of its step-size range than in another. Those are true statements
+    /// about the region and not defects in the model, and after every measurement fix in `0014` and
+    /// `0015` they are what remained: no control sweep in the ladder was clean at every budget, and
+    /// the flags left were single-channel sensitivity.
+    ///
+    /// An evaluation carrying an absolute item — a rule that fired, an output that left the real
+    /// numbers — clears the bar on its own, because that is not an opinion about the model's
+    /// behaviour but a fact against the model's own declaration.
+    pub suspicious_channels: u32,
 }
 
 impl Default for Policy {
@@ -209,6 +232,7 @@ impl Default for Policy {
             min_channels: 1,
             max_depth: 12,
             refine_below: 0.12,
+            suspicious_channels: 2,
         }
     }
 }
@@ -217,8 +241,18 @@ impl Policy {
     /// Classify one cell from its accumulated statistics.
     #[must_use]
     pub fn classify(&self, cell: &Cell) -> Label {
-        if cell.risk_max >= self.suspicious_peak || cell.mean_risk() >= self.suspicious_mean {
-            return Label::Suspicious;
+        let flagged =
+            cell.risk_max >= self.suspicious_peak || cell.mean_risk() >= self.suspicious_mean;
+        if flagged {
+            // The cell looks troubled in aggregate; say so only for an evaluation that either holds
+            // a fact or was seen the same way by two independent channels.
+            if cell.points.iter().any(|p| {
+                p.risk >= self.suspicious_mean
+                    && (p.fact || p.channels.count_ones() >= self.suspicious_channels)
+            }) {
+                return Label::Suspicious;
+            }
+            return Label::Unknown;
         }
         if cell.samples < self.min_samples {
             return Label::Unknown;
@@ -263,6 +297,7 @@ impl Atlas {
             risk_max: 0.0,
             label: Label::Unknown,
             channels: 0,
+            facts: 0,
             measured: 0,
             points: Vec::new(),
         };
@@ -313,29 +348,35 @@ impl Atlas {
     pub fn record(&mut self, x: &[f64], risk: f64, channels: u8) {
         // For a caller that only knows what spoke: whatever had something to say was, necessarily,
         // applied. The other direction does not hold, which is why a search that wants TRUSTED to be
-        // reachable passes its own measured mask to [`Atlas::record_measured`].
-        self.record_measured(x, risk, channels, channels);
-    }
-
-    /// Record one evaluation, separating the channels that produced evidence (`channels`) from the
-    /// channels that were applied to it (`measured`).
-    pub fn record_measured(&mut self, x: &[f64], risk: f64, channels: u8, measured: u8) {
-        let observation = self.observations;
-        self.observations += 1;
-        let id = self.locate(x);
-        let cell = &mut self.cells[id as usize];
-        cell.points.push(Point {
-            observation,
+        // reachable builds the whole point itself.
+        self.record_point(Point {
+            observation: 0,
             x: x.to_vec(),
             risk,
             channels,
-            measured,
+            measured: channels,
+            fact: false,
         });
+    }
+
+    /// Record one evaluation given in full, and return the observation id it was assigned.
+    ///
+    /// `observation` is filled in here, in evaluation order, so a caller that constructed the point
+    /// with the record id it already holds gets the same number back.
+    pub fn record_point(&mut self, mut p: Point) -> u64 {
+        let observation = self.observations;
+        self.observations += 1;
+        p.observation = observation;
+        let id = self.locate(&p.x) as usize;
+        let cell = &mut self.cells[id];
+        cell.measured |= p.measured;
+        cell.channels |= p.channels;
+        cell.facts += u32::from(p.fact);
         cell.samples += 1;
-        cell.risk_sum += risk;
-        cell.risk_max = cell.risk_max.max(risk);
-        cell.channels |= channels;
-        cell.measured |= measured;
+        cell.risk_sum += p.risk;
+        cell.risk_max = cell.risk_max.max(p.risk);
+        cell.points.push(p);
+        observation
     }
 
     /// Rebuild every cell's measurements from a finished set of evaluations, and label again.
@@ -352,14 +393,14 @@ impl Atlas {
     /// and it costs no executions: refinement after this point can only re-arrange measurements
     /// that were already paid for.
     pub fn remeasure(&mut self, points: &[Point]) {
-        for cell in self.cells.iter_mut() {
+        for cell in &mut self.cells {
             cell.points.clear();
         }
         for p in points {
             let id = self.locate(&p.x) as usize;
             self.cells[id].points.push(p.clone());
         }
-        for cell in self.cells.iter_mut() {
+        for cell in &mut self.cells {
             cell.recompute();
         }
         self.relabel();
@@ -471,6 +512,7 @@ impl Atlas {
                 risk_max: 0.0,
                 label: Label::Unknown,
                 channels: 0,
+                facts: 0,
                 measured: 0,
                 points,
             });
@@ -583,7 +625,7 @@ impl Atlas {
         let mut out = String::new();
         let _ = write!(
             out,
-            "cell,depth,label,samples,mean_risk,max_risk,channels,measured,relative_size"
+            "cell,depth,label,samples,mean_risk,max_risk,channels,facts,measured,relative_size"
         );
         for i in 0..root.bounds.len() {
             let _ = write!(out, ",lo{i},hi{i}");
@@ -593,7 +635,7 @@ impl Atlas {
             let c = &self.cells[*id as usize];
             let _ = write!(
                 out,
-                "{},{},{},{},{:.6},{:.6},{},{},{:.6}",
+                "{},{},{},{},{:.6},{:.6},{},{},{},{:.6}",
                 c.id,
                 c.depth,
                 c.label.name(),
@@ -601,6 +643,7 @@ impl Atlas {
                 c.mean_risk(),
                 c.risk_max,
                 c.channels,
+                c.facts,
                 c.measured,
                 c.relative_size(&root)
             );
@@ -789,6 +832,17 @@ mod tests {
         c.samples = 100;
         c.risk_sum = 0.1;
         c.risk_max = 0.9;
+        // The peak has to belong to an evaluation, and a single loud channel is only a lead (see
+        // [`Policy::suspicious_channels`]), so this cell's narrow failure is one two channels saw at
+        // the same point: what the aggregate `risk_max` is standing in for.
+        c.points = vec![Point {
+            observation: 7,
+            x: vec![0.42],
+            risk: 0.9,
+            channels: 0b10010,
+            measured: 0b10010,
+            fact: false,
+        }];
         assert!(c.mean_risk() < p.suspicious_mean, "the mean looks calm");
         assert_eq!(p.classify(&c), Label::Suspicious);
     }
@@ -836,6 +890,60 @@ mod tests {
     }
 
     #[test]
+    fn one_channels_opinion_holds_a_cell_at_unknown_and_a_fact_does_not() {
+        // The remaining false positives after every measurement fix were single-channel sensitivity
+        // readings of regions that really are ill-conditioned and contain no defect. A loud
+        // measurement is a lead; SUSPICIOUS is something else.
+        let p = Policy::default();
+        let mut c = a_cell(vec![[0.0, 1.0]]);
+        c.samples = 6;
+        c.risk_sum = 6.0 * 0.95;
+        c.risk_max = 0.95;
+        c.points = vec![Point {
+            observation: 1,
+            x: vec![0.5],
+            risk: 0.95,
+            channels: 0b10000,
+            measured: 0b10000,
+            fact: false,
+        }];
+        assert_eq!(
+            p.classify(&c),
+            Label::Unknown,
+            "one channel at full strength is not a finding"
+        );
+        // Two channels agreeing about the same evaluation is a finding.
+        c.points[0].channels = 0b10010;
+        assert_eq!(p.classify(&c), Label::Suspicious);
+        // And a fact clears the bar alone: a rule that fired is not an opinion.
+        c.points[0].channels = 0b00010;
+        c.points[0].fact = true;
+        assert_eq!(
+            p.classify(&c),
+            Label::Suspicious,
+            "a fired rule needs no second voice"
+        );
+        // Two channels that spoke about *different* evaluations do not corroborate each other.
+        c.points[0].fact = false;
+        c.points[0].channels = 0b00010;
+        c.points.push(Point {
+            observation: 2,
+            x: vec![0.7],
+            risk: 0.95,
+            channels: 0b10000,
+            measured: 0b10000,
+            fact: false,
+        });
+        c.samples = 12;
+        c.risk_sum = 12.0 * 0.95;
+        assert_eq!(
+            p.classify(&c),
+            Label::Unknown,
+            "the cell heard two channels, but never about the same evaluation"
+        );
+    }
+
+    #[test]
     fn a_single_point_does_not_drill_the_atlas_to_the_depth_limit() {
         // Measured, before the sample requirement was applied to every branch of `refine`: one
         // suspicious leaf was split anyway, so a single NaN drilled to `max_depth`, the atlas of a
@@ -843,7 +951,15 @@ mod tests {
         // leaf ever reached the four samples a TRUSTED needs, nothing was trusted, no two labelled
         // cells disagreed, and a model with one known boundary reported no band at all.
         let mut a = Atlas::new(&model1d(0.0, 1.0), Policy::default());
-        a.record(&[0.9], 1.0, 0b1);
+        // A NaN: an absolute fact, which is what makes it suspicious on one channel's word.
+        a.record_point(Point {
+            observation: 0,
+            x: vec![0.9],
+            risk: 1.0,
+            channels: 0b00010,
+            measured: 0b00010,
+            fact: true,
+        });
         a.relabel();
         let root = a.leaves[0];
         assert_eq!(
@@ -892,6 +1008,10 @@ mod tests {
             &model1d(0.0, 1.0),
             Policy {
                 min_samples: 1,
+                // This test is about which pairs of cells make a band, not about how many channels a
+                // label needs; the corroboration rule is exercised in
+                // `one_channels_opinion_holds_a_cell_at_unknown_and_a_fact_does_not`.
+                suspicious_channels: 1,
                 ..Policy::default()
             },
         );
@@ -925,6 +1045,8 @@ mod tests {
             &model1d(0.0, 1.0),
             Policy {
                 min_samples: 1,
+                // About partition resolution, not about how many channels a label needs.
+                suspicious_channels: 1,
                 ..Policy::default()
             },
         );
@@ -1061,6 +1183,7 @@ mod tests {
             risk_max: 0.0,
             label: Label::Unknown,
             channels: 0,
+            facts: 0,
             measured: 0,
             points: Vec::new(),
         }

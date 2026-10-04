@@ -105,6 +105,7 @@ while [ "$i" -le "$attempts" ]; do
             continue
         fi
         tail -n 20 "$tmp"
+        [ -n "${APORIA_TEST_LOG:-}" ] && cp "$tmp" "$APORIA_TEST_LOG"
         rm -f "$tmp"
         printf '\033[31m==>\033[0m still blocked after %s attempts.\n' "$attempts" >&2
         printf '    This is a machine policy, not a project failure. Keep writing and use\n' >&2

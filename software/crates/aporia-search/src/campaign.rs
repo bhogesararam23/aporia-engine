@@ -97,7 +97,7 @@ impl Config {
                 "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},",
                 "\"calibrate_every\":{},\"numerical_every\":{},\"refine_every\":{},",
                 "\"atlas\":{{\"suspicious_mean\":{},\"suspicious_peak\":{},\"min_samples\":{},",
-                "\"min_channels\":{},\"max_depth\":{}}}}}"
+                "\"min_channels\":{},\"suspicious_channels\":{},\"max_depth\":{}}}}}"
             ),
             self.budget,
             self.strategy.name(),
@@ -110,6 +110,7 @@ impl Config {
             self.policy.suspicious_peak,
             self.policy.min_samples,
             self.policy.min_channels,
+            self.policy.suspicious_channels,
             self.policy.max_depth,
         )
     }
@@ -259,7 +260,8 @@ pub fn run(model: &Model, config: Config) -> Campaign {
             }
         }
 
-        let probed_precision = config.numerical_every > 0 && round.is_multiple_of(config.numerical_every);
+        let probed_precision =
+            config.numerical_every > 0 && round.is_multiple_of(config.numerical_every);
         if probed_precision && evaluations < config.budget {
             let (o, c) = eval(model, &x, exec_reduced, evaluations);
             evaluations += 1;
@@ -295,7 +297,14 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         if probed_precision {
             measured |= 1 << aporia_evidence::Channel::Numerical.index();
         }
-        atlas.record_measured(&x, risk, channels_mask(&fresh), measured);
+        atlas.record_point(aporia_boundary::Point {
+            observation: 0,
+            x: x.clone(),
+            risk,
+            channels: channels_mask(&fresh),
+            measured,
+            fact: fresh.iter().any(aporia_evidence::Evidence::is_fixed),
+        });
         // The base point carries the group's risk, which is the number the search actually acted
         // on. Probes sit next to it with their own pointwise risk, so `online_risk[i]` always
         // describes `records.items[i]`.
@@ -359,7 +368,8 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         .iter()
         .flat_map(|p| [p.base, p.perturbed])
         .collect();
-    let precise: std::collections::HashSet<u64> = numerical_pairs.iter().map(|(id, _)| *id).collect();
+    let precise: std::collections::HashSet<u64> =
+        numerical_pairs.iter().map(|(id, _)| *id).collect();
     let mut final_risk: Vec<f64> = Vec::with_capacity(records.items.len());
     let mut points: Vec<aporia_boundary::Point> = Vec::with_capacity(records.items.len());
     for o in &records.items {
@@ -374,11 +384,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         }
         let mut scored = items.clone();
         calibrator.apply(&mut scored);
-        let risk = fuse(
-            &EvidenceSet { items: scored },
-            &correlation,
-        )
-        .score;
+        let risk = fuse(&EvidenceSet { items: scored }, &correlation).score;
         final_risk.push(risk);
         points.push(aporia_boundary::Point {
             observation: o.id,
@@ -386,6 +392,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
             risk,
             channels: channels_mask(&items),
             measured,
+            fact: items.iter().any(aporia_evidence::Evidence::is_fixed),
         });
     }
 
@@ -786,7 +793,11 @@ mod tests {
                 ..Config::default()
             },
         );
-        let reported = c.atlas.cells.iter().fold(0.0f64, |a, cell| a.max(cell.risk_max));
+        let reported = c
+            .atlas
+            .cells
+            .iter()
+            .fold(0.0f64, |a, cell| a.max(cell.risk_max));
         let expected = c.final_risk.iter().fold(0.0f64, |a, r| a.max(*r));
         assert!(
             (reported - expected).abs() < 1e-12,
