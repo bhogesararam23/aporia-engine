@@ -4,7 +4,7 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Nine files are committed. Each one is the record of what a change did, and only the last is current.
+Ten files are committed. Each one is the record of what a change did, and only the last is current.
 
 | file | what it is |
 |---|---|
@@ -16,13 +16,16 @@ Nine files are committed. Each one is the record of what a change did, and only 
 | `results-1791142780.json` | differential channel wired, reference evaluations charged, no noise floor |
 | `results-1791144581.json` | as above with a `1e-13` differential floor — **byte-identical to the previous row**, which is what exposed the floor as a no-op |
 | `results-1791145006.json` | as above with the floor at `1e-9` — again byte-identical, so the floor is not what moved the controls |
-| `results-1791146048.json` | **current**: differential wired and floored, ladder run at `differential_every = 0` |
+| `results-1791146048.json` | differential wired and floored, ladder run at `differential_every = 0` |
+| `results-1791150251.json` | **current**: declared symmetry wired as swap probes, plus a new symmetry control. Every one of the previous run's 180 sweeps reproduced outcome-for-outcome (see "Wiring declared symmetry") |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
-`differential_every`, `refine_every`, `calibrate_every`): a measurement whose sampling costs are not
-recorded cannot be compared against one that ran under different ones. The figures quoted throughout
-this file are from `results-1791146048.json`; the rows above it are evidence about what each change
-did, not citable results.
+`differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
+sampling costs are not recorded cannot be compared against one that ran under different ones. The
+figures quoted throughout this file are from `results-1791146048.json` unless a table says otherwise,
+because `results-1791150251.json` reproduces all of them for the entries the earlier run measured —
+the two runs differ only in the one entry the later run adds, and where that addition moves a
+corpus-wide mean it is listed in the symmetry section below.
 
 ### The differential channel, and a sampling lesson
 
@@ -67,6 +70,72 @@ aporia-bench run --budgets 40,80,160,320,640 --seeds 1,2,3
 
 on 2026-10-04 on an Intel Core Ultra 5 125H, Rust 1.99.0 release build, no GPU involved.
 20 corpus entries × 3 strategies × 3 seeds × 5 budgets = 900 campaign runs, 180 sweeps.
+The current run is the same command on 2026-10-05 with one more entry: 21 swept entries (22
+registered, minus `mutants/unit_mistake`, which is caught before anything executes) × 3 × 3 × 5 = 945
+campaign runs, 189 sweeps.
+
+### Wiring declared symmetry
+
+`check symmetric(y wrt (a, b))` lowered into a `RelationKind::Symmetric`, and `swap_distance` could
+compare two executions, and no campaign ever produced the second execution: `Probes::swaps` was
+declared, cloned forward by the search, and never appended to. A symmetry could be written into a
+model and silently never tested. The campaign now re-runs a base point with the declared pair
+exchanged, one evaluation per pair per base point, charged to the budget like every other probe, and
+the Behavioral channel gets one evidence item per swapped pair rather than one per relation.
+
+**What it cost the measurement: nothing, measured.** The 180 sweeps that existed before the wiring
+reproduce outcome-for-outcome in `results-1791150251.json`: every field of every one of their 900
+campaigns is identical — evaluations, instruction steps, detected and localised region counts,
+suspicious/trusted/unknown volumes, findings, boundary rows, counterexamples — and the per-sweep
+summary fields (best detecting budget, best localising budget, cleanliness, replay) match too. The one
+field that differs anywhere is `wall_ms`, which this file already documents as not comparable.
+Compared field by field rather than by totals, so "nothing changed" is a measurement and not an
+impression: a model that declares no symmetry pays no evaluations for the machinery, so its sample
+path is untouched. Headline totals for those 180 sweeps are therefore the same as the previous
+row (134 detect at some budget, 97 localise; 1125 boundary rows, 813 carrying a band, 238 inside the
+declared tolerance, 579 campaigns with at least one band).
+
+**What it added**: `electromagnetics/coupled_coils`, a two-winding reactance whose declared symmetry
+holds everywhere. 9 sweeps, 45 campaigns, every one of them reporting zero suspicious volume and zero
+findings, trusted fraction 1.0000, clean already at the smallest budget in the ladder (40 evaluations).
+Control cleanliness across the corpus goes from 73 of 90 campaigns to 118 of 135 — the two original
+controls are unchanged at 73 of 90, and the new one is clean in all 45 of its campaigns. Archived
+replay goes from 60 of 60 archives and 35,712 executions to 63 of 63 and 37,506.
+
+Corpus-wide means at the top of the ladder move, and only because the denominator gained a clean
+entry: suspicious volume adaptive 0.1982 → 0.1888, stratified 0.2110 → 0.2009, random 0.1980 → 0.1886
+(63 runs averaged instead of 60 — multiply the old mean by 60/63 and you get the new one), and the
+mean suspicious volume of the control campaigns at budget 640 from 0.15% of a domain to 0.10% (27
+campaigns instead of 18). The unjustified-suspicion column moves the same way (0.341 → 0.324,
+0.308 → 0.292, 0.354 → 0.335) and for a second reason worth knowing: a control with nothing suspicious
+reports `false_positive_fraction = Some(0.0)` while a non-control run with nothing suspicious reports
+null, so the new entry's zeros are averaged in and the earlier ones are not. That is a property of how
+the metric is defined, not evidence that suspicion got better.
+
+**A finding about the swap itself.** The declared symmetry in `coupled_coils` is mathematically exact,
+but the swap compares two *executions*, and `0.3 * turns_a * turns_b` is left-associated: the base
+point evaluates `(0.3*Na)*Nb` and the swap evaluates `(0.3*Nb)*Na`, which round differently. Measured
+on that entry at a budget of 640, 159 of the 160 swaps came back bit-identical and one came back
+1.1677e-16 apart — the model entry is deliberately left in that form rather than parenthesised to
+`0.3 * (turns_a * turns_b)`, because the point of a control is to be tested, not arranged. Consequence
+worth recording: a single last-ulp reading is enough to make the Behavioral channel's fitted scale
+leave its default and land on the `MIN_SCALE` guard (1e-12), which is what `explain` now prints as
+`B=0.000000000001` for this entry. The atlas is unaffected — 0 findings, 1.0000 trusted — because the
+item is calibrated against a scale two orders above it and one channel cannot corroborate anything.
+What has *not* been settled is whether a channel-wide scale pinned at the guard is the right reference
+for a different Behavioral claim in the same campaign that has fewer than eight of its own
+measurements; that is a calibration question, and this unit did not touch calibration.
+
+**A corpus gap the wiring exposed again.** The natural pair for this control is a mutant that breaks a
+declared symmetry, and it cannot be scored: `corpus::violates` decides ground truth from the model's
+own rules and divergence, so a fault that exists only in a measurement channel has no declared region
+and the ground-truth gate refuses the entry. The mutant was withdrawn rather than the oracle stretched
+around it. It is the second symptom of the missing risk-threshold counterexample oracle recorded in
+"Counterexamples, replay, and the cost of finding" above.
+
+`aporia-bench explain` now prints what the campaign actually executed:
+`probes: 86 perturbation pairs, 256 symmetry swaps` on `coupled_coils`, and `0 symmetry swaps` on a
+model that declares none.
 
 Definitions live in `crates/aporia-bench/src/metrics.rs`, next to the code that computes them. The
 two that carry the weight here:
@@ -107,11 +176,13 @@ any conclusion from those numbers.
 | `aerospace/projectile_zero_gravity` | measure-zero region | nothing | nothing | nothing | 7 |
 | `control/symplectic_spring` | none (control) | nothing | nothing | nothing | 28 |
 | `aerospace/projectile_clean` | none (control) | nothing | nothing | nothing | 10 |
+| `electromagnetics/coupled_coils` | none (control, declared symmetry) | nothing | nothing | nothing | 4 |
 
 Across all 180 sweeps: **134 detect at some budget, 97 localise.** The first run was 153 and 92, the
 second 140 and 97. The localisation count held exactly where the corroboration rule was applied, and
 six sweeps of detection were given up — "Where localisation still stops working" explains why those
-six were never detections.
+six were never detections. The current run measures 189 sweeps and the same two numbers: the nine
+added sweeps are the `coupled_coils` control, which detects nothing because nothing is wrong with it.
 
 ## The strategy comparison, and why it is narrower than hoped
 
@@ -137,13 +208,18 @@ The first version of this file reported the controls as "0.9% random, 2.8% strat
 and concluded that no run was clean. The conclusion was right; the table was only half the data. Those
 numbers were the mean suspicious volume at the *top* of the ladder. Computed the same way from the same
 JSON at every budget, the first run was far worse than this file admitted. Mean suspicious volume over
-the 18 control campaigns at each budget:
+the control campaigns at each budget (18 per row until the third control arrived):
 
 | budget | 40 | 80 | 160 | 320 | 640 |
 |---|---|---|---|---|---|
 | first run | 38.9% | 46.5% | 45.1% | 12.0% | 2.55% |
 | second run | 0.22% | 0.82% | 0.78% | 1.22% | 2.30% |
 | current (corroboration) | 0.07% | 0.02% | 0.09% | 0.11% | **0.15%** |
+| symmetry run (three controls) | 0.04% | 0.01% | 0.06% | 0.07% | **0.10%** |
+
+The last row is the same measurement with `electromagnetics/coupled_coils` added, so it averages 27
+control campaigns per budget instead of 18; the two original controls are unchanged campaign for
+campaign.
 
 That a table in this file understated the problem is a documentation failure, not a measurement one:
 the numbers were in the JSON the file claims to explain, and the summary was read from the interesting
@@ -152,10 +228,11 @@ row instead of the whole column.
 Where the controls are now:
 
 - **73 of 90 control campaigns report no suspicion at all** — 10 of 90 in the first run, 29 of 90 in
-  the second.
+  the second. Measured the same way over three controls it is 118 of 135: `electromagnetics/coupled_coils`
+  is clean in all 45 of its campaigns.
 - **7 of 18 control sweeps are clean at every budget in the ladder.** This was the headline bad number
   in the first version of this file, "not one run reported zero suspicion anywhere", and it is now
-  false in the good direction.
+  false in the good direction. Across the three controls it is 16 of 27.
 - **11 of 18 still flag something at some budget**, and what remains is 0.39% of the domain at a time —
   a cell or two in an atlas of dozens.
 
@@ -173,7 +250,8 @@ Trust Atlas with three labels has to be allowed to use the third one.
 
 ## Corpus-wide volume and unjustified suspicion
 
-Mean over the 60 runs at the top of the ladder, per strategy:
+Mean over the runs at the top of the ladder, per strategy (60 runs per row until the third control,
+63 in the last three):
 
 | | suspicious volume | of which unjustified | control suspicious |
 |---|---|---|---|
@@ -186,6 +264,16 @@ Mean over the 60 runs at the top of the ladder, per strategy:
 | current — adaptive | 0.1982 | 0.341 | 0.0013 |
 | current — stratified | 0.2110 | 0.308 | 0.0000 |
 | current — random | 0.1980 | 0.354 | 0.0033 |
+| symmetry run — adaptive | 0.1888 | 0.324 | 0.0009 |
+| symmetry run — stratified | 0.2009 | 0.292 | 0.0000 |
+| symmetry run — random | 0.1886 | 0.335 | 0.0022 |
+
+The last three rows are the same campaigns as the previous three plus one clean control, so their
+means are lower for arithmetic reasons rather than behavioural ones: multiply a `current` suspicious
+volume by 60/63 and you get the symmetry-run figure. The unjustified column moves for that reason and
+one other, recorded in the symmetry section: a clean control reports `false_positive_fraction =
+Some(0.0)` while a clean non-control run reports null, so the new entry's zeros are averaged and the
+old ones were not.
 
 Suspicious volume rose an order of magnitude between the first and second runs while the
 *unjustified* share fell, and that is not a contradiction: in the first run most cells that should
@@ -205,6 +293,10 @@ the axis width, and only exists where the atlas produced a band — two labelled
 | rows with at least one band | 585 | **627** | 579 |
 | bands inside the declared tolerance | 165 | **247** | 238 |
 | median normalised error | 0.0746 | 0.1044 | 0.1044 |
+
+The symmetry run reproduces all four of the *current* column exactly (810, 579, 238, 0.1044): the new
+entry declares no transition, so it contributes no boundary rows, and the entries that do are measured
+by campaigns that did not change.
 
 Band coverage rose between the first and second runs because TRUSTED became reachable at all: a band
 needs two labelled cells, and in the first run many cells could never be labelled trusted, so the
@@ -239,13 +331,16 @@ Three distinct limits, and they are not the same problem.
 
 ## Counterexamples, replay, and the cost of finding
 
-- **Replay: 60 of 60 archived runs reproduced bit-for-bit, 35,712 executions, zero mismatches**, in all
-  three full runs. Every archive was written by the harness at the largest budget for seed 1, opened
+- **Replay: 60 of 60 archived runs reproduced bit-for-bit, 35,712 executions, zero mismatches**, in the
+  three 900-campaign runs, and 63 of 63 with 37,506 executions in the current 945-campaign run. Every
+  archive was written by the harness at the largest budget for seed 1, opened
   with `Loaded::open`, checked against its manifest digests, and re-executed against its own recorded
   A-IR; outputs, traces, raised flags and instruction-step counts are compared as bit patterns. This
-  is the one number in this file with no asterisk on it.
+  is the one number in this file with no asterisk on it. The three new archives are the symmetry
+  control's, so the swapped executions are inside what replay re-checks.
 - **Minimisation produced a verified smaller description for 16 of 20 entries** (14 in the first run,
-  15 in the second) on 287 of 341 individual findings. The count of attempts fell when findings were
+  15 in the second) on 287 of 341 individual findings. The current run is the same 341 attempts with
+  the same result: the symmetry control produces no findings, so it adds nothing to minimise. The count of attempts fell when findings were
   merged, because there are fewer claims to minimise, and the verified share held at 84.2% (88.8%
   before merging). The four entries that never produce one still fail for the reason recorded in
   decision 0012: the counterexample oracle asks whether a *declared rule* fails, and a finding

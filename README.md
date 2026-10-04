@@ -27,12 +27,13 @@ boundary.
 
 The current measured answer is **partial, and the honest version is in
 [`software/benchmarks/results/README.md`](software/benchmarks/results/README.md)**. In short: on a
-20-entry corpus and 900 campaigns, adaptive localises `electromagnetics/rlc_resonance` — a band 0.088%
-of the domain — where neither random nor stratified localises anything at any budget; it *loses* on
-two entries where plain coverage is the right tool; and after the fixes that made the baselines better
-the advantage is one entry wide. One entry is not an answer. Numbers are recorded only from runs that
-actually happened, and `TRUSTED` never means *proven correct* — it means no current evidence of a
-problem under the tested assumptions and evidence model.
+21-entry measurement — 189 sweeps, 945 campaigns — adaptive localises
+`electromagnetics/rlc_resonance`, a band 0.088% of the domain, where neither random nor stratified
+localises anything at any budget; it *loses* on two entries where plain coverage is the right tool;
+and after the fixes that made the baselines better the advantage is one entry wide. One entry is not
+an answer. Numbers are recorded only from runs that actually happened, and `TRUSTED` never means
+*proven correct* — it means no current evidence of a problem under the tested assumptions and evidence
+model.
 
 ## What is here
 
@@ -59,7 +60,7 @@ software/crates/
                     atlas CSV, and bit-exact replay against the archive's own A-IR
   aporia-bench      the measurement harness: corpus registry, ground truth, metrics, strategy
                     comparison, verdict, explanation
-software/benchmarks/  20 corpus entries with declared ground truth, and the committed measurements
+software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
 software/scripts/     dev-env, test runner, and the gate that build-verifies every committed tree
 ```
 
@@ -102,8 +103,8 @@ model euler_decay "explicit Euler on exponential decay, one free step size" {
 }
 ```
 
-That is `software/benchmarks/ode/euler_decay/model.ap`, one of the twenty corpus entries the numbers
-above are measured on, so the syntax shown is the syntax that runs.
+That is `software/benchmarks/ode/euler_decay/model.ap`, one of the twenty-one swept corpus entries the
+numbers above are measured on, so the syntax shown is the syntax that runs.
 
 Inputs carry units and declared domains, `state` and `advance` are integration, `watch` produces a
 trace, `require` is physical evidence against the author's own contract and `check` is behavioural —
