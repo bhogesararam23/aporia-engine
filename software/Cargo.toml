@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/aporia-dsl",
     "crates/aporia-ir",
+    "crates/aporia-runtime",
 ]
 
 [workspace.package]

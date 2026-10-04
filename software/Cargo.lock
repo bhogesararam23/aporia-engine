@@ -12,3 +12,11 @@ dependencies = [
 [[package]]
 name = "aporia-ir"
 version = "0.1.0"
+
+[[package]]
+name = "aporia-runtime"
+version = "0.1.0"
+dependencies = [
+ "aporia-dsl",
+ "aporia-ir",
+]
