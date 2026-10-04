@@ -26,9 +26,9 @@ use crate::builtins;
 use crate::span::{Diagnostic, Diagnostics, Span};
 use crate::units::Unit;
 use aporia_ir::{
-    Binop, BlockId, Builtin, CmpOp, Constraint, ConstraintId, ConstraintKind, Direction, Domain,
-    Instr, InstrKind, Lit, Model, NumType, Operand, Origin, Output, OutputId, Param, ParamId,
-    Relation, RelationId, RelationKind, Slot, SlotId, Trace, TraceId, Ty, Unop, verify,
+    Binop, BlockId, Builtin, CmpOp, Constraint, ConstraintId, ConstraintKind, Dimension, Direction,
+    Domain, Instr, InstrKind, Lit, Model, NumType, Operand, Origin, Output, OutputId, Param,
+    ParamId, Relation, RelationId, RelationKind, Slot, SlotId, Trace, TraceId, Ty, Unop, verify,
 };
 use std::collections::HashMap;
 
@@ -342,7 +342,41 @@ impl Binder {
             num: value.num,
             dim: value.unit.dim,
         };
-        let operand = value.value;
+        // Inside a loop a `let` is a value, not a name for an expression. Binding the operand
+        // directly would re-read whatever it points at at each later use, so `let x0 = x` followed by
+        // `advance x = ...` and a use of `x0` would silently read the *new* x: the scheme under
+        // analysis would not be the one that was written. Materialising the value into an anonymous
+        // slot at the point it is defined is what makes a step temporary behave the way it reads.
+        let operand = if self.in_loop {
+            let id = self.m.slots.len() as SlotId;
+            // The initialiser cannot be the expression itself: a node defined inside a loop block is
+            // not visible at entry, and a slot initialiser has to be evaluable there. Zero is also
+            // the honest answer, because a step temporary has no value before the first step.
+            let init = match ty.num {
+                NumType::I64 => Operand::Lit(Lit::I64(0)),
+                NumType::Bool => Operand::Lit(Lit::Bool(false)),
+                // A unit-typed temporary holds no number, and zero is the same non-answer.
+                NumType::F32 | NumType::F64 | NumType::Unit => Operand::Lit(Lit::F64(0.0)),
+            };
+            self.m.slots.push(Slot {
+                name: format!("{}#step", d.name),
+                ty,
+                init,
+            });
+            self.emit(
+                Ty {
+                    num: NumType::Unit,
+                    dim: Dimension::dimensionless(),
+                },
+                InstrKind::Write {
+                    slot: id,
+                    value: value.value,
+                },
+            );
+            Operand::Slot(id)
+        } else {
+            value.value
+        };
         self.scope.insert(
             d.name.clone(),
             Bound {
@@ -1970,6 +2004,60 @@ mod tests {
     }
 
     #[test]
+    fn a_step_temporary_is_bound_to_a_value_not_to_the_state() {
+        // `let x0 = x` before an `advance x` has to mean the x of *this* iteration. Binding the let
+        // to the state slot instead of to a value would make the model below compute the
+        // semi-implicit scheme while the source says the explicit one, and nothing would report the
+        // difference. The numbers are checked by a semantic test in `aporia-bench`, which has a
+        // runtime to run it with; here the shape is what matters.
+        let m = ok(
+            "model e \"\" {\n input dt in [0, 1]\n state x = 1.0\n state v = 0.0\n loop 2 {\n let x0 = x\n advance x = x + v * dt\n advance v = v - x0 * dt\n }\n let final = x\n}\n",
+        );
+        let at = m
+            .slots
+            .iter()
+            .position(|s| s.name == "x0#step")
+            .expect("a loop let should become its own step slot");
+        let reads = m
+            .instrs
+            .iter()
+            .filter(|i| {
+                matches!(
+                    &i.kind,
+                    InstrKind::Bin { a: Operand::Slot(k), .. } | InstrKind::Bin { b: Operand::Slot(k), .. }
+                        if *k as usize == at
+                )
+            })
+            .count();
+        assert_eq!(reads, 1, "x0 is read exactly once, by the update of v");
+        let writes = m
+            .instrs
+            .iter()
+            .filter(|i| matches!(&i.kind, InstrKind::Write { slot, .. } if *slot as usize == at))
+            .count();
+        assert_eq!(writes, 1, "the temporary is written once per iteration");
+        // Its initialiser is a literal, because a node inside the loop block is not visible at
+        // entry, which is where slot initialisers are evaluated.
+        assert!(
+            matches!(m.slots[at].init, Operand::Lit(Lit::F64(_))),
+            "{:?}",
+            m.slots[at].init
+        );
+        let order = |needle: &str| {
+            m.instrs.iter().position(|i| match &i.kind {
+                InstrKind::Write { slot, .. } => m.slots[*slot as usize].name == needle,
+                _ => false,
+            })
+        };
+        let temp = order("x0#step");
+        let advanced = order("x");
+        assert!(
+            temp.is_some() && advanced.is_some() && temp < advanced,
+            "the temporary must be written before the state it stands for changes"
+        );
+    }
+
+    #[test]
     fn a_loop_over_state_lowers_with_a_trace() {
         let m = ok("model spring \"\" {\n\
             input k : N/m in [1, 1000]\n\
@@ -1987,7 +2075,11 @@ mod tests {
             require mass > 0\n\
             check conserved(energy, 0.02)\n\
         }\n");
-        assert_eq!(m.slots.len(), 2);
+        // Three slots, not two: the two declared states plus the step temporary that `let a` became.
+        // A `let` inside a loop has to hold a value for the iteration, so it cannot stay a name for
+        // an expression that later statements would re-read after an `advance` has moved it.
+        assert_eq!(m.slots.len(), 3);
+        assert_eq!(m.slots[2].name, "a#step");
         assert_eq!(m.traces.len(), 1);
         assert_eq!(m.traces[0].name, "energy");
         assert_eq!(m.relations.len(), 1);
