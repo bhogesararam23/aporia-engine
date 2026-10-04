@@ -15,9 +15,11 @@
 //! that is the differential channel, and it only works because semantics live in exactly one place.
 pub mod batch;
 pub mod interp;
+pub mod observe;
 pub mod ops;
 pub mod value;
 
-pub use batch::{run_batch, BatchOutcome};
+pub use batch::{BatchOutcome, run_batch};
 pub use interp::{Outcome, run};
+pub use observe::{Observation, Records};
 pub use value::{ExecConfig, Flags, FpMode, Value};
