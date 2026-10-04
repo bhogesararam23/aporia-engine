@@ -277,7 +277,7 @@ fn first_primes(n: usize) -> Vec<u32> {
     let mut out = Vec::with_capacity(n);
     let mut candidate = 2u32;
     while out.len() < n {
-        if (2..candidate).all(|d| candidate % d != 0) {
+        if (2..candidate).all(|d| !candidate.is_multiple_of(d)) {
             out.push(candidate);
         }
         candidate += 1;

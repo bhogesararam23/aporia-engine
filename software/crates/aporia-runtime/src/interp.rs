@@ -241,10 +241,11 @@ impl Machine<'_> {
                 .unwrap_or(Value::F64(f64::NAN)),
             Operand::Node(id) => {
                 let cached = self.env.get(*id as usize).copied();
-                if let Some(v) = cached {
-                    if !matches!(v, Value::Unit) && !self.is_loop_node(*id) {
-                        return v;
-                    }
+                if let Some(v) = cached
+                    && !matches!(v, Value::Unit)
+                    && !self.is_loop_node(*id)
+                {
+                    return v;
                 }
                 self.instr(*id)
             }

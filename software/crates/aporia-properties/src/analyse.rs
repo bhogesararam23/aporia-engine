@@ -296,22 +296,22 @@ pub fn inferred_patterns(model: &Model, records: &Records, probes: &Probes) -> V
             // Only "keeps rising" is inferred. A decreasing relation is the same measurement with a
             // sign change, and inferring both directions from noisy data doubles the false-positive
             // rate for no information. `violated` therefore counts the pairs that fell.
-            if let Some((violated, total, worst)) = scan_monotone(records, probes, o, param, true) {
-                if violated * 4 >= total && violated > 0 && worst > 1e-6 {
-                    out.push(Evidence::new(
-                        Channel::Behavioral,
-                        Subject::Pattern {
-                            output: o,
-                            param,
-                            kind: PatternKind::Increasing,
-                        },
-                        (violated as f64 / total as f64) * worst,
-                        observation_ids(records, probes),
-                        format!(
-                            "o{o} stopped rising with p{param} in {violated} of {total} probes"
-                        ),
-                    ));
-                }
+            if let Some((violated, total, worst)) = scan_monotone(records, probes, o, param, true)
+                && violated * 4 >= total
+                && violated > 0
+                && worst > 1e-6
+            {
+                out.push(Evidence::new(
+                    Channel::Behavioral,
+                    Subject::Pattern {
+                        output: o,
+                        param,
+                        kind: PatternKind::Increasing,
+                    },
+                    (violated as f64 / total as f64) * worst,
+                    observation_ids(records, probes),
+                    format!("o{o} stopped rising with p{param} in {violated} of {total} probes"),
+                ));
             }
             if let Some(jump) = largest_jump(model, records, o, param) {
                 out.push(Evidence::new(

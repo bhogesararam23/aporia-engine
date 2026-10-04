@@ -216,7 +216,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         online_risk.push(0.0);
         let mut group = vec![id];
 
-        if config.probe_every > 0 && round % config.probe_every == 0 {
+        if config.probe_every > 0 && round.is_multiple_of(config.probe_every) {
             for axis in 0..model.params.len() {
                 if evaluations >= config.budget {
                     break;
@@ -251,7 +251,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         }
 
         if config.numerical_every > 0
-            && round % config.numerical_every == 0
+            && round.is_multiple_of(config.numerical_every)
             && evaluations < config.budget
         {
             let (o, c) = eval(model, &x, exec_reduced, evaluations);
@@ -304,11 +304,11 @@ pub fn run(model: &Model, config: Config) -> Campaign {
             x,
         });
 
-        if config.calibrate_every > 0 && evaluations % config.calibrate_every == 0 {
+        if config.calibrate_every > 0 && evaluations.is_multiple_of(config.calibrate_every) {
             calibrator = Calibrator::fit_from(&log);
             correlation = ChannelCorrelation::estimate(&log);
         }
-        if config.refine_every > 0 && evaluations % config.refine_every == 0 {
+        if config.refine_every > 0 && evaluations.is_multiple_of(config.refine_every) {
             atlas.relabel();
             atlas.refine();
             atlas.relabel();
