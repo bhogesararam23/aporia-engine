@@ -1,0 +1,25 @@
+# Internal planning material. Never published: this directory holds the product
+# specification, the agent working canvas and the private decision records.
+/docs/
+
+# Session scratch (toolchain bootstrap downloads, temp build dirs)
+/.bootstrap/
+
+# Rust build artifacts
+/software/target/
+**/target/
+
+# Julia artifact cache
+/**/*.jl.mem
+
+# Generated experiment runs. The harness writes them; they are reproducible from
+# the corpus plus the recorded configuration, so they stay out of the repository.
+/experiments/
+/software/experiments/
+
+# Editor / OS
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
+*.log
