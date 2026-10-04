@@ -12,4 +12,6 @@
 //! Later stages add [`ast`], [`parser`], [`units`], [`check`] and [`lower`], which together turn a
 //! `.ap` file into a verified A-IR `Model`.
 
+pub mod lexer;
 pub mod span;
+pub mod token;
