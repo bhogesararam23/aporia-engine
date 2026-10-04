@@ -163,8 +163,17 @@ pub struct Campaign {
     pub calibrator: Calibrator,
     pub correlation: ChannelCorrelation,
     pub findings: Vec<Finding>,
-    /// Record index of the first evaluation whose retrospective risk crossed the threshold.
-    pub first_failure: Option<usize>,
+    /// Record index of the first evaluation whose retrospective risk crossed the suspicious bar.
+    ///
+    /// Named for what it is: *flagged*, not *failed*. It says where the instrument first stopped
+    /// being comfortable, which is a cost measurement — how long until the search has something to
+    /// chase — and not a claim that the model is wrong at that point. The `sqrt` domain model is the
+    /// case that made the distinction necessary: its output has an infinite slope exactly where it
+    /// first becomes legal, so the loudest sensitivity reading in the whole experiment sits on the
+    /// safe side of the boundary, and a field called `first_failure` would have reported that as a
+    /// found fault. The benchmark's `first_true_failure`, measured against ground truth in
+    /// `aporia-bench`, is the quantity the research question asks for.
+    pub first_flagged: Option<usize>,
     pub evidence: Vec<Evidence>,
 }
 
@@ -250,10 +259,8 @@ pub fn run(model: &Model, config: Config) -> Campaign {
             }
         }
 
-        if config.numerical_every > 0
-            && round.is_multiple_of(config.numerical_every)
-            && evaluations < config.budget
-        {
+        let probed_precision = config.numerical_every > 0 && round.is_multiple_of(config.numerical_every);
+        if probed_precision && evaluations < config.budget {
             let (o, c) = eval(model, &x, exec_reduced, evaluations);
             evaluations += 1;
             steps += c;
@@ -277,7 +284,18 @@ pub fn run(model: &Model, config: Config) -> Campaign {
             &correlation,
         )
         .score;
-        atlas.record(&x, risk, channels_mask(&fresh));
+        // What the label of this cell will be judged against: which sensors were actually applied
+        // here, as distinct from which ones had something to say. A clean point has nothing to say,
+        // and a policy that demands a channel have spoken before calling a cell trusted can then
+        // never call anything trusted.
+        let mut measured = 1u8 << aporia_evidence::Channel::Physical.index();
+        if group.len() > 1 {
+            measured |= 1 << aporia_evidence::Channel::Sensitivity.index();
+        }
+        if probed_precision {
+            measured |= 1 << aporia_evidence::Channel::Numerical.index();
+        }
+        atlas.record_measured(&x, risk, channels_mask(&fresh), measured);
         // The base point carries the group's risk, which is the number the search actually acted
         // on. Probes sit next to it with their own pointwise risk, so `online_risk[i]` always
         // describes `records.items[i]`.
@@ -333,15 +351,58 @@ pub fn run(model: &Model, config: Config) -> Campaign {
     }
     let calibrator = Calibrator::fit_from(&final_log);
     let correlation = ChannelCorrelation::estimate(&final_log);
-    let final_risk: Vec<f64> = (0..records.items.len())
-        .map(|i| {
-            let mut items = own_evidence(&final_log, records.items[i].id);
-            calibrator.apply(&mut items);
-            fuse(&EvidenceSet { items }, &correlation).score
-        })
+    // Risk per record after the whole record set is available, together with the mask of channels
+    // that were applied to it, so the atlas can be labelled from the report's evidence rather than
+    // from the search's.
+    let probed: std::collections::HashSet<u64> = probes
+        .pairs
+        .iter()
+        .flat_map(|p| [p.base, p.perturbed])
         .collect();
+    let precise: std::collections::HashSet<u64> = numerical_pairs.iter().map(|(id, _)| *id).collect();
+    let mut final_risk: Vec<f64> = Vec::with_capacity(records.items.len());
+    let mut points: Vec<aporia_boundary::Point> = Vec::with_capacity(records.items.len());
+    for o in &records.items {
+        let items = own_evidence(&final_log, o.id);
+        let mut measured = 1u8 << aporia_evidence::Channel::Physical.index();
+        if probed.contains(&o.id) {
+            measured |= 1 << aporia_evidence::Channel::Behavioral.index();
+            measured |= 1 << aporia_evidence::Channel::Sensitivity.index();
+        }
+        if precise.contains(&o.id) {
+            measured |= 1 << aporia_evidence::Channel::Numerical.index();
+        }
+        let mut scored = items.clone();
+        calibrator.apply(&mut scored);
+        let risk = fuse(
+            &EvidenceSet { items: scored },
+            &correlation,
+        )
+        .score;
+        final_risk.push(risk);
+        points.push(aporia_boundary::Point {
+            observation: o.id,
+            x: o.x.clone(),
+            risk,
+            channels: channels_mask(&items),
+            measured,
+        });
+    }
 
-    let first_failure = final_risk
+    // Label the finished atlas with the finished evidence, then let it settle: a split after this
+    // point re-arranges measurements that were already paid for, so resolution really does follow
+    // evidence rather than following the budget. `refine` now requires four samples in a cell before
+    // it will cut it, so this terminates on its own — each split halves the samples available to the
+    // children, and the loop is bounded regardless.
+    atlas.remeasure(&points);
+    for _ in 0..8 {
+        if atlas.refine() == 0 {
+            break;
+        }
+    }
+    atlas.relabel();
+
+    let first_flagged = final_risk
         .iter()
         .position(|r| *r >= config.policy.suspicious_mean);
     let findings = collect_findings(
@@ -367,7 +428,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         calibrator,
         correlation,
         findings,
-        first_failure,
+        first_flagged,
         evidence: final_log.into_iter().flat_map(|s| s.items).collect(),
     }
 }
@@ -705,7 +766,38 @@ mod tests {
             c.findings.first().map(|f| &f.evidence)
         );
         assert!(c.evaluations >= 250, "spent only {}", c.evaluations);
-        assert_eq!(c.first_failure, None);
+        assert_eq!(c.first_flagged, None);
+    }
+
+    #[test]
+    fn the_reported_atlas_carries_the_report_risk_not_the_search_risk() {
+        // A declared `check` is tested over the whole record set, so it does not exist while the
+        // search is running. It has to reach the map the reader is handed: before
+        // `Atlas::remeasure`, cell labels came from online evidence only, so a model whose only
+        // problem is a failed declared relation could finish with an entirely TRUSTED atlas sitting
+        // next to an evidence list that said otherwise.
+        let m = model(
+            "model q \"\" {\n input x in [-1, 1]\n let y = x * x\n check monotone_up(y wrt x)\n}\n",
+        );
+        let c = run(
+            &m,
+            Config {
+                budget: 240,
+                ..Config::default()
+            },
+        );
+        let reported = c.atlas.cells.iter().fold(0.0f64, |a, cell| a.max(cell.risk_max));
+        let expected = c.final_risk.iter().fold(0.0f64, |a, r| a.max(*r));
+        assert!(
+            (reported - expected).abs() < 1e-12,
+            "the atlas maxes at {reported} while the report maxes at {expected}"
+        );
+        assert!(
+            c.evidence
+                .iter()
+                .any(|e| e.channel == aporia_evidence::Channel::Behavioral),
+            "this example stopped exercising the retrospective pass"
+        );
     }
 
     #[test]
@@ -866,7 +958,7 @@ mod tests {
     }
 
     #[test]
-    fn first_failure_is_an_index_into_the_record_order() {
+    fn first_flagged_is_an_index_and_the_unsafe_side_is_flagged_too() {
         let m = model(
             "model f \"\" {\n input x in [0, 1]\n let y = sqrt(x - 0.5)\n require finite(y)\n}\n",
         );
@@ -878,10 +970,27 @@ mod tests {
                 ..Config::default()
             },
         );
+        let bar = c.config.policy.suspicious_mean;
         let i = c
-            .first_failure
+            .first_flagged
             .expect("a deterministic sweep crosses the boundary");
-        assert!(c.records.items[i].x[0] < 0.5, "flagged a safe point");
+        assert!(i < c.records.len(), "index {i} out of range");
+        assert!(
+            c.final_risk[i] >= bar,
+            "flagged record {} has risk {}, below the bar",
+            c.records.items[i].id,
+            c.final_risk[i]
+        );
+        // The claim that matters is not which record was flagged first — an infinite slope at the
+        // edge of a square root is the loudest signal in this model and it sits on the legal side —
+        // but that the illegal side is flagged at all.
+        assert!(
+            c.final_risk
+                .iter()
+                .enumerate()
+                .any(|(j, r)| *r >= bar && c.records.items[j].x[0] < 0.5),
+            "nothing on the NaN side of the boundary was flagged"
+        );
     }
 
     #[test]

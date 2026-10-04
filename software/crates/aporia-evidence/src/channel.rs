@@ -118,8 +118,13 @@ pub enum Subject {
     Divergence { output: u16 },
     /// The gap between two execution paths of the same model at the same point.
     PathDisagreement { output: u16 },
-    /// How much the outputs moved for a known move in parameter `axis`.
-    LocalSlope { axis: u16 },
+    /// How much one output moved for a known move in parameter `axis`.
+    ///
+    /// The output is part of the subject because two outputs of one model have different gains by
+    /// nature: a position and its conserved energy are not the same claim about the same probe, and
+    /// measuring one against the other's typical value turns a stiff quantity into a permanent
+    /// alarm and a slack one into a permanent silence.
+    LocalSlope { output: u16, axis: u16 },
 }
 
 /// Behavioural patterns APORIA looks for without being told.
@@ -161,7 +166,7 @@ impl Subject {
             }
             Self::Divergence { output } => format!("o{output}:divergent"),
             Self::PathDisagreement { output } => format!("o{output}:paths"),
-            Self::LocalSlope { axis } => format!("p{axis}:slope"),
+            Self::LocalSlope { output, axis } => format!("o{output}~p{axis}:slope"),
         }
     }
 }
@@ -368,7 +373,15 @@ mod tests {
 
     #[test]
     fn shared_provenance_is_detected_and_empty_never_counts() {
-        let a = ev(Channel::Sensitivity, LocalSlope { axis: 0 }, 0.6, &[7, 8]);
+        let a = ev(
+            Channel::Sensitivity,
+            LocalSlope {
+                output: 0,
+                axis: 0,
+            },
+            0.6,
+            &[7, 8],
+        );
         let b = ev(Channel::Behavioral, Relation(1), 0.7, &[8, 9]);
         let c = ev(Channel::Physical, Constraint(0), 0.9, &[]);
         assert!(a.shares_observation_with(&b));
@@ -421,7 +434,10 @@ mod tests {
         set.push(ev(Channel::Behavioral, Relation(1), 0.8, &[2]));
         set.push(ev(
             Channel::Sensitivity,
-            LocalSlope { axis: 0 },
+            LocalSlope {
+                output: 0,
+                axis: 0,
+            },
             0.4,
             &[1, 2],
         ));

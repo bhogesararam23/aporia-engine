@@ -682,7 +682,7 @@ fn summary_json(run: &Run<'_>, counts: &Counts, finding_bytes: u64) -> Json {
         ("findings", Json::count(run.findings.len() as u64)),
         ("finding_bytes", Json::count(finding_bytes)),
         (
-            "first_failure",
+            "first_finding",
             run.findings
                 .iter()
                 .map(|f| {

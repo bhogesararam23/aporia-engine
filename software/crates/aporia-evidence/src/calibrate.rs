@@ -9,16 +9,36 @@
 //! magnitudes are heavy-tailed by nature, and a mean would be dragged upward by exactly the
 //! outliers the channel is trying to point at, which would flatten them.
 //!
+//! One median per channel is not enough, because a channel measures several different claims at
+//! once. Sensitivity readings for a stiff output and a slack one land in the same population, and the
+//! median of that mixture is typical of neither: the stiff claim saturates at maximum strength in
+//! every cell it appears in and the slack one can never reach its own typical value however far it
+//! moves. So a claim that has gathered [`MIN_STRATUM`] or more of its own measurements is compared
+//! against *its own* typical value, and a claim with fewer falls back to the channel's. That is the
+//! difference between "this signal is large for this model, here, for this quantity" and "this
+//! signal is large compared with other quantities that happen to be measured in the same run".
+//!
 //! This is a calibration, not a probability. A strength of 0.8 means "this is a large signal for
 //! this channel in this experiment", never "there is an 80% chance the model is wrong".
 
 use crate::channel::{Channel, Evidence, EvidenceSet};
+use std::collections::HashMap;
 
-/// Per-channel scales fitted from observed magnitudes.
+/// How many measurements a claim needs before its own typical value is used as its reference.
+///
+/// Below this the sample cannot say what "typical" is, and the channel-wide scale is used instead.
+/// Eight is not a statistical threshold so much as a statement that a median of fewer than eight
+/// numbers is dominated by the two in the middle.
+const MIN_STRATUM: usize = 8;
+
+/// Per-channel scales fitted from observed magnitudes, plus per-claim scales where a claim has
+/// enough of its own measurements to have a typical value.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Calibrator {
     scale: [f64; crate::channel::Channel::ALL.len()],
     fitted: [bool; crate::channel::Channel::ALL.len()],
+    /// Reference scale keyed by `"<channel code>|<claim key>"`. See [`Calibrator::claim_scale`].
+    claims: HashMap<String, f64>,
 }
 
 impl Default for Calibrator {
@@ -28,6 +48,7 @@ impl Default for Calibrator {
         Self {
             scale: [1.0; 5],
             fitted: [false; 5],
+            claims: HashMap::new(),
         }
     }
 }
@@ -46,9 +67,15 @@ impl Calibrator {
     #[must_use]
     pub fn fit<'a>(items: impl Iterator<Item = &'a Evidence>) -> Self {
         let mut collected: [Vec<f64>; 5] = Default::default();
+        let mut by_claim: HashMap<(usize, String), Vec<f64>> = HashMap::new();
         for e in items {
             if e.magnitude.is_finite() && e.magnitude > 0.0 {
-                collected[e.channel.index()].push(e.magnitude);
+                let i = e.channel.index();
+                collected[i].push(e.magnitude);
+                by_claim
+                    .entry((i, e.subject.key()))
+                    .or_default()
+                    .push(e.magnitude);
             }
         }
         let mut c = Self::new();
@@ -56,13 +83,20 @@ impl Calibrator {
             if values.is_empty() {
                 continue;
             }
-            let median = median(values);
             // The channel's own noise floor, not a global epsilon: the typical magnitude of an
             // f32-versus-f64 comparison is round-off, and dividing by it would call every smooth
             // model suspicious wherever the rounding happens to wobble.
             let floor = Channel::ALL[i].noise_floor().max(1e-12);
-            c.scale[i] = median.max(floor);
+            c.scale[i] = median(values).max(floor);
             c.fitted[i] = true;
+        }
+        for ((i, key), values) in by_claim {
+            if values.len() < MIN_STRATUM {
+                continue;
+            }
+            let floor = Channel::ALL[i].noise_floor().max(1e-12);
+            c.claims
+                .insert(claim_code(Channel::ALL[i], &key), median(&values).max(floor));
         }
         c
     }
@@ -73,28 +107,39 @@ impl Calibrator {
         Self::fit(sets.iter().flat_map(|s| s.items.iter()))
     }
 
-    /// How unusual a measurement is, on a scale where the experiment's own typical value is zero.
-    ///
-    /// This is *excess over typical*, not a raw saturating map, and the difference decides whether
-    /// the tool is usable. A smooth quadratic has a relative gain of exactly two at every point;
-    /// mapping the typical value to 0.63 would call the whole domain of a well-behaved model
-    /// suspicious. Reporting only what stands out above the population is what makes a high risk
-    /// mean "somewhere in here is unlike elsewhere" rather than "this model contains numbers".
-    ///
-    /// The consequence, stated plainly: an experiment in which everything is anomalous has nothing
-    /// that stands out, and this reports nothing unusual. That is the honest reading, and the fitted
-    /// scale goes into the manifest so a reader can see that it happened.
+    /// The reference scale for one claim of one channel, when that claim carried its own.
+    #[must_use]
+    pub fn claim_scale(&self, channel: Channel, key: &str) -> f64 {
+        self.claims
+            .get(&claim_code(channel, key))
+            .copied()
+            .unwrap_or_else(|| self.scale_of(channel))
+    }
+
+    #[must_use]
+    pub fn has_claim_scale(&self, channel: Channel, key: &str) -> bool {
+        self.claims.contains_key(&claim_code(channel, key))
+    }
+
+    /// How many claims were given their own reference scale, for the manifest.
+    #[must_use]
+    pub fn claim_count(&self) -> usize {
+        self.claims.len()
+    }
+
+    /// How unusual a measurement is against the experiment-wide scale of its channel.
     #[must_use]
     pub fn strength(&self, channel: Channel, magnitude: f64) -> f64 {
-        if !magnitude.is_finite() || magnitude <= 0.0 {
-            return 0.0;
-        }
-        let scale = self.scale[channel.index()];
-        let excess = magnitude / scale - 1.0;
-        if excess <= 0.0 {
-            return 0.0;
-        }
-        1.0 - (-excess).exp()
+        excess_over(self.scale[channel.index()], magnitude)
+    }
+
+    /// How unusual a measurement is for the claim it belongs to.
+    #[must_use]
+    pub fn strength_of(&self, evidence: &Evidence) -> f64 {
+        excess_over(
+            self.claim_scale(evidence.channel, &evidence.subject.key()),
+            evidence.magnitude,
+        )
     }
 
     #[must_use]
@@ -113,7 +158,7 @@ impl Calibrator {
             if e.is_fixed() {
                 continue;
             }
-            e.strength = self.strength(e.channel, e.magnitude);
+            e.strength = self.strength_of(e);
         }
     }
 
@@ -135,8 +180,39 @@ impl Calibrator {
                 out.push(',');
             }
         }
+        // The count is part of the record, not decoration: with it a reader can tell whether a
+        // quiet result came from a claim that was compared to its own typical value or from one
+        // that fell back to the channel-wide scale.
+        let _ = write!(out, ",K={}", self.claim_count());
         out
     }
+}
+
+fn claim_code(channel: Channel, key: &str) -> String {
+    format!("{}|{key}", channel.code())
+}
+
+/// The excess form shared by the channel-wide and per-claim references.
+///
+/// This is *excess over typical*, not a raw saturating map, and the difference decides whether the
+/// tool is usable. Every probe of a smooth model moves its output by roughly its ordinary amount,
+/// and mapping that ordinary amount to 0.63 would call the whole domain of a well-behaved model
+/// suspicious. Reporting only what stands out above the population is what makes a high risk mean
+/// "somewhere in here is unlike elsewhere" rather than "this model contains numbers".
+///
+/// The consequence, stated plainly: an experiment in which everything is anomalous has nothing that
+/// stands out, and this reports nothing unusual. That is the honest reading, and the fitted scale
+/// goes into the manifest so a reader can see that it happened.
+#[must_use]
+fn excess_over(scale: f64, magnitude: f64) -> f64 {
+    if !magnitude.is_finite() || magnitude <= 0.0 || !scale.is_finite() || scale <= 0.0 {
+        return 0.0;
+    }
+    let excess = magnitude / scale - 1.0;
+    if excess <= 0.0 {
+        return 0.0;
+    }
+    1.0 - (-excess).exp()
 }
 
 /// Median of a non-empty slice, without disturbing the caller's buffer.
@@ -164,6 +240,16 @@ mod tests {
         Evidence::new(
             channel,
             Subject::Constraint(0),
+            magnitude,
+            vec![1],
+            String::new(),
+        )
+    }
+
+    fn slope(output: u16, magnitude: f64) -> Evidence {
+        Evidence::new(
+            Channel::Sensitivity,
+            Subject::LocalSlope { output, axis: 0 },
             magnitude,
             vec![1],
             String::new(),
@@ -309,6 +395,46 @@ mod tests {
         assert!(
             items[5].strength > 0.9,
             "the sensitivity outlier stayed quiet"
+        );
+    }
+
+    #[test]
+    fn a_claim_with_enough_of_its_own_measurements_is_judged_against_them() {
+        // Twelve measurements of a slack claim around 1.5 and twelve of a stiff one around 455. The
+        // single median of that mixture is about 200, which leaves the slack claim unable to reach
+        // its own typical value however far it moves, and the stiff one at maximum strength in every
+        // cell it appears in. Neither of those is a statement about the model.
+        let items: Vec<Evidence> = (0..12)
+            .map(|i| slope(0, 1.0 + i as f64 * 0.1))
+            .chain((0..12).map(|i| slope(1, 400.0 + i as f64 * 10.0)))
+            .collect();
+        let c = Calibrator::fit(items.iter());
+        let stiff = Subject::LocalSlope { output: 1, axis: 0 }.key();
+        assert!(c.has_claim_scale(Channel::Sensitivity, &stiff));
+        assert_eq!(c.claim_scale(Channel::Sensitivity, &stiff), 455.0);
+        let mut items = items;
+        c.apply(&mut items);
+        // Within its own claim, nothing here is out of the ordinary.
+        assert!(
+            items.iter().all(|e| e.strength < 0.35),
+            "{:?}",
+            items.iter().map(|e| e.strength).collect::<Vec<_>>()
+        );
+        // And a reading far above its own claim still saturates, which is the whole point.
+        assert!(c.strength_of(&slope(1, 455.0 * 100.0)) > 0.99);
+    }
+
+    #[test]
+    fn a_claim_with_too_few_measurements_falls_back_to_the_channel() {
+        // Two numbers cannot say what "typical" is: the median of a pair is its midpoint, so a claim
+        // measured twice would be calibrated to report neither of them as unusual, whatever they say.
+        let items = vec![slope(3, 1.0), slope(3, 1000.0)];
+        let c = Calibrator::fit(items.iter());
+        let key = Subject::LocalSlope { output: 3, axis: 0 }.key();
+        assert!(!c.has_claim_scale(Channel::Sensitivity, &key));
+        assert_eq!(
+            c.claim_scale(Channel::Sensitivity, &key),
+            c.scale_of(Channel::Sensitivity)
         );
     }
 

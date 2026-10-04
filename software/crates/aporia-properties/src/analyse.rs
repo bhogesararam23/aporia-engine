@@ -134,13 +134,17 @@ pub fn constraints(model: &Model, o: &Observation) -> Vec<Evidence> {
                 magnitude,
                 vec![o.id],
                 detail,
-            );
-            // A `finite` rule is a boolean outcome, not a magnitude to compare against other
-            // measurements of the same channel.
-            out.push(match &c.kind {
-                ConstraintKind::Finite { .. } => e.absolute(1.0),
-                ConstraintKind::Cmp { .. } => e,
-            });
+            )
+            // A rule that fired is a fact, not a measurement to be compared with other firings, so
+            // it gets the same treatment a NaN already had. Calibrating it was a real loss: on an
+            // explicit-Euler oscillator whose energy blows past its declared bound across two thirds
+            // of the time-step range, the mild violations at the edge of that region were divided by
+            // the median residual of the dramatic ones and came out near 0.34, under the bar, so the
+            // atlas flagged 6% of a space whose declared failure region is 67%. "How far outside"
+            // still travels as `magnitude`, which is what a report and the minimizer rank on; it no
+            // longer decides whether the rule fired.
+            .absolute(1.0);
+            out.push(e);
         }
     }
     out
@@ -181,6 +185,13 @@ pub fn divergence(model: &Model, o: &Observation) -> Vec<Evidence> {
 }
 
 /// A declared relation, measured over the pairs that probe it.
+///
+/// Every arm names the evaluations its own measurement was taken from. That is not a reporting
+/// nicety: the cell a finding is charged to is decided by which observations it names, and a
+/// relation measured between two probes that says "every observation in the experiment" makes the
+/// whole explored space responsible for one comparison. Measured with the atlas labelled from the
+/// finished evidence, that bug put the entire domain of a correct projectile into SUSPICIOUS because
+/// one power-law exponent came out 0.02 away from the declared 2.
 #[expect(
     clippy::too_many_lines,
     reason = "one arm per relation kind, and each measurement is its own algorithm"
@@ -189,30 +200,62 @@ pub fn divergence(model: &Model, o: &Observation) -> Vec<Evidence> {
 pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evidence> {
     let mut out = Vec::new();
     for r in &model.relations {
-        let mut named: Option<Vec<u64>> = None;
-        let (magnitude, detail) = match &r.kind {
+        // A conserved quantity is a statement about one execution's whole trajectory, so it is
+        // measured once per execution and every drifting execution becomes a finding of its own. The
+        // other relations compare probe pairs and are one statement over the experiment; this one
+        // would otherwise fold a region-wide property into the single worst run, which measured as a
+        // model whose energy drifts at every large time step coming out suspicious across 6% of its
+        // space when 67% of it is the declared failure region.
+        if let RelationKind::Conserved { trace, tolerance } = &r.kind {
+            let mut measured_any = false;
+            for o in &records.items {
+                let Some(drift) = drift_of(o, *trace) else {
+                    continue;
+                };
+                measured_any = true;
+                if drift <= *tolerance {
+                    continue;
+                }
+                out.push(Evidence::new(
+                    Channel::Behavioral,
+                    Subject::Relation(r.id),
+                    drift / tolerance.max(1e-15),
+                    vec![o.id],
+                    format!("trace t{trace} drifted {drift:.3e}, allowed {tolerance:.3e}"),
+                ));
+            }
+            if !measured_any {
+                // Nothing was measured, which is not the same as nothing being wrong.
+                out.push(missing_data(
+                    Channel::Behavioral,
+                    Subject::Relation(r.id),
+                    records,
+                    probes,
+                    format!("conservation of t{trace} could not be evaluated: no trace values were recorded"),
+                ));
+            }
+            continue;
+        }
+        let (magnitude, observations, detail) = match &r.kind {
             RelationKind::Monotone {
                 out: o,
                 param,
                 direction,
             } => {
                 let expect_increasing = *direction == aporia_ir::Direction::Increasing;
-                let Some((violated, total, worst, offenders)) =
-                    scan_monotone(records, probes, *o, *param, expect_increasing)
-                else {
+                let Some(m) = scan_monotone(records, probes, *o, *param, expect_increasing) else {
                     continue;
                 };
-                // A failed monotonicity claim is about the probes that broke it, so this arm names
-                // them; the other relations are statements over the whole probe set.
-                named = Some(offenders);
-                if violated == 0 {
+                if m.violated == 0 {
                     continue;
                 }
-                let m = (violated as f64 / total as f64) * worst;
+                let size = (m.violated as f64 / m.total as f64) * m.worst;
                 (
-                    m,
+                    size,
+                    m.offenders,
                     format!(
-                        "{o} failed to move as declared against p{param} in {violated} of {total} probes (worst relative excursion {worst:.3})"
+                        "{o} failed to move as declared against p{param} in {} of {} probes (worst relative excursion {:.3})",
+                        m.violated, m.total, m.worst
                     ),
                 )
             }
@@ -221,17 +264,19 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
                 param,
                 power,
             } => {
-                let Some(slope) = log_log_slope(records, probes, *o, *param) else {
+                let Some((slope, deviation, ids)) =
+                    exponent_evidence(records, probes, *o, *param, *power)
+                else {
                     continue;
                 };
-                let m = (slope - power).abs();
                 (
-                    m,
+                    deviation,
+                    ids,
                     format!("{o} scales like p{param}^{slope:.3}, declared {power}"),
                 )
             }
             RelationKind::Symmetric { out: o, pair } => {
-                let Some(d) = swap_distance(records, probes, *o, *pair) else {
+                let Some((d, ids)) = swap_distance(records, probes, *o, *pair) else {
                     continue;
                 };
                 if d <= 0.0 {
@@ -239,30 +284,11 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
                 }
                 (
                     d,
+                    ids.to_vec(),
                     format!(
                         "{o} changed by {d:.3} when p{} and p{} were swapped",
                         pair[0], pair[1]
                     ),
-                )
-            }
-            RelationKind::Conserved { trace, tolerance } => {
-                let Some(drift) = trace_drift(records, *trace) else {
-                    // Nothing was measured, which is not the same as nothing being wrong.
-                    out.push(missing_data(
-                        Channel::Behavioral,
-                        Subject::Relation(r.id),
-                        records,
-                        probes,
-                        format!("conservation of t{trace} could not be evaluated: no trace values were recorded"),
-                    ));
-                    continue;
-                };
-                if drift <= *tolerance {
-                    continue;
-                }
-                (
-                    drift / tolerance.max(1e-15),
-                    format!("trace t{trace} drifted {drift:.3e}, allowed {tolerance:.3e}"),
                 )
             }
             RelationKind::Lipschitz {
@@ -270,16 +296,20 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
                 param,
                 bound,
             } => {
-                let Some(slope) = max_slope(records, probes, *o, *param) else {
+                let Some((slope, ids)) = slope_offenders(records, probes, *o, *param, *bound)
+                else {
                     continue;
                 };
-                if slope <= *bound {
-                    continue;
-                }
                 (
                     slope / bound,
+                    ids,
                     format!("{o} changed at {slope:.3} per unit of p{param}, bound {bound}"),
                 )
+            }
+            RelationKind::Conserved { .. } => {
+                // Handled above, once per execution: a trajectory's drift is not a comparison
+                // between two probes, so it does not belong in this single-item shape.
+                continue;
             }
         };
         if magnitude.is_finite() && magnitude > 0.0 {
@@ -287,7 +317,7 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
                 Channel::Behavioral,
                 Subject::Relation(r.id),
                 magnitude,
-                named.unwrap_or_else(|| observation_ids(records, probes)),
+                observations,
                 detail,
             ));
         }
@@ -309,86 +339,160 @@ pub fn inferred_patterns(model: &Model, records: &Records, probes: &Probes) -> V
             // Only "keeps rising" is inferred. A decreasing relation is the same measurement with a
             // sign change, and inferring both directions from noisy data doubles the false-positive
             // rate for no information. `violated` therefore counts the pairs that fell.
-            if let Some((violated, total, worst, offenders)) =
-                scan_monotone(records, probes, o, param, true)
-                && violated * 4 >= total
-                && violated > 0
-                && worst > 1e-6
+            //
+            // Bound rather than early-continued: the continuity measurement below is a separate
+            // sensor, and it has to run whether or not this axis had anything to say.
+            let scanned = scan_monotone(records, probes, o, param, true);
+            if let Some(Monotony {
+                violated,
+                total,
+                worst,
+                severity,
+                offenders,
+            }) = scanned
             {
-                out.push(Evidence::new(
-                    Channel::Behavioral,
-                    Subject::Pattern {
-                        output: o,
-                        param,
-                        kind: PatternKind::Increasing,
-                    },
-                    (violated as f64 / total as f64) * worst,
-                    offenders,
-                    format!("o{o} stopped rising with p{param} in {violated} of {total} probes"),
-                ));
+                // Two conditions, each of which kills one way this sensor used to manufacture
+                // findings.
+                //
+                // The claim has to be one the data supports. "Rising with p0" fitted from samples
+                // where a quarter of the pairs fall is not a hypothesis about the model, it is a
+                // description of part of the space, and charging the rest of it with violating it
+                // reports the model's own oscillation as a defect. Measured, before this condition
+                // existed: a correct symplectic integrator had "o0 stopped rising with p0 in 40 of 84
+                // probes" attached to cells across its domain at full strength, because half of an
+                // oscillator's probes fall and the sensor had invented a claim that never held.
+                //
+                // And the reversal has to be out of family in *size* with the rest of that axis. A
+                // smooth maximum turns over on the smallest step around it — that is what a maximum
+                // is — so a reversal that moves exactly as far as an ordinary step says only "this
+                // quantity has a turning point". A reversal that moves several times further, or that
+                // stops moving where the model usually does, is the shape of a kink, a clamp or a
+                // discontinuity, which is what this channel exists to find. Declared relations are
+                // unaffected: an author who wrote `monotone_up` is owed an answer about direction,
+                // and `relations` gives it one.
+                if violated > 0
+                    && violated * 4 < total
+                    && worst > 1e-6
+                    && severity >= 2.0f64.ln()
+                {
+                    out.push(Evidence::new(
+                        Channel::Behavioral,
+                        Subject::Pattern {
+                            output: o,
+                            param,
+                            kind: PatternKind::Increasing,
+                        },
+                        severity,
+                        offenders,
+                        format!(
+                            "o{o} turned back against p{param} in {violated} of {total} probes, {severity:.2} log steps from an ordinary step along it"
+                        ),
+                    ));
+                }
             }
-            if let Some(jump) = largest_jump(model, records, o, param) {
-                out.push(Evidence::new(
-                    Channel::Behavioral,
-                    Subject::Pattern {
-                        output: o,
-                        param,
-                        kind: PatternKind::Continuity,
-                    },
-                    jump.ratio,
-                    jump.observations,
-                    format!(
-                        "{} jumps by {:.1}x its typical step along p{param}",
-                        model.outputs[o as usize].name, jump.ratio
-                    ),
-                ));
-            }
+            // There used to be a second sensor here: "the biggest step along this axis is far bigger
+            // than the median step", which is a reasonable idea and a broken measurement. It sorted
+            // every sample the experiment had by one parameter and diffed the neighbours, so
+            // consecutive samples generally differed in *all* the other parameters as well. On a
+            // smooth three-dimensional model that produced "r jumps by 13752.3x its typical step
+            // along p0" — the projection of a surface onto one axis, not a discontinuity — and once
+            // the atlas was labelled from the finished evidence, that artifact put a correct
+            // projectile's whole domain in SUSPICIOUS.
+            //
+            // The event it was reaching for is measured properly elsewhere now: `sensitivity`
+            // compares a probe's slope against the median slope of probes of the same output along
+            // the same axis, and a probe moves one parameter by construction; a declared
+            // `check lipschitz` tests steepness against a bound the author chose. Neither needs a
+            // projected secant standing in for it, so the sensor is removed rather than kept and
+            // damped with another threshold.
         }
     }
     out
 }
 
-/// How much an output amplified a deliberately small move in one parameter.
+/// How much further an output moved than it usually does for a deliberately small move in one
+/// parameter.
 ///
-/// The magnitude is a *gain*: relative output change divided by relative input change. A gain near
-/// one is ordinary — the output moved as much as the input did. The number that matters is the
-/// excess, so `gain - 1` is what is reported, and a probe whose parameters sit at zero (where a
-/// relative measure is meaningless) is skipped instead of guessed at.
+/// The magnitude is a ratio of *slopes*: the probe's `|Δy| / Δx` divided by the median of that same
+/// quantity over every probe of that output along that axis. One is therefore "this probe moved the
+/// way this model moves", the reported number is the excess `ratio - 1`, and a probe has to reach
+/// 1.5 before this channel says anything at all. The units of the output, of the parameter and of
+/// the probe step all cancel, so the channel says the same thing for a millimetre as for a
+/// light-year: this place changes faster than the rest of the axis does.
+///
+/// The measure this replaced was an elasticity — relative output change over relative input change.
+/// That is a better description of a power law and a worse one of a physical model, and the reason
+/// is a singularity rather than a subtlety: dividing by the *instantaneous* value of the output puts
+/// every root of that output inside the measurement. The range of a projectile at a vertical launch
+/// is zero, so a move there is an infinite multiple of nothing, and the reading only decays as one
+/// over the distance from the root — no threshold removes it, because it is not a band, it is the
+/// shape of the division. Correct models were going suspicious wherever their output crossed zero,
+/// which in physics is everywhere. A spring at the equilibrium point, a projectile at ninety
+/// degrees, a velocity at a turnaround: none of them is a defect, and none of them is a finding here.
 #[must_use]
 pub fn sensitivity(records: &Records, probes: &Probes) -> Vec<Evidence> {
     let mut out = Vec::new();
-    for (pair, _) in probes.pairs.iter().zip(probes.kinds.iter()) {
+    let Some(first) = records.items.first() else {
+        return out;
+    };
+    let axes = first.x.len();
+    let width = first.y.len();
+    // Slopes are gathered before anything is judged, because the comparison is against this output's
+    // own typical slope along this axis: a pass over the pairs has to finish before a pass over them
+    // can mean anything.
+    let mut slopes = vec![Vec::new(); axes * width];
+    let mut seen: Vec<(u16, usize, f64, u64, u64)> = Vec::new();
+    for pair in &probes.pairs {
         let (Some(base), Some(moved)) = (records.by_id(pair.base), records.by_id(pair.perturbed))
         else {
             continue;
         };
-        for j in 0..base.y.len() {
-            let (Some(x0), Some(x1), Some(y0), Some(y1)) = (
-                base.x.get(pair.axis as usize).copied(),
-                moved.x.get(pair.axis as usize).copied(),
-                base.y.get(j).copied(),
-                moved.y.get(j).copied(),
-            ) else {
+        let (Some(x0), Some(x1)) = (
+            base.x.get(pair.axis as usize).copied(),
+            moved.x.get(pair.axis as usize).copied(),
+        ) else {
+            continue;
+        };
+        let dx = (x1 - x0).abs();
+        if dx <= 0.0 || !dx.is_finite() {
+            continue;
+        }
+        for j in 0..width {
+            let (Some(y0), Some(y1)) = (base.y.get(j).copied(), moved.y.get(j).copied()) else {
                 continue;
             };
-            if !y0.is_finite() || !y1.is_finite() || x0 == 0.0 || y0 == 0.0 {
+            if !y0.is_finite() || !y1.is_finite() {
                 continue;
             }
-            let dx = (x1 - x0).abs() / x0.abs();
-            let dy = (y1 - y0).abs() / y0.abs();
-            if dx <= 0.0 || !dx.is_finite() {
-                continue;
-            }
-            let gain = dy / dx;
-            if gain > 1.0 {
-                out.push(Evidence::new(
-                    Channel::Sensitivity,
-                    Subject::LocalSlope { axis: pair.axis },
-                    gain - 1.0,
-                    vec![base.id, moved.id],
-                    format!("o{j} gain {gain:.1}x along p{}", pair.axis),
-                ));
-            }
+            let slope = (y1 - y0).abs() / dx;
+            slopes[pair.axis as usize * width + j].push(slope);
+            seen.push((pair.axis, j, slope, base.id, moved.id));
+        }
+    }
+    let typical: Vec<f64> = slopes.iter().map(|v| aporia_numerics::median_of(v)).collect();
+    for (axis, j, slope, base_id, moved_id) in seen {
+        let reference = typical[axis as usize * width + j];
+        if reference <= 0.0 || !reference.is_finite() {
+            // Every probe along this axis moved the output by nothing, so there is no ordinary
+            // amount to be unusual against. Saying nothing is the honest answer.
+            continue;
+        }
+        let ratio = slope / reference;
+        // Half again as far as the ordinary step, or nothing said. `ratio > 1` is not a usable bar:
+        // two probes that moved the *same* distance differ in their last ulp, one of them then
+        // exceeds the median of the pair, and the channel fills with findings whose whole content is
+        // floating-point noise. Below this bar a probe is inside the model's own variation.
+        if ratio > 1.5 {
+            out.push(Evidence::new(
+                Channel::Sensitivity,
+                Subject::LocalSlope {
+                    output: j as u16,
+                    axis,
+                },
+                ratio - 1.0,
+                vec![base_id, moved_id],
+                format!("o{j} moved {ratio:.1}x further than usual along p{axis}"),
+            ));
         }
     }
     out
@@ -470,17 +574,35 @@ pub fn differential(model: &Model, ids: &[u64], a: &[f64], b: &[f64]) -> Vec<Evi
 // ------------------------------------------------------------------ measurements
 
 /// Count and severity of monotonicity failures over the pairs on one axis.
+///
+/// Two numbers come out, because they answer different questions. `worst` is how far the model moved
+/// against the claim at its most extreme, which is what an author who wrote `check monotone_up`
+/// needs: the contract was broken, and by how much. `severity` is the size of a typical *failing*
+/// step measured against the typical step of *every* pair on that axis, in log units, which is what
+/// an inferred claim needs: a reversal that moves exactly as far as the model usually moves is the
+/// model moving normally in the other direction, and only a reversal whose size is out of family
+/// with the rest of the axis is a qualitative event.
+struct Monotony {
+    violated: usize,
+    total: usize,
+    worst: f64,
+    severity: f64,
+    offenders: Vec<u64>,
+}
+
 fn scan_monotone(
     records: &Records,
     probes: &Probes,
     output: u16,
     param: u16,
     expect_increasing: bool,
-) -> Option<(usize, usize, f64, Vec<u64>)> {
+) -> Option<Monotony> {
     let mut violated = 0;
     let mut total = 0;
     let mut worst = 0.0f64;
     let mut offenders: Vec<u64> = Vec::new();
+    let mut every_step: Vec<f64> = Vec::new();
+    let mut wrong_steps: Vec<f64> = Vec::new();
     for pair in probes.pairs.iter().filter(|p| p.axis == param) {
         let (Some(base), Some(moved)) = (records.by_id(pair.base), records.by_id(pair.perturbed))
         else {
@@ -494,32 +616,145 @@ fn scan_monotone(
             continue;
         }
         total += 1;
+        let scale = y0.abs().max(y1.abs()).max(1.0);
+        let rel = (y1 - y0).abs() / scale;
+        every_step.push(rel);
         let rose = y1 > y0;
         if rose != expect_increasing && y1 != y0 {
             violated += 1;
             // The pairs that broke the pattern, not every pair that was examined: a relation that
             // fails in one corner should make that corner suspicious, not the whole space.
             offenders.extend([pair.base, pair.perturbed]);
-            let scale = y0.abs().max(y1.abs()).max(1.0);
-            worst = worst.max((y1 - y0).abs() / scale);
+            wrong_steps.push(rel);
+            worst = worst.max(rel);
         }
     }
     if total == 0 {
-        None
-    } else {
-        offenders.sort_unstable();
-        offenders.dedup();
-        Some((violated, total, worst, offenders))
+        return None;
     }
+    offenders.sort_unstable();
+    offenders.dedup();
+    // Log distance of a typical failing step from a typical step at all: symmetric, so a reversal
+    // half the usual size (a stall, a clamp) is the same strength of event as one twice the usual
+    // size (a kink, a discontinuity). A model that never moves has no ordinary step to be measured
+    // against, and severity zero is the honest answer where a ratio would be a division by zero.
+    let typical = aporia_numerics::median_of(&every_step);
+    let severity = if typical > 0.0 && !wrong_steps.is_empty() {
+        let ratio = aporia_numerics::median_of(&wrong_steps) / typical;
+        ratio.max(f64::MIN_POSITIVE).ln().abs()
+    } else {
+        0.0
+    };
+    Some(Monotony {
+        violated,
+        total,
+        worst,
+        severity,
+        offenders,
+    })
 }
 
-/// Slope of `log|y|` against `log|x|`, which is the exponent in a power law.
-fn log_log_slope(records: &Records, probes: &Probes, output: u16, param: u16) -> Option<f64> {
-    // The exponent of a power law is the slope of log|y| against log|x|. Each probe pair is short,
-    // so the estimator is the mean of the local slopes rather than a regression over absolute
-    // positions: it is less sensitive to how far apart the pairs happen to be.
-    let mut sum = 0.0;
-    let mut n = 0;
+/// How far one execution's trace drifted from its own first value, as a fraction of that value.
+///
+/// Measured per execution, not per experiment, because that is the unit the atlas can use: an
+/// evaluation is a whole run, and the question a Trust Atlas answers is *where in the parameter
+/// space* runs drift. Reducing it to the single worst run in the experiment — which is what this did
+/// first — names one evaluation and leaves the atlas to call a model whose energy drifts everywhere
+/// suspicious in 6% of its space.
+fn drift_of(record: &Observation, trace: u16) -> Option<f64> {
+    let series = record.traces.get(trace as usize)?;
+    let first = *series.first()?;
+    if first == 0.0 || !first.is_finite() {
+        return None;
+    }
+    let mut worst = 0.0f64;
+    let mut seen = false;
+    for v in series {
+        if v.is_finite() {
+            worst = worst.max((v - first).abs() / first.abs());
+            seen = true;
+        }
+    }
+    seen.then_some(worst)
+}
+
+/// Every probe pair whose slope exceeded `bound`, with the steepest slope among them.
+fn slope_offenders(
+    records: &Records,
+    probes: &Probes,
+    output: u16,
+    param: u16,
+    bound: f64,
+) -> Option<(f64, Vec<u64>)> {
+    let mut ids: Vec<u64> = Vec::new();
+    let mut steepest = 0.0f64;
+    for pair in probes.pairs.iter().filter(|p| p.axis == param) {
+        let (Some(base), Some(moved)) = (records.by_id(pair.base), records.by_id(pair.perturbed))
+        else {
+            continue;
+        };
+        let (Some(x0), Some(x1), Some(y0), Some(y1)) = (
+            base.x.get(param as usize),
+            moved.x.get(param as usize),
+            base.y.get(output as usize),
+            moved.y.get(output as usize),
+        ) else {
+            continue;
+        };
+        if !y0.is_finite() || !y1.is_finite() || x1 == x0 {
+            continue;
+        }
+        let s = (y1 - y0).abs() / (x1 - x0).abs();
+        if s > steepest {
+            steepest = s;
+        }
+        if s > bound {
+            ids.extend([base.id, moved.id]);
+        }
+    }
+    if ids.is_empty() {
+        return None;
+    }
+    ids.sort_unstable();
+    ids.dedup();
+    Some((steepest, ids))
+}
+
+/// The mean power-law exponent, declared exponent, and every probe that agreed with the verdict
+/// rather than sitting below it.
+fn exponent_evidence(
+    records: &Records,
+    probes: &Probes,
+    output: u16,
+    param: u16,
+    power: f64,
+) -> Option<(f64, f64, Vec<u64>)> {
+    let local = local_exponents(records, probes, output, param);
+    if local.is_empty() {
+        return None;
+    }
+    let mean = local.iter().map(|(s, _)| *s).sum::<f64>() / local.len() as f64;
+    let deviation = (mean - power).abs();
+    // The witnesses are the probes that show the deviation, not the probes that happen to bracket
+    // the mean: an exponent that comes out 1.94 where 2 was declared is wrong at every pair that
+    // reads 1.9-ish, and naming only the furthest one would blame a single cell for a property of
+    // the whole relation.
+    let mut ids: Vec<u64> = local
+        .iter()
+        .filter(|(s, _)| (*s - power).abs() >= deviation * 0.5)
+        .flat_map(|(_, pair)| pair.to_vec())
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    if ids.is_empty() {
+        ids = local[0].1.to_vec();
+    }
+    Some((mean, deviation, ids))
+}
+
+/// Every local exponent estimate along one axis, each with the pair that produced it.
+fn local_exponents(records: &Records, probes: &Probes, output: u16, param: u16) -> Vec<(f64, [u64; 2])> {
+    let mut out = Vec::new();
     for pair in probes.pairs.iter().filter(|p| p.axis == param) {
         let (Some(base), Some(moved)) = (records.by_id(pair.base), records.by_id(pair.perturbed))
         else {
@@ -541,17 +776,14 @@ fn log_log_slope(records: &Records, probes: &Probes, output: u16, param: u16) ->
         if dx.abs() < 1e-12 {
             continue;
         }
-        sum += (y1.ln() - y0.ln()) / dx;
-        n += 1;
+        out.push(((y1.ln() - y0.ln()) / dx, [base.id, moved.id]));
     }
-    if n == 0 {
-        return None;
-    }
-    Some(sum / n as f64)
+    out
 }
 
-/// Relative distance between an execution and the same execution with two parameters swapped.
-fn swap_distance(records: &Records, probes: &Probes, output: u16, pair: [u16; 2]) -> Option<f64> {
+/// Relative distance between an execution and the same execution with two parameters swapped,
+/// named to the two executions that were compared.
+fn swap_distance(records: &Records, probes: &Probes, output: u16, pair: [u16; 2]) -> Option<(f64, [u64; 2])> {
     let swap = probes.swaps.iter().find(|s| s.pair == pair)?;
     let (Some(a), Some(b)) = (records.by_id(swap.base), records.by_id(swap.swapped)) else {
         return None;
@@ -562,125 +794,10 @@ fn swap_distance(records: &Records, probes: &Probes, output: u16, pair: [u16; 2]
     if !y0.is_finite() || !y1.is_finite() {
         return None;
     }
-    Some(aporia_numerics::relative(*y0, *y1))
-}
-
-/// Largest relative departure of a traced quantity from its first value.
-fn trace_drift(records: &Records, trace: u16) -> Option<f64> {
-    let mut worst: f64 = 0.0;
-    let mut seen = false;
-    for o in &records.items {
-        let Some(series) = o.traces.get(trace as usize) else {
-            continue;
-        };
-        let Some(&first) = series.first() else {
-            continue;
-        };
-        if first == 0.0 || !first.is_finite() {
-            continue;
-        }
-        seen = true;
-        for v in series {
-            if v.is_finite() {
-                worst = worst.max((v - first).abs() / first.abs());
-            }
-        }
-    }
-    if seen { Some(worst) } else { None }
-}
-
-/// Steepest observed slope of an output against a parameter, in output units per parameter unit.
-fn max_slope(records: &Records, probes: &Probes, output: u16, param: u16) -> Option<f64> {
-    let mut best = None;
-    for pair in probes.pairs.iter().filter(|p| p.axis == param) {
-        let (Some(base), Some(moved)) = (records.by_id(pair.base), records.by_id(pair.perturbed))
-        else {
-            continue;
-        };
-        let (Some(x0), Some(x1), Some(y0), Some(y1)) = (
-            base.x.get(param as usize),
-            moved.x.get(param as usize),
-            base.y.get(output as usize),
-            moved.y.get(output as usize),
-        ) else {
-            continue;
-        };
-        if !y0.is_finite() || !y1.is_finite() || x1 == x0 {
-            continue;
-        }
-        let s = (y1 - y0).abs() / (x1 - x0).abs();
-        best = Some(best.map_or(s, |b: f64| b.max(s)));
-    }
-    best
-}
-
-/// How much the biggest step along an axis exceeds the median step: a cheap stand-in for a
-/// discontinuity detector that does not need the function to be smooth anywhere.
-/// A discontinuity candidate: the slope ratio and the two samples that produced it.
-#[derive(Clone, Debug, PartialEq)]
-struct Jump {
-    ratio: f64,
-    observations: Vec<u64>,
-}
-
-fn largest_jump(model: &Model, records: &Records, output: u16, param: u16) -> Option<Jump> {
-    let DomainWidth(width) = width_of(model, param)?;
-    let mut samples: Vec<(f64, f64, u64)> = records
-        .items
-        .iter()
-        .filter_map(|o| {
-            let x = *o.x.get(param as usize)?;
-            let y = *o.y.get(output as usize)?;
-            y.is_finite().then_some((x, y, o.id))
-        })
-        .collect();
-    if samples.len() < 5 {
-        return None;
-    }
-    samples.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-    // The pair with the steepest secant as well as the ratio: a jump belongs *between* two
-    // samples, and charging it to every observation in the experiment is what made a sharp feature
-    // in one corner of the space look suspicious everywhere within reach of it.
-    let mut steps: Vec<f64> = Vec::with_capacity(samples.len() - 1);
-    let mut worst_pair: Option<(u64, u64)> = None;
-    let mut best = 0.0f64;
-    for w in samples.windows(2) {
-        let dx = (w[1].0 - w[0].0) / width;
-        let dy = (w[1].1 - w[0].1).abs();
-        if dx > 1e-9 {
-            let slope = dy / dx;
-            steps.push(slope);
-            if slope > best {
-                best = slope;
-                worst_pair = Some((w[0].2, w[1].2));
-            }
-        }
-    }
-    if steps.len() < 3 {
-        return None;
-    }
-    let med = aporia_numerics::median_of(&steps);
-    let max = steps.iter().fold(0.0f64, |a, b| a.max(*b));
-    if med > 0.0 && max / med > 20.0 {
-        let (base, moved) = worst_pair?;
-        Some(Jump {
-            ratio: max / med,
-            observations: vec![base, moved],
-        })
-    } else {
-        None
-    }
-}
-
-struct DomainWidth(f64);
-
-fn width_of(model: &Model, param: u16) -> Option<DomainWidth> {
-    use aporia_ir::Domain;
-    let p = model.params.get(param as usize)?;
-    match &p.domain {
-        Domain::Interval { lo, hi } if hi > lo => Some(DomainWidth(hi - lo)),
-        _ => None,
-    }
+    Some((
+        aporia_numerics::relative(*y0, *y1),
+        [a.id, b.id],
+    ))
 }
 
 fn observation_ids(_records: &Records, probes: &Probes) -> Vec<u64> {
@@ -939,26 +1056,49 @@ mod tests {
     }
 
     #[test]
-    fn sensitivity_reports_the_gain_above_one() {
+    fn sensitivity_compares_a_probe_with_the_model_s_own_ordinary_probe() {
         let m = model("model g \"\" {\n input x in [0.1, 10]\n let y = x * x\n}\n");
-        let r = dataset(&m, &[&[1.0], &[1.01]]);
-        let p = pairs(&[(0, 1, 0)]);
-        let ev = sensitivity(&r, &p);
-        // y doubles its relative change at about 2x gain near x = 1.
-        assert!(!ev.is_empty());
+        // y moves about ten times faster near x = 10 than near x = 1, and the measurement is that
+        // difference, not the size of the numbers involved.
+        let r = dataset(&m, &[&[1.0], &[1.01], &[10.0], &[10.01]]);
+        let ev = sensitivity(&r, &pairs(&[(0, 1, 0), (2, 3, 0)]));
+        assert_eq!(ev.len(), 1, "{:?}", ev.iter().map(|e| &e.detail).collect::<Vec<_>>());
+        // Only the steeper pair is above ordinary: slopes 2.01 and 20.01, their median 11.01, so the
+        // ratio for the steep one is 1.82 and the shallow one reports nothing.
         assert_eq!(ev[0].channel, Channel::Sensitivity);
         assert!(
-            ev[0].magnitude > 0.5 && ev[0].magnitude < 2.0,
+            ev[0].magnitude > 0.6 && ev[0].magnitude < 1.0,
             "{}",
             ev[0].magnitude
+        );
+        assert_eq!(
+            ev[0].observations,
+            vec![2, 3],
+            "the finding belongs to the steep probe, not to every sample that was run"
         );
     }
 
     #[test]
-    fn an_amplification_of_one_is_not_sensitivity() {
-        let m = model("model u \"\" {\n input x in [0.1, 10]\n let y = x\n}\n");
-        let r = dataset(&m, &[&[2.0], &[2.02]]);
-        assert!(sensitivity(&r, &pairs(&[(0, 1, 0)])).is_empty());
+    fn a_uniformly_amplifying_linear_model_is_not_sensitive() {
+        let m = model("model u \"\" {\n input x in [0.1, 10]\n let y = 7 * x\n}\n");
+        let r = dataset(&m, &[&[2.0], &[2.02], &[9.0], &[9.02]]);
+        assert!(sensitivity(&r, &pairs(&[(0, 1, 0), (2, 3, 0)])).is_empty());
+    }
+
+    #[test]
+    fn an_output_crossing_zero_at_its_ordinary_rate_is_not_an_amplification() {
+        // y = x - 2 has one rate everywhere and passes through zero on the way. Measuring a move
+        // against the *instantaneous* value of the output turned the neighbourhood of x = 2 into a
+        // gain of hundreds, which is what made a correct projectile suspicious wherever its range
+        // vanished. Measuring it against the model's own ordinary slope does not.
+        let m = model("model z \"\" {\n input x in [0, 5]\n let y = x - 2\n}\n");
+        let r = dataset(&m, &[&[2.0], &[2.001], &[0.1], &[0.2]]);
+        let ev = sensitivity(&r, &pairs(&[(0, 1, 0), (2, 3, 0)]));
+        assert!(
+            ev.is_empty(),
+            "{:?}",
+            ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -988,49 +1128,42 @@ mod tests {
     }
 
     #[test]
-    fn a_jump_is_attributed_to_the_two_samples_around_it() {
-        // A sharp feature must not make the whole explored space suspicious. Charging one
-        // discontinuity to every observation the experiment probed was what produced findings far
-        // from the fault, so the continuity evidence names only the two samples either side of it.
+    fn a_smooth_surface_is_not_read_as_a_discontinuity_through_one_axis() {
+        // y = a * b * c is smooth everywhere and its projection onto any single axis is a family of
+        // parabolas of wildly different heights: sorted by `a` alone, consecutive samples differ in
+        // b and c too, and the "biggest step divided by the median step" sensor measured that
+        // projection and called it a jump. The sensor is gone; the sharp features a real experiment
+        // has are caught by probes, which move one parameter at a time, and by the declared bounds.
         let m = model(
-            "model p \"\" {
- input x in [0, 10]
- let y = 1 / (x - 5)
- require finite(y)
-}
-",
+            "model p \"\" {\n input a in [0, 10]\n input b in [0, 10]\n input c in [0, 10]\n let y = a * b * c\n}\n",
         );
-        let xs: Vec<Vec<f64>> = [0.0, 1.0, 2.0, 3.0, 4.0, 4.9, 5.1, 6.0, 7.0, 8.0, 9.0, 10.0]
-            .into_iter()
-            .map(|x| vec![x])
-            .collect();
-        let r = dataset(
-            &m,
-            &xs.iter().map(std::vec::Vec::as_slice).collect::<Vec<_>>(),
-        );
+        let mut rows: Vec<Vec<f64>> = Vec::new();
+        for i in 0..11 {
+            for j in 0..11 {
+                rows.push(vec![i as f64, j as f64, 3.0]);
+            }
+        }
+        let refs: Vec<&[f64]> = rows.iter().map(std::vec::Vec::as_slice).collect();
+        let r = dataset(&m, &refs);
         let ev = inferred_patterns(&m, &r, &Probes::new());
-        let jump = ev
-            .iter()
-            .find(|e| e.detail.contains("jumps"))
-            .expect("the pole at x = 5 should read as a jump");
         assert!(
-            jump.observations.len() <= 2,
-            "one jump named {} observations: {:?}",
-            jump.observations.len(),
-            jump.observations
+            !ev.iter().any(|e| e.detail.contains("jumps")),
+            "{:?}",
+            ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
         );
-        // And they are the samples either side of the pole, not the first two that were run.
         assert!(
-            jump.observations
-                .iter()
-                .all(|id| (4.0..=6.0).contains(&r.items[*id as usize].x[0])),
-            "named {:?}",
-            jump.observations
+            ev.iter()
+                .all(|e| !e.subject.key().contains("continuous")),
+            "{:?}",
+            ev.iter().map(|e| e.subject.key()).collect::<Vec<_>>()
         );
     }
 
     #[test]
-    fn inferred_patterns_notice_a_loss_of_monotonicity_without_being_told() {
+    fn a_claim_the_data_rejects_is_not_invented_and_then_broken() {
+        // y = x * x over a domain either side of zero: half the probes fall, which is what a
+        // parabola does, and a sensor that first fits "rising" to this data and then charges the
+        // other half with violating it is reporting its own bad fit as a defect in the model.
         let m = model("model w \"\" {\n input x in [-3, 3]\n let y = x * x\n}\n");
         let xs: Vec<f64> = vec![-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0];
         let refs: Vec<&[f64]> = xs.iter().map(std::slice::from_ref).collect();
@@ -1047,10 +1180,32 @@ mod tests {
         p.axis_step = vec![0.01];
         let ev = inferred_patterns(&m, &r, &p);
         assert!(
-            ev.iter().any(|e| e.subject.key().contains("monotone_up")),
+            !ev.iter().any(|e| e.subject.key().contains("monotone_up")),
             "{:?}",
             ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn an_abrupt_reversal_inside_a_supported_claim_is_evidence() {
+        // Rising, rising, rising, rising, and then one pair that falls by three times an ordinary
+        // step: the relation is supported by the data everywhere except there, which is the shape of
+        // something wrong rather than the shape of the model.
+        let m = model("model w \"\" {\n input x in [1, 1.4]\n let y = x * x\n}\n");
+        let r = dataset(&m, &[&[1.0], &[1.1], &[1.2], &[1.3], &[1.4]]);
+        let p = pairs(&[(0, 1, 0), (1, 2, 0), (2, 3, 0), (3, 4, 0), (4, 0, 0)]);
+        let ev = inferred_patterns(&m, &r, &p);
+        let found = ev
+            .iter()
+            .find(|e| e.subject.key().contains("monotone_up"))
+            .unwrap_or_else(|| {
+                panic!(
+                    "no monotonicity evidence: {:?}",
+                    ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
+                )
+            });
+        assert!(found.magnitude > 1.0, "{}", found.magnitude);
+        assert_eq!(found.observations, vec![0, 4], "named to the probe that reversed");
     }
 
     #[test]

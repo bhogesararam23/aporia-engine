@@ -9,8 +9,8 @@
 //! checked against. What it costs is that a curved transition needs many cells, and the atlas
 //! reports cell counts so that cost is visible instead of hidden.
 //!
-//! Nothing here calls `TRUSTED` a proof. A trusted cell is one that was sampled enough, heard from
-//! enough channels, and saw nothing.
+//! Nothing here calls `TRUSTED` a proof. A trusted cell is one that was sampled enough, was measured
+//! by enough channels, and saw nothing.
 
 mod atlas;
 

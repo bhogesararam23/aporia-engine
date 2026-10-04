@@ -23,7 +23,18 @@ pub struct Point {
     pub observation: u64,
     pub x: Vec<f64>,
     pub risk: f64,
+    /// Which channels produced evidence about this evaluation.
     pub channels: u8,
+    /// Which channels were *applied* to this evaluation, whether or not they had anything to say.
+    ///
+    /// The distinction is what makes TRUSTED reachable. A cell that was checked against the model's
+    /// own rules and its own local response and produced no evidence has `channels == 0` by
+    /// construction, so a policy that demands "at least one channel must have spoken" can only ever
+    /// be satisfied by a cell that has a finding in it — which means no clean region of any model can
+    /// be called trusted, and measured exactly that: an atlas of a one-dimensional model with one
+    /// known boundary reported `trusted 0.0000, unknown 0.5347` at a 1200 budget and produced no band
+    /// at all, because a band needs two labelled cells that disagree.
+    pub measured: u8,
 }
 
 /// An axis-aligned box in parameter space, stored as half-open-ish inclusive bounds per axis.
@@ -44,6 +55,9 @@ pub struct Cell {
     /// Which channels have spoken inside this cell. A cell that only ever heard one channel is
     /// reported as less well understood than one that heard four.
     pub channels: u8,
+    /// Which channels have been applied inside this cell. See [`Point::measured`]: this is the mask
+    /// an earned TRUSTED is judged against, and `channels` is not.
+    pub measured: u8,
     /// Every evaluation that landed here, with the record id, risk and channel mask that came with
     /// it. Kept because the alternative is worse: a split that dropped the parent's measurements
     /// left children with no evidence, so an atlas could become entirely UNKNOWN by refining
@@ -60,6 +74,7 @@ impl Cell {
         self.risk_sum = self.points.iter().map(|p| p.risk).sum();
         self.risk_max = self.points.iter().fold(0.0f64, |a, p| a.max(p.risk));
         self.channels = self.points.iter().fold(0u8, |a, p| a | p.channels);
+        self.measured = self.points.iter().fold(0u8, |a, p| a | p.measured);
         self.label = Label::Unknown;
     }
 
@@ -170,7 +185,14 @@ pub struct Policy {
     pub suspicious_peak: f64,
     /// Below this many samples a cell cannot be called trusted, only unknown.
     pub min_samples: u32,
-    /// How many distinct channels must have spoken for a "trusted" to be earned.
+    /// How many distinct channels must have been *applied* inside a cell for a "trusted" to be
+    /// earned: one sensor looking at a point and finding nothing is a thinner claim than four looking
+    /// at it and finding nothing.
+    ///
+    /// Judged against [`Cell::measured`], not [`Cell::channels`]. The mask of channels that *spoke* is
+    /// empty exactly where a cell is clean, so requiring a channel to have spoken would make TRUSTED
+    /// unreachable — which is what it was, and what made every atlas report nothing but UNKNOWN and
+    /// SUSPICIOUS and therefore no bands at all.
     pub min_channels: u32,
     /// Depth at which a cell stops being split, so the atlas cannot grow without bound.
     pub max_depth: u8,
@@ -201,7 +223,7 @@ impl Policy {
         if cell.samples < self.min_samples {
             return Label::Unknown;
         }
-        if cell.channels < self.min_channels as u8 {
+        if cell.measured.count_ones() < self.min_channels {
             return Label::Unknown;
         }
         Label::Trusted
@@ -241,6 +263,7 @@ impl Atlas {
             risk_max: 0.0,
             label: Label::Unknown,
             channels: 0,
+            measured: 0,
             points: Vec::new(),
         };
         Self {
@@ -288,6 +311,15 @@ impl Atlas {
     /// point is recorded once per evaluation, in evaluation order; the search test that compares
     /// `records` against `atlas` cell points is what keeps that promise honest.
     pub fn record(&mut self, x: &[f64], risk: f64, channels: u8) {
+        // For a caller that only knows what spoke: whatever had something to say was, necessarily,
+        // applied. The other direction does not hold, which is why a search that wants TRUSTED to be
+        // reachable passes its own measured mask to [`Atlas::record_measured`].
+        self.record_measured(x, risk, channels, channels);
+    }
+
+    /// Record one evaluation, separating the channels that produced evidence (`channels`) from the
+    /// channels that were applied to it (`measured`).
+    pub fn record_measured(&mut self, x: &[f64], risk: f64, channels: u8, measured: u8) {
         let observation = self.observations;
         self.observations += 1;
         let id = self.locate(x);
@@ -297,11 +329,40 @@ impl Atlas {
             x: x.to_vec(),
             risk,
             channels,
+            measured,
         });
         cell.samples += 1;
         cell.risk_sum += risk;
         cell.risk_max = cell.risk_max.max(risk);
         cell.channels |= channels;
+        cell.measured |= measured;
+    }
+
+    /// Rebuild every cell's measurements from a finished set of evaluations, and label again.
+    ///
+    /// The partition is kept — it is what the search paid for — but the numbers inside it are the
+    /// report's. Without this, a cell is labelled from whatever risk the search could see while it
+    /// was looking, and any evidence that only exists after the whole record set is in — a declared
+    /// relation tested across probes, an inferred pattern, a precision comparison, a sensitivity
+    /// reading whose reference is the experiment's own distribution — can never make a cell
+    /// suspicious. The map handed to a reader then disagrees with the evidence printed underneath
+    /// it, silently.
+    ///
+    /// Every evaluation lands in exactly one cell, so this neither invents evidence nor loses it,
+    /// and it costs no executions: refinement after this point can only re-arrange measurements
+    /// that were already paid for.
+    pub fn remeasure(&mut self, points: &[Point]) {
+        for cell in self.cells.iter_mut() {
+            cell.points.clear();
+        }
+        for p in points {
+            let id = self.locate(&p.x) as usize;
+            self.cells[id].points.push(p.clone());
+        }
+        for cell in self.cells.iter_mut() {
+            cell.recompute();
+        }
+        self.relabel();
     }
 
     /// Re-classify every leaf. Kept separate from `record` so a run can record a batch and then
@@ -314,8 +375,18 @@ impl Atlas {
     }
 
     /// Split every leaf that looks like it straddles a transition: it has seen enough to have an
-    /// opinion, it is not already at the depth limit, and either it is suspicious or it sits next to
-    /// a cell with a different label.
+    /// opinion, it is not already at the depth limit, and either it is suspicious, or its mean risk
+    /// says something is inside it, or it sits next to a cell with a different label.
+    ///
+    /// The sample requirement applies to *every* reason for splitting, including suspicion. It used
+    /// to apply only to the mean-risk branch, and measured what that cost: at a 640 budget the atlas
+    /// of a one-dimensional model grew to 881 leaves holding one evaluation each, because every point
+    /// that carried absolute evidence — one NaN is a fact, and a fact does not need four samples to be
+    /// a fact — drilled to `max_depth` on its own, and no cell ever accumulated the samples a
+    /// `TRUSTED` needs. Nothing was trusted, so no two labelled cells disagreed, so no band was
+    /// reported, on a model whose boundary is a single known square root. Resolution that follows
+    /// evidence cannot be paid for by empty cells: a split has to be worth two measurements before it
+    /// is worth making.
     ///
     /// Returns the number of cells created, which is the quantity the search's cost model cares
     /// about.
@@ -327,11 +398,11 @@ impl Atlas {
         for id in leaves {
             let should_split = {
                 let cell = &self.cells[id as usize];
-                let interesting = cell.label == Label::Suspicious
-                    || (cell.samples >= self.policy.min_samples
-                        && cell.mean_risk() > self.policy.refine_below)
-                    || self.has_disagreeing_neighbour(id);
-                cell.depth < self.policy.max_depth && cell.samples > 0 && interesting
+                let worth_splitting = cell.samples >= self.policy.min_samples
+                    && (cell.label == Label::Suspicious
+                        || cell.mean_risk() > self.policy.refine_below
+                        || self.has_disagreeing_neighbour(id));
+                cell.depth < self.policy.max_depth && worth_splitting
             };
             if !should_split {
                 keep.push(id);
@@ -400,6 +471,7 @@ impl Atlas {
                 risk_max: 0.0,
                 label: Label::Unknown,
                 channels: 0,
+                measured: 0,
                 points,
             });
         }
@@ -511,7 +583,7 @@ impl Atlas {
         let mut out = String::new();
         let _ = write!(
             out,
-            "cell,depth,label,samples,mean_risk,max_risk,channels,relative_size"
+            "cell,depth,label,samples,mean_risk,max_risk,channels,measured,relative_size"
         );
         for i in 0..root.bounds.len() {
             let _ = write!(out, ",lo{i},hi{i}");
@@ -521,7 +593,7 @@ impl Atlas {
             let c = &self.cells[*id as usize];
             let _ = write!(
                 out,
-                "{},{},{},{},{:.6},{:.6},{},{:.6}",
+                "{},{},{},{},{:.6},{:.6},{},{},{:.6}",
                 c.id,
                 c.depth,
                 c.label.name(),
@@ -529,6 +601,7 @@ impl Atlas {
                 c.mean_risk(),
                 c.risk_max,
                 c.channels,
+                c.measured,
                 c.relative_size(&root)
             );
             for axis in 0..c.bounds.len() {
@@ -691,8 +764,22 @@ mod tests {
             "one sample is not a verdict"
         );
         c.samples = 4;
-        c.channels = 1;
-        assert_eq!(p.classify(&c), Label::Trusted);
+        c.measured = 0b00010;
+        assert_eq!(
+            p.classify(&c),
+            Label::Trusted,
+            "a sensor looked, and found nothing: that is what TRUSTED means"
+        );
+        // The *evidence* mask earns nothing, and must not: a clean cell has no evidence by
+        // definition, so judging trust on which channels spoke would leave every clean region of
+        // every model UNKNOWN for the rest of the run.
+        c.measured = 0;
+        c.channels = 0b11111;
+        assert_eq!(
+            p.classify(&c),
+            Label::Unknown,
+            "a cell no sensor was applied to is not a trusted one, whatever it heard"
+        );
     }
 
     #[test]
@@ -746,6 +833,37 @@ mod tests {
         let grown = a.refine();
         assert!(grown > 0, "the suspicious half must be split");
         assert!(a.leaves.len() > 1);
+    }
+
+    #[test]
+    fn a_single_point_does_not_drill_the_atlas_to_the_depth_limit() {
+        // Measured, before the sample requirement was applied to every branch of `refine`: one
+        // suspicious leaf was split anyway, so a single NaN drilled to `max_depth`, the atlas of a
+        // one-dimensional model grew to 881 leaves holding one evaluation each at a 640 budget, no
+        // leaf ever reached the four samples a TRUSTED needs, nothing was trusted, no two labelled
+        // cells disagreed, and a model with one known boundary reported no band at all.
+        let mut a = Atlas::new(&model1d(0.0, 1.0), Policy::default());
+        a.record(&[0.9], 1.0, 0b1);
+        a.relabel();
+        let root = a.leaves[0];
+        assert_eq!(
+            a.cell(root).unwrap().label,
+            Label::Suspicious,
+            "one fact is still a fact: a label does not need four samples"
+        );
+        assert_eq!(
+            a.refine(),
+            0,
+            "a cell measured once cannot be resolved by cutting it in half"
+        );
+        for i in 0..3 {
+            a.record(&[0.85 + i as f64 * 0.01], 1.0, 0b1);
+        }
+        a.relabel();
+        assert!(
+            a.refine() > 0,
+            "the same suspicious cell with enough samples is worth splitting"
+        );
     }
 
     #[test]
@@ -943,6 +1061,7 @@ mod tests {
             risk_max: 0.0,
             label: Label::Unknown,
             channels: 0,
+            measured: 0,
             points: Vec::new(),
         }
     }
