@@ -115,13 +115,17 @@ the metric is defined, not evidence that suspicion got better.
 **A finding about the swap itself.** The declared symmetry in `coupled_coils` is mathematically exact,
 but the swap compares two *executions*, and `0.3 * turns_a * turns_b` is left-associated: the base
 point evaluates `(0.3*Na)*Nb` and the swap evaluates `(0.3*Nb)*Na`, which round differently. Measured
-on that entry at a budget of 640, 159 of the 160 swaps came back bit-identical and one came back
-1.1677e-16 apart — the model entry is deliberately left in that form rather than parenthesised to
-`0.3 * (turns_a * turns_b)`, because the point of a control is to be tested, not arranged. Consequence
-worth recording: a single last-ulp reading is enough to make the Behavioral channel's fitted scale
-leave its default and land on the `MIN_SCALE` guard (1e-12), which is what `explain` now prints as
-`B=0.000000000001` for this entry. The atlas is unaffected — 0 findings, 1.0000 trusted — because the
-item is calibrated against a scale two orders above it and one channel cannot corroborate anything.
+on that same model as a campaign at a budget of 640 with the library's default rates, 159 of the 160
+swaps came back bit-identical and one came back 1.1677e-16 apart — a last-ulp artifact of the
+evaluator, pinned by the test
+`round_off_in_a_true_symmetry_is_measured_and_stays_round_off`. The corpus entry is deliberately left
+in that form rather than parenthesised to `0.3 * (turns_a * turns_b)`, because the point of a control
+is to be tested, not arranged. Consequence worth recording: under this ladder's own rates the entry
+records 256 swaps, and a single last-ulp reading among them is enough to make the Behavioral
+channel's fitted scale leave its default and land on the `MIN_SCALE` guard (1e-12), which is what
+`explain` prints as `B=0.000000000001` for this entry. The atlas is unaffected — 0 findings, 1.0000
+trusted — because the item is calibrated against a scale two orders above it and one channel cannot
+corroborate anything.
 What has *not* been settled is whether a channel-wide scale pinned at the guard is the right reference
 for a different Behavioral claim in the same campaign that has fewer than eight of its own
 measurements; that is a calibration question, and this unit did not touch calibration.
