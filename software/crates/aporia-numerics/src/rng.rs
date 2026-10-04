@@ -76,7 +76,7 @@ impl Rng {
     /// Move forward without producing values, so a sub-stream can be reserved per axis.
     pub fn skip(&mut self, count: u64) {
         for _ in 0..count {
-            self.next_u64();
+            let _ = self.next_u64();
         }
     }
 

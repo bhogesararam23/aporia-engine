@@ -16,7 +16,7 @@ pub mod dd;
 pub mod reference;
 pub mod rng;
 
-pub use agree::{Distance, cancellation, relative, ulps};
+pub use agree::{Distance, cancellation, median_of, relative, ulps};
 pub use dd::Dd;
 pub use reference::Reference;
 pub use rng::Rng;

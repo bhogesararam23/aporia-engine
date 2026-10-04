@@ -485,9 +485,16 @@ impl Binder {
         let Some(value) = self.expr(&w.value) else {
             return;
         };
+        // A bare `watch energy` takes the name of what it watched. A positional fallback would break
+        // the one thing `check conserved(energy)` needs: a way to refer to that series.
+        let implied = match &w.value {
+            crate::ast::Expr::Ident { name, .. } => Some(name.clone()),
+            _ => None,
+        };
         let name = w
             .name
             .clone()
+            .or(implied)
             .unwrap_or_else(|| format!("watch{}", self.m.traces.len() + 1));
         if self.m.traces.iter().any(|t| t.name == name) {
             self.error(format!("`{name}` is watched twice"), w.span);
@@ -718,7 +725,18 @@ impl Binder {
             RelationSyntax::Conserved {
                 what, tolerance, ..
             } => {
-                let t = self.m.traces.iter().position(|x| x.name == *what)?;
+                let Some(t) = self.m.traces.iter().position(|x| x.name == *what) else {
+                    let watched: Vec<&str> =
+                        self.m.traces.iter().map(|x| x.name.as_str()).collect();
+                    self.error(
+                        format!(
+                            "`{what}` is not a traced quantity; this model watches [{}]",
+                            watched.join(", ")
+                        ),
+                        c.span,
+                    );
+                    return None;
+                };
                 let tol = match tolerance {
                     Some(e) => self.constant(e, "a tolerance")?,
                     None => 1e-3,

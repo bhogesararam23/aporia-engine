@@ -66,6 +66,23 @@ pub fn cancellation(a: f64, b: f64) -> f64 {
     (scale / sum.abs()).log10().max(0.0)
 }
 
+/// Median of a slice of measurements, without disturbing the caller's buffer. Used wherever a
+/// robust scale is needed instead of one a single outlier can move.
+#[must_use]
+pub fn median_of(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    let mut v = values.to_vec();
+    v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mid = v.len() / 2;
+    if v.len() % 2 == 1 {
+        v[mid]
+    } else {
+        v[mid - 1].midpoint(v[mid])
+    }
+}
+
 /// The three ways to compare a pair of numbers, kept together because which one is meaningful
 /// depends on magnitudes, and picking one silently is how false confidence gets produced.
 #[derive(Clone, Copy, Debug, PartialEq)]
