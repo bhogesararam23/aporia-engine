@@ -27,6 +27,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "aporia-cli"
+version = "0.1.0"
+dependencies = [
+ "aporia-dsl",
+ "aporia-ir",
+ "aporia-search",
+ "aporia-store",
+]
+
+[[package]]
 name = "aporia-dsl"
 version = "0.1.0"
 dependencies = [

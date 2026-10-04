@@ -1,0 +1,22 @@
+[package]
+name = "aporia-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "APORIA's command line: run an analysis on a model file without going through the benchmark harness."
+
+[[bin]]
+name = "aporia"
+path = "src/main.rs"
+
+[dependencies]
+aporia-dsl = { path = "../aporia-dsl" }
+aporia-ir = { path = "../aporia-ir" }
+aporia-search = { path = "../aporia-search" }
+aporia-store = { path = "../aporia-store" }
+
+[lints]
+workspace = true

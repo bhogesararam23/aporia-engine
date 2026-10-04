@@ -12,6 +12,7 @@ members = [
     "crates/aporia-properties",
     "crates/aporia-numerics",
     "crates/aporia-runtime",
+    "crates/aporia-cli",
 ]
 
 [workspace.package]

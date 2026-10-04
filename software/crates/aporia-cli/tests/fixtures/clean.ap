@@ -1,0 +1,5 @@
+model clean "" {
+  input x in [0, 1]
+  let y = x * x
+  require y >= 0
+}

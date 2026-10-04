@@ -1,0 +1,5 @@
+model bad_unit "" {
+  input x : banana in [0, 1]
+  let y = x
+  require y >= 0
+}
