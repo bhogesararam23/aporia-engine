@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "aporia-dsl"
+version = "0.1.0"
+dependencies = [
+ "aporia-ir",
+]
+
+[[package]]
 name = "aporia-ir"
 version = "0.1.0"
