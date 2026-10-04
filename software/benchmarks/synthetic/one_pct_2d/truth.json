@@ -1,0 +1,35 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "declared_well",
+  "method": "analytic",
+  "derivation": "`outside` is the largest margin of any axis beyond its declared bound, so it is negative exactly inside the box and the rule fails there. The region's bounds are the constants in the rule and its volume is a product of the axis widths. Bounds are inset by 1e-6 of the half-width because a point exactly on a rule boundary has zero violation magnitude. The well is 1 percent of a two-dimensional domain.",
+  "regions": [
+    {
+      "reason": "inside the declared well",
+      "axes": {
+        "x": [
+          -0.04999995,
+          0.04999995
+        ],
+        "y": [
+          -0.0999999,
+          0.0999999
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "x",
+      "at": -0.05,
+      "tolerance": 0.005
+    },
+    {
+      "axis": "y",
+      "at": 0.1,
+      "tolerance": 0.01
+    }
+  ],
+  "expect": "a strategy that spends evaluations where the evidence points should reach this with fewer evaluations than one that spreads them uniformly",
+  "difficulty": "1 percent of a two-dimensional domain"
+}

@@ -1,0 +1,7 @@
+model tenth_pct_3d "a three-parameter well at a tenth of a percent of the volume" {
+  input x in [-1, 1]  # the quantity is a plain coordinate
+  input y in [-1, 1]  # the quantity is a plain coordinate
+  input z in [-1, 1]  # the quantity is a plain coordinate
+  let outside = max(max(abs(x) - 0.046399953599999995, abs(y) - 0.046399953599999995), abs(z) - 0.046399953599999995)
+  require outside > 0
+}

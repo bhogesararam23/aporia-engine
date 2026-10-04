@@ -1,0 +1,5 @@
+model narrow_1d "a one-parameter well" {
+  input x in [-1, 1]  # the quantity is a plain coordinate
+  let outside = abs(x) - 0.01999998
+  require outside > 0
+}

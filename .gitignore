@@ -17,6 +17,11 @@
 /experiments/
 /software/experiments/
 
+# Per-run experiment archives written by the benchmark harness. These are the
+# bulk of a run and can be regenerated from the corpus, so only the numbers they
+# produce are committed, under benchmarks/results/.
+/software/benchmarks/archives/
+
 # Editor / OS
 /.idea/
 /.vscode/

@@ -41,6 +41,13 @@ pub fn corpus_root() -> PathBuf {
     here
 }
 
+/// Where experiment archives go during a benchmark run. Regenerateable, so git ignores it; the
+/// numbers they produce are what `results/` records.
+#[must_use]
+pub fn archives_dir() -> PathBuf {
+    corpus_root().join("archives")
+}
+
 /// Where measured results are written, so they can be committed alongside the corpus.
 #[must_use]
 pub fn results_dir() -> PathBuf {

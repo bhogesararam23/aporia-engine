@@ -43,6 +43,20 @@
       "name": "mutants",
       "purpose": "fault classes from the specification that APORIA should catch without executing anything",
       "entries": ["unit_mistake"]
+    },
+    {
+      "name": "synthetic",
+      "purpose": "a difficulty ladder: rectangular wells whose declared rule fails inside a box whose volume is exact by construction, so the cost of a search can be plotted against the size of the region rather than against whatever a physical model happens to make hard",
+      "entries": [
+        "wide_1d",
+        "narrow_1d",
+        "quarter_2d",
+        "one_pct_2d",
+        "one_pct_3d",
+        "tenth_pct_3d",
+        "narrow_1d_unreachable"
+      ],
+      "note": "the rule is `max_i(abs(axis_i) - bound_i) > 0`, which is negative exactly inside the box; bounds are inset by 1e-6 of the half-width because a point on a rule boundary has zero violation magnitude. `narrow_1d_unreachable` is deliberately beyond the atlas's depth limit: it measures the resolution of the representation, not the quality of a search."
     }
   ],
   "fault_classes_covered": [

@@ -1,0 +1,5 @@
+model narrow_1d_unreachable "a well narrower than the atlas can bisect to" {
+  input x in [-1, 1]  # the quantity is a plain coordinate
+  let outside = abs(x) - 9.99999e-07
+  require outside > 0
+}

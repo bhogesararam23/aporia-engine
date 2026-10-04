@@ -26,6 +26,7 @@ fn main() {
         "run" => run_run(flags),
         "verdict" => run_verdict(flags),
         "scan" => run_scan(flags),
+        "explain" => run_explain(flags),
         "help" | "--help" | "-h" => {
             print!("{}", usage());
             Ok(0)
@@ -200,6 +201,9 @@ fn run_run(flags: &[String]) -> Result<i32, String> {
     let only = args.list("--only")?;
     let grid = parse_grid(args.value("--grid")?)?;
     let out_dir = args.value("--out")?.map(PathBuf::from);
+    let archive_dir = args
+        .value("--archive")?
+        .map_or_else(aporia_bench::archives_dir, PathBuf::from);
     args.reject_unknown()?;
 
     let entries = load_corpus()?;
@@ -228,6 +232,7 @@ fn run_run(flags: &[String]) -> Result<i32, String> {
         strategies,
         seeds,
         grid,
+        archive_dir,
         ..harness::Plan::default()
     };
     if plan.budgets.is_empty() {
@@ -431,6 +436,48 @@ fn run_scan(flags: &[String]) -> Result<i32, String> {
         }
     }
     Ok(0)
+}
+
+/// One run, printed in full: the atlas, the bands, the findings and where the risk landed.
+fn run_explain(flags: &[String]) -> Result<i32, String> {
+    let mut args = Args::new(flags);
+    let budget = match args.value("--budget")? {
+        Some(t) => t
+            .parse::<u64>()
+            .map_err(|_| format!("--budget needs a number, got {t}"))?,
+        None => 640,
+    };
+    let strategy = match args.value("--strategy")? {
+        Some(t) => parse_strategies(&[t])?,
+        None => vec![aporia_search::Strategy::Adaptive],
+    };
+    let seed = match args.value("--seed")? {
+        Some(t) => t
+            .parse::<u64>()
+            .map_err(|_| format!("--seed needs a number, got {t}"))?,
+        None => 1,
+    };
+    args.reject_unknown()?;
+    let Some(selector) = flags.first().cloned() else {
+        return Err(
+            "explain needs an entry, e.g. explain electromagnetics/rlc_resonance".to_string(),
+        );
+    };
+    let entries = load_corpus()?;
+    let Some(entry) = entries.iter().find(|e| e.id() == selector) else {
+        return Err(format!("no corpus entry {selector}"));
+    };
+    let plan = aporia_bench::harness::Plan {
+        budgets: vec![budget],
+        ..Default::default()
+    };
+    match aporia_bench::harness::explain(entry, &plan, strategy[0], seed) {
+        Some(text) => {
+            print!("{text}");
+            Ok(0)
+        }
+        None => Err(format!("{} cannot be run", entry.id())),
+    }
 }
 
 fn text_of(value: Option<u64>) -> String {

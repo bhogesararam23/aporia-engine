@@ -109,11 +109,18 @@ pub struct Outcome {
     pub duplicates: Option<f64>,
     pub boundaries: Vec<BoundaryHit>,
     pub counterexamples: Vec<CaseSize>,
+    /// `(reproduced, matched, total)` when this run was archived and replayed.
+    pub replay: Option<(bool, u64, u64)>,
+    pub replay_error: Option<String>,
 }
 
 impl Outcome {
     /// Measure a finished campaign against the entry's declaration.
     #[must_use]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one measurement per block, kept next to the definition it computes"
+    )]
     pub fn measure(
         entry: &Entry,
         campaign: &Campaign,
@@ -230,6 +237,8 @@ impl Outcome {
             findings: campaign.findings.len() as u64,
             duplicates,
             boundaries,
+            replay: None,
+            replay_error: None,
             // Filled in by the harness at the largest budget only: minimisation costs evaluations
             // of its own, and charging it at every budget would bill the same description five
             // times while inflating the cost column of the very table being compared.
@@ -279,6 +288,11 @@ impl Outcome {
                 "counterexamples",
                 Json::Arr(self.counterexamples.iter().map(CaseSize::to_json).collect()),
             ),
+            (
+                "replayed",
+                self.replay
+                    .map_or(Json::Null, |(r, m, t)| Json::Bool(r && m == t && t > 0)),
+            ),
         ])
     }
 }
@@ -315,7 +329,8 @@ pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<C
         .collect()
 }
 
-fn strategy_name(s: Strategy) -> &'static str {
+#[must_use]
+pub fn strategy_name(s: Strategy) -> &'static str {
     match s {
         Strategy::Random => "random",
         Strategy::Stratified => "stratified",

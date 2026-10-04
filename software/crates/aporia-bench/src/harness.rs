@@ -32,6 +32,9 @@ pub struct Plan {
     pub calibrate_every: u64,
     pub refine_every: u64,
     pub numerical_every: u64,
+    /// Where per-entry archives go. Left empty, the harness skips archiving: the archives are the
+    /// expensive part of a run and their numbers do not change the search.
+    pub archive_dir: std::path::PathBuf,
 }
 
 impl Default for Plan {
@@ -46,6 +49,7 @@ impl Default for Plan {
             calibrate_every: 25,
             refine_every: 40,
             numerical_every: 11,
+            archive_dir: std::path::PathBuf::new(),
         }
     }
 }
@@ -81,6 +85,10 @@ pub struct Sweep {
     pub clean_at: Option<u64>,
     /// For a control: total suspicious volume at the largest budget, which is the false positive.
     pub control_suspicion: Option<f64>,
+    /// `(reproduced, matched, total)` from writing this run to an archive and replaying it. Only
+    /// the largest budget is archived, because that is the run a report would quote.
+    pub replay: Option<(bool, u64, u64)>,
+    pub replay_error: Option<String>,
 }
 
 /// Run one entry under every strategy and budget in the plan.
@@ -112,6 +120,28 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
         } else if clean_at.is_none() {
             clean_at = Some(budget);
         }
+        let archiving = Some(budget) == plan.budgets.last().copied()
+            && Some(seed) == plan.seeds.first().copied()
+            && !plan.archive_dir.as_os_str().is_empty();
+        if archiving {
+            // Named per entry, not per family: two entries in one family otherwise overwrite each
+            // other's archive, and the point of keeping them is that a reported number can be
+            // opened later.
+            let dir = plan.archive_dir.join(format!(
+                "{}-{}-{strategy}-seed{seed}",
+                entry.family,
+                entry.name,
+                strategy = strategy_name(strategy)
+            ));
+            match archive_and_replay(entry, &campaign, plan, strategy, seed, &dir) {
+                Ok(r) => {
+                    outcome.replay = Some(r);
+                }
+                Err(e) => {
+                    outcome.replay_error = Some(e);
+                }
+            }
+        }
         // Minimising a counterexample costs evaluations of its own, so it runs only at the largest
         // budget: the description of the fault does not change with the search's sample count, but
         // paying for it five times would.
@@ -123,6 +153,9 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
         }
         outcomes.push(outcome);
     }
+    // The archive is written for the largest budget only, so the sweep carries at most one.
+    let replay = outcomes.iter().find_map(|o| o.replay);
+    let replay_error = outcomes.iter().find_map(|o| o.replay_error.clone());
     Some(Sweep {
         entry: entry.id(),
         strategy: strategy_name(strategy),
@@ -132,6 +165,8 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
         localised_at,
         clean_at,
         control_suspicion,
+        replay,
+        replay_error,
     })
 }
 
@@ -141,6 +176,128 @@ fn strategy_name(s: Strategy) -> &'static str {
         Strategy::Stratified => "stratified",
         Strategy::Adaptive => "adaptive",
     }
+}
+
+/// Write the archive for one campaign and replay it, returning `(reproduced, matched, total)`.
+///
+/// This is where the store earns its place in the measurement: a finding is only reproducible if
+/// re-running the archive's own A-IR over its own recorded inputs gives the same bits, so the
+/// benchmark reports the replay result beside its detection numbers instead of assuming it.
+pub fn archive_and_replay(
+    entry: &Entry,
+    campaign: &aporia_search::Campaign,
+    plan: &Plan,
+    strategy: Strategy,
+    seed: u64,
+    dir: &std::path::Path,
+) -> Result<(bool, u64, u64), String> {
+    use aporia_boundary::Label;
+    use aporia_store::{Environment, Json, Store, StoredFinding};
+
+    let model = entry.model.as_ref().ok_or("entry has no compiled model")?;
+    let air = aporia_ir::to_text(model);
+    let findings: Vec<StoredFinding> = campaign
+        .findings
+        .iter()
+        .enumerate()
+        .map(|(i, f)| {
+            let label = campaign
+                .atlas
+                .cell(f.cell)
+                .map_or("UNKNOWN", |c| match c.label {
+                    Label::Suspicious => "SUSPICIOUS",
+                    Label::Trusted => "TRUSTED",
+                    Label::Unknown => "UNKNOWN",
+                });
+            let minimal = aporia_minimize::minimize(
+                &aporia_minimize::FailureOracle::new(model),
+                model,
+                &f.representative,
+                aporia_minimize::Config {
+                    budget: plan.minimise_budget,
+                    ..aporia_minimize::Config::default()
+                },
+            );
+            StoredFinding {
+                index: i as u64,
+                cell: f.cell,
+                bounds: f.bounds.clone(),
+                representative: f.representative.clone(),
+                observation: f.observation,
+                online_risk: f.online_risk,
+                final_risk: f.final_risk,
+                samples: f.samples as u64,
+                label: label.to_string(),
+                case: minimal.verified.then(|| minimal.case.describe()),
+                evidence: f.evidence.clone(),
+                raw_evidence: Vec::new(),
+            }
+        })
+        .collect();
+    let decisions: Vec<Json> = campaign
+        .decisions
+        .iter()
+        .map(|d| {
+            Json::object(vec![
+                ("evaluation", Json::count(d.evaluation)),
+                ("family", Json::text(format!("{:?}", d.family))),
+                ("cell", Json::count(u64::from(d.cell))),
+                ("risk", Json::number(d.risk)),
+                ("gain", Json::number(d.gain)),
+                (
+                    "x",
+                    Json::Arr(d.x.iter().map(|v| Json::number(*v)).collect()),
+                ),
+            ])
+        })
+        .collect();
+    let bands = campaign.atlas.bands();
+    let mut environment = Environment::current();
+    environment.notes.push((
+        "strategy".to_string(),
+        crate::metrics::strategy_name(strategy).to_string(),
+    ));
+    environment
+        .notes
+        .push(("seed".to_string(), seed.to_string()));
+    environment.notes.push(("entry".to_string(), entry.id()));
+    let run = aporia_store::Run {
+        model,
+        model_text: &entry.source,
+        air_text: &air,
+        records: &campaign.records,
+        config: Json::parse(&campaign_config_json(plan, strategy, seed)).unwrap_or(Json::Null),
+        coverage: campaign.atlas.coverage(),
+        atlas_csv: &campaign.atlas.to_csv(),
+        bands: &bands,
+        findings: &findings,
+        decisions: &decisions,
+        calibrator: &campaign.calibrator,
+        correlation: &campaign.correlation,
+        exec: aporia_runtime::ExecConfig::default(),
+        evaluations: campaign.evaluations,
+        instruction_steps: campaign.instruction_steps,
+        environment,
+        created_unix_ms: 0,
+    };
+    let _ = std::fs::remove_dir_all(dir);
+    let mut store = Store::create(dir).map_err(|e| e.to_string())?;
+    store.write(&run).map_err(|e| e.to_string())?;
+    let replay = aporia_store::replay_dir(dir).map_err(|e| e.to_string())?;
+    Ok((replay.reproduced, replay.matched, replay.total))
+}
+
+fn campaign_config_json(plan: &Plan, strategy: Strategy, seed: u64) -> String {
+    format!(
+        "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},\"calibrate_every\":{},\"refine_every\":{},\"numerical_every\":{}}}",
+        plan.budgets.last().copied().unwrap_or(0),
+        crate::metrics::strategy_name(strategy),
+        seed,
+        plan.probe_every,
+        plan.calibrate_every,
+        plan.refine_every,
+        plan.numerical_every,
+    )
 }
 
 /// Run the whole corpus. Entries that do not compile are reported as skipped rather than measured.
@@ -184,6 +341,21 @@ impl Sweep {
             (
                 "control_suspicious_volume",
                 self.control_suspicion.map_or(Json::Null, Json::number),
+            ),
+            (
+                "replay",
+                self.replay
+                    .map_or(Json::Null, |(reproduced, matched, total)| {
+                        Json::object(vec![
+                            ("reproduced", Json::Bool(reproduced)),
+                            ("matched", Json::count(matched)),
+                            ("total", Json::count(total)),
+                            (
+                                "error",
+                                self.replay_error.clone().map_or(Json::Null, Json::text),
+                            ),
+                        ])
+                    }),
             ),
             (
                 "outcomes",
@@ -315,6 +487,139 @@ fn environment_json(environment: &Environment) -> Json {
     ])
 }
 
+/// One run, opened up: what the atlas decided, what the bands said, and where the risk landed.
+///
+/// The summary table is the public artefact; this is the tool that finds out *why* a strategy did
+/// or did not localise something, which is the difference between reporting a result and
+/// understanding it.
+#[must_use]
+#[expect(
+    clippy::too_many_lines,
+    reason = "a report is a sequence of sections printed in order"
+)]
+pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Option<String> {
+    use std::fmt::Write as _;
+    let model = entry.model.as_ref()?;
+    let budget = *plan.budgets.last().unwrap_or(&200);
+    let cfg = plan.config(strategy, budget, seed);
+    let campaign = run(model, cfg);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
+        "{}  strategy {strategy:?}  budget {budget}  seed {seed}",
+        entry.id()
+    );
+    let coverage = campaign.atlas.coverage();
+    let _ = writeln!(
+        out,
+        "cells {} ({} leaves), suspicious {:.4} of the domain, trusted {:.4}, unknown {:.4}",
+        coverage.cells,
+        campaign.atlas.leaf_ids().len(),
+        coverage.suspicious,
+        coverage.trusted,
+        coverage.unknown
+    );
+    let _ = writeln!(
+        out,
+        "evaluations {}  instruction steps {}",
+        campaign.evaluations, campaign.instruction_steps
+    );
+    let _ = writeln!(
+        out,
+        "calibration fitted: {}",
+        campaign.calibrator.describe()
+    );
+    let bands = campaign.atlas.bands();
+    let _ = writeln!(out, "bands: {}", bands.len());
+    for b in &bands {
+        let _ = writeln!(
+            out,
+            "  axis {} span [{}, {}] facing [{}, {}] width {:.6}",
+            b.axis,
+            b.lo,
+            b.hi,
+            b.facing[0],
+            b.facing[1],
+            b.hi - b.lo
+        );
+    }
+    for region in &entry.truth.regions {
+        let fraction = entry.truth.volume_fraction(model, region);
+        let detected = if let Some(at) = declared_axis(model, region) {
+            bands
+                .iter()
+                .any(|b| b.axis as usize == at && band_covers(b, region))
+        } else {
+            false
+        };
+        let _ = writeln!(
+            out,
+            "declared region {:?} is {:.6} of the space, band on its boundary: {}",
+            region.axes,
+            fraction,
+            if detected { "yes" } else { "no" }
+        );
+    }
+    let _ = writeln!(out, "findings: {}", campaign.findings.len());
+    for f in campaign.findings.iter().take(6) {
+        let _ = writeln!(
+            out,
+            "  cell {} bounds {:?} online {:.3} final {:.3} samples {}",
+            f.cell, f.bounds, f.online_risk, f.final_risk, f.samples
+        );
+        // The channels behind the first few findings, because "why is this suspicious" is the only
+        // question that turns a bad result into a fixed one.
+        for e in f.evidence.iter().take(6) {
+            let _ = writeln!(
+                out,
+                "    {:<12} {:<18} magnitude {:>10.4} strength {:.3}  {}",
+                e.channel.name(),
+                e.subject.key(),
+                e.magnitude,
+                e.strength,
+                e.detail
+            );
+        }
+    }
+    let mut buckets = [0u32; 10];
+    for r in &campaign.final_risk {
+        let i = (r.clamp(0.0, 0.999) * 10.0) as usize;
+        buckets[i] += 1;
+    }
+    let _ = writeln!(out, "final risk histogram: {buckets:?}");
+    let mut online = [0u32; 10];
+    for r in &campaign.online_risk {
+        let i = (r.clamp(0.0, 0.999) * 10.0) as usize;
+        online[i] += 1;
+    }
+    let _ = writeln!(out, "online risk histogram: {online:?}");
+    let _ = writeln!(out, "decisions by family:");
+    let mut counts: std::collections::BTreeMap<String, u32> = std::collections::BTreeMap::new();
+    for d in &campaign.decisions {
+        *counts.entry(format!("{:?}", d.family)).or_insert(0) += 1;
+    }
+    for (family, n) in counts {
+        let _ = writeln!(out, "  {family:<14} {n}");
+    }
+    Some(out)
+}
+
+fn declared_axis(model: &aporia_ir::Model, region: &crate::truth::Declared) -> Option<usize> {
+    let (name, _) = region.axes.first()?;
+    model.param(name).map(|p| p as usize)
+}
+
+fn band_covers(band: &aporia_boundary::Band, region: &crate::truth::Declared) -> bool {
+    let name = band.axis.to_string();
+    let _ = name;
+    // A band is per-axis; a region constrains named axes by index, so the caller compares the
+    // numeric axis against each declared span it cares about.
+    region
+        .axes
+        .iter()
+        .any(|(_, [lo, hi])| band.facing[1] >= *lo && band.facing[0] <= *hi)
+}
+
 /// What the measurements say, as text a person can read in a terminal.
 #[must_use]
 pub fn verdict(sweeps: &[Sweep], truth_of: &dyn Fn(&str) -> Option<Truth>) -> String {
@@ -334,31 +639,51 @@ pub fn verdict(sweeps: &[Sweep], truth_of: &dyn Fn(&str) -> Option<Truth>) -> St
         if truth.control || truth.regions.is_empty() {
             continue;
         }
+        // Minimum over the seeds that resolved, not over `Option` values: `Some(320).min(None)` is
+        // `None`, so a strategy that worked on two of three seeds was being reported as unresolved
+        // beside a baseline that never worked at all. The seed counts are printed because "1 of 3
+        // at 320" and "3 of 3 at 320" are not the same evidence.
         let best = |name: &str| {
-            sweeps
+            let group: Vec<&Sweep> = sweeps
                 .iter()
                 .filter(|s| s.entry == entry && s.strategy == name)
-                .filter_map(|s| s.localised_at)
-                .min()
+                .collect();
+            let resolved = group.iter().filter(|s| s.localised_at.is_some()).count();
+            let at = group.iter().filter_map(|s| s.localised_at).min();
+            (at, resolved, group.len())
         };
-        let (Some(adaptive), Some(baseline)) =
-            (best("adaptive"), best("stratified").min(best("random")))
-        else {
-            let _ = writeln!(
-                out,
-                "{entry}: no strategy localised every declared region within the plan's budgets"
-            );
-            ties += 1;
-            continue;
-        };
+        let (adaptive, a_ok, a_n) = best("adaptive");
+        let (stratified, s_ok, s_n) = best("stratified");
+        let (random, r_ok, _) = best("random");
+        let baseline = [stratified, random].into_iter().flatten().min();
         let _ = writeln!(
             out,
-            "{entry}: adaptive localised at {adaptive}, best baseline at {baseline}"
+            "{entry}: adaptive {adaptive:?} ({a_ok}/{a_n}) | baseline {baseline:?}              | stratified {stratified:?} ({s_ok}/{s_n}) | random {random:?} ({r_ok})"
         );
-        match adaptive.cmp(&baseline) {
-            std::cmp::Ordering::Less => wins += 1,
-            std::cmp::Ordering::Greater => losses += 1,
-            std::cmp::Ordering::Equal => ties += 1,
+        match (adaptive, baseline) {
+            (None, None) => {
+                let _ = writeln!(
+                    out,
+                    "    nothing localised every declared region in the ladder"
+                );
+                ties += 1;
+            }
+            (Some(_), None) => {
+                let _ = writeln!(
+                    out,
+                    "    adaptive resolved within the ladder, neither baseline did"
+                );
+                wins += 1;
+            }
+            (None, Some(_)) => {
+                let _ = writeln!(out, "    a baseline resolved and adaptive did not");
+                losses += 1;
+            }
+            (Some(a), Some(b)) => match a.cmp(&b) {
+                std::cmp::Ordering::Less => wins += 1,
+                std::cmp::Ordering::Greater => losses += 1,
+                std::cmp::Ordering::Equal => ties += 1,
+            },
         }
     }
     let _ = writeln!(

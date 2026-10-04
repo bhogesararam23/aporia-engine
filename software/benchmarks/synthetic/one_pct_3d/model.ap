@@ -1,0 +1,7 @@
+model one_pct_3d "a three-parameter well at one percent of the volume" {
+  input x in [-1, 1]  # the quantity is a plain coordinate
+  input y in [-1, 1]  # the quantity is a plain coordinate
+  input z in [-1, 1]  # the quantity is a plain coordinate
+  let outside = max(max(abs(x) - 0.0999999, abs(y) - 0.22359977639999998), abs(z) - 0.22359977639999998)
+  require outside > 0
+}

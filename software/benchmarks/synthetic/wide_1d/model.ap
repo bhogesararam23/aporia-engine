@@ -1,0 +1,5 @@
+model wide_1d "a wide one-parameter well" {
+  input x in [-1, 1]  # the quantity is a plain coordinate
+  let outside = abs(x) - 0.3999996
+  require outside > 0
+}

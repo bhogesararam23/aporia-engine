@@ -1,0 +1,6 @@
+model quarter_2d "a two-parameter well at a quarter of the area" {
+  input x in [-1, 1]  # the quantity is a plain coordinate
+  input y in [-1, 1]  # the quantity is a plain coordinate
+  let outside = max(abs(x) - 0.4999995, abs(y) - 0.4999995)
+  require outside > 0
+}
