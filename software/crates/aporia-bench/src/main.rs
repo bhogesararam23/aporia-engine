@@ -204,6 +204,20 @@ fn run_run(flags: &[String]) -> Result<i32, String> {
     let archive_dir = args
         .value("--archive")?
         .map_or_else(aporia_bench::archives_dir, PathBuf::from);
+    // The evidence-sampling rates cost evaluations, so they are part of a measurement's definition
+    // rather than a constant: being able to set them to zero is what separates "this channel changed
+    // the result" from "the budget moved".
+    let mut rate = |flag: &str, fallback: u64| -> Result<u64, String> {
+        match args.value(flag)? {
+            None => Ok(fallback),
+            Some(t) => t
+                .parse()
+                .map_err(|_| format!("{flag} needs a number of evaluations, got {t}")),
+        }
+    };
+    let defaults = harness::Plan::default();
+    let differential_every = rate("--differential-every", defaults.differential_every)?;
+    let numerical_every = rate("--numerical-every", defaults.numerical_every)?;
     args.reject_unknown()?;
 
     let entries = load_corpus()?;
@@ -233,6 +247,8 @@ fn run_run(flags: &[String]) -> Result<i32, String> {
         seeds,
         grid,
         archive_dir,
+        differential_every,
+        numerical_every,
         ..harness::Plan::default()
     };
     if plan.budgets.is_empty() {

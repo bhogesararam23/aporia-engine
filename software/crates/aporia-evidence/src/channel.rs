@@ -44,15 +44,26 @@ impl Channel {
             // f64 against f32: the expected disagreement of a well-conditioned computation is about
             // 1e-7, so anything at that level is the representation talking, not the model.
             Self::Numerical => 1e-6,
-            // f64 against the double-double reference: the expected disagreement of a
-            // well-conditioned computation is a few ulps of f64. Without a floor here the wiring of
-            // the differential channel made the controls *dirtier* rather than cleaner — the
-            // spring's differential magnitudes ran down to 1e-16, its channel median collapsed onto
-            // the 1e-12 absolute guard in `fit`, and dividing by that amplified ordinary round-off
-            // into maximum strength. Measured: control zero-suspicion campaigns went 73/90 down to
-            // 49/90 and control suspicious volume at the top of the ladder went 0.15% to 1.09%
-            // before this floor existed.
-            Self::Differential => 1e-13,
+            // f64 against the double-double reference. The reference is accurate to roughly 32
+            // digits, so any disagreement this channel can observe at all is f64's own
+            // representation error; one part in 10^9 sits three orders above f64 epsilon, which is
+            // the same relation its floor has to Numerical's 1e-6 (about one order above f32
+            // epsilon).
+            //
+            // The value chosen first was 1e-13 and it did nothing whatsoever: `Calibrator::fit`
+            // clamps every scale to `MIN_SCALE` = 1e-12, so a floor below the guard cannot raise
+            // anything. Two full ladder runs came out byte-identical and that is how it was caught;
+            // hence the test in `calibrate.rs` that fails any declared floor sitting between zero
+            // and the guard.
+            //
+            // What this floor is NOT responsible for, despite an earlier claim here: the control
+            // regression that appeared when the channel was wired. Measured by A/B on the same seeds
+            // with only the rate changing, control cleanliness moved 73/90 -> 49/90 zero-suspicion
+            // campaigns because charged reference evaluations shift the sampled points, not because
+            // round-off was being amplified — the differential items on those models sit near 1e-13,
+            // below even the old guard, and calibrate to strength 0.000 whichever floor is used. See
+            // `harness::Plan::differential_every` for the numbers.
+            Self::Differential => 1e-9,
             Self::Behavioral | Self::Physical | Self::Sensitivity => 0.0,
         }
     }

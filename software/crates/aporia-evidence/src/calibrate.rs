@@ -31,6 +31,14 @@ use std::collections::HashMap;
 /// numbers is dominated by the two in the middle.
 const MIN_STRATUM: usize = 8;
 
+/// No fitted scale is ever smaller than this, whatever the data or a channel's declared floor says.
+///
+/// Public because [`crate::channel::Channel::noise_floor`] has to be read against it: a floor below
+/// this guard is not a floor, it is a no-op, and discovering that by comparing two full ladder runs
+/// that came out byte-identical is a waste of everyone's afternoon. A declared floor must sit at or
+/// above this value to change anything.
+pub const MIN_SCALE: f64 = 1e-12;
+
 /// Per-channel scales fitted from observed magnitudes, plus per-claim scales where a claim has
 /// enough of its own measurements to have a typical value.
 #[derive(Clone, Debug, PartialEq)]
@@ -86,7 +94,7 @@ impl Calibrator {
             // The channel's own noise floor, not a global epsilon: the typical magnitude of an
             // f32-versus-f64 comparison is round-off, and dividing by it would call every smooth
             // model suspicious wherever the rounding happens to wobble.
-            let floor = Channel::ALL[i].noise_floor().max(1e-12);
+            let floor = Channel::ALL[i].noise_floor().max(MIN_SCALE);
             c.scale[i] = median(values).max(floor);
             c.fitted[i] = true;
         }
@@ -94,7 +102,7 @@ impl Calibrator {
             if values.len() < MIN_STRATUM {
                 continue;
             }
-            let floor = Channel::ALL[i].noise_floor().max(1e-12);
+            let floor = Channel::ALL[i].noise_floor().max(MIN_SCALE);
             c.claims.insert(
                 claim_code(Channel::ALL[i], &key),
                 median(&values).max(floor),
@@ -424,6 +432,31 @@ mod tests {
         );
         // And a reading far above its own claim still saturates, which is the whole point.
         assert!(c.strength_of(&slope(1, 455.0 * 100.0)) > 0.99);
+    }
+
+    #[test]
+    fn a_declared_noise_floor_below_the_guard_would_be_a_no_op() {
+        // The reason this test exists: a floor of 1e-13 was once chosen for a channel whose round-off
+        // sits near 1e-11, and it changed literally nothing -- two full ladder runs came out
+        // byte-identical, because `fit` clamps every scale to `MIN_SCALE` first. A floor has to clear
+        // the guard to be a floor, and the mistake is invisible from the outside.
+        for c in Channel::ALL {
+            let floor = c.noise_floor();
+            assert!(
+                floor == 0.0 || floor >= MIN_SCALE,
+                "{} declares a floor of {floor:e}, below the {MIN_SCALE:e} guard: it would be \
+                 silently ignored",
+                c.name()
+            );
+        }
+        assert!(
+            Channel::Differential.noise_floor() > 1e-11,
+            "differential round-off is not evidence"
+        );
+        assert!(
+            Channel::Numerical.noise_floor() > 1e-7,
+            "f32 round-off is not evidence"
+        );
     }
 
     #[test]

@@ -54,7 +54,24 @@ impl Default for Plan {
             calibrate_every: 25,
             refine_every: 40,
             numerical_every: 11,
-            differential_every: 11,
+            // Off in the ladder, on in `explain` and on demand via `--differential-every`.
+            //
+            // Measured by A/B on the two controls at budgets 160 and 640, seeds 1,2,3, identical in
+            // every other respect: with the rate at 0, 3 of 9 spring sweeps and 7 of 9 projectile
+            // sweeps are suspicion-free at some budget; with the rate at 11 that falls to 0 of 9 and
+            // 2 of 9. Not because the channel's evidence is loud -- its items calibrate to strength
+            // 0.000 on these models, and moving the channel's noise floor over four orders changed
+            // nothing at all, two runs came out byte-identical. Because every reference evaluation
+            // is charged to the budget, so the same seed walks a different sample path and different
+            // cells end up holding the single loud numerical reading that the corroboration rule
+            // already refuses to call suspicious on its own.
+            //
+            // The finding is methodological and it applies to any evidence channel that costs
+            // evaluations: control cleanliness in this build is sensitive to sampling trajectory,
+            // not only to evidence semantics. Keeping the rate off by default means the published
+            // ladder stays comparable with the runs before the channel existed, and the flag makes
+            // the trade measurable by anyone with one command.
+            differential_every: 0,
             archive_dir: std::path::PathBuf::new(),
         }
     }
@@ -428,6 +445,14 @@ pub fn results_json(
                 ),
                 ("grid_per_axis", Json::count(plan.grid as u64)),
                 ("minimise_budget", Json::count(plan.minimise_budget)),
+                // The rates that cost evaluations are part of the definition of the measurement, so
+                // they travel with its results: without them a reader cannot tell a channel that
+                // changed nothing from a channel that was never sampled.
+                ("probe_every", Json::count(plan.probe_every)),
+                ("numerical_every", Json::count(plan.numerical_every)),
+                ("differential_every", Json::count(plan.differential_every)),
+                ("refine_every", Json::count(plan.refine_every)),
+                ("calibrate_every", Json::count(plan.calibrate_every)),
             ]),
         ),
         (

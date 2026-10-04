@@ -4,7 +4,7 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Four files are committed, plus the repeat that follows each step.
+Nine files are committed. Each one is the record of what a change did, and only the last is current.
 
 | file | what it is |
 |---|---|
@@ -12,7 +12,52 @@ Four files are committed, plus the repeat that follows each step.
 | `results-1791123062.json` | after the evidence-semantics and atlas-labelling work in `8d188e6` |
 | `results-1791125825.json` | after the `suspicious_channels` corroboration rule |
 | `results-1791126020.json` | a single-budget repeat of the corroboration build (`--budgets 640` only), kept because the timing note near the end of this file rests on it |
-| `results-1791127362.json` | **current**, after findings that describe one region are merged into one claim |
+| `results-1791127362.json` | after findings describing one region were merged into one claim |
+| `results-1791142780.json` | differential channel wired, reference evaluations charged, no noise floor |
+| `results-1791144581.json` | as above with a `1e-13` differential floor — **byte-identical to the previous row**, which is what exposed the floor as a no-op |
+| `results-1791145006.json` | as above with the floor at `1e-9` — again byte-identical, so the floor is not what moved the controls |
+| `results-1791146048.json` | **current**: differential wired and floored, ladder run at `differential_every = 0` |
+
+Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
+`differential_every`, `refine_every`, `calibrate_every`): a measurement whose sampling costs are not
+recorded cannot be compared against one that ran under different ones. The figures quoted throughout
+this file are from `results-1791146048.json`; the rows above it are evidence about what each change
+did, not citable results.
+
+### The differential channel, and a sampling lesson
+
+Wiring the fifth channel — the runtime against the independent double-double reference — produced two
+findings worth keeping.
+
+A guard bug of my own. The channel's first noise floor, 1e-13, sat *below* the 1e-12 clamp in
+`Calibrator::fit`, so it could not change anything, and that stayed invisible until two full ladder
+runs came out identical to the last digit. `MIN_SCALE` is now a named constant, and a test rejects any
+declared floor sitting between zero and the guard.
+
+And a result about how this project should read its own numbers. Turning the channel on moved control
+cleanliness from 73 of 90 suspicion-free campaigns to 49 of 90, and it did **not** do so through its
+evidence: differential items on the controls sit near 1e-13 and calibrate to strength 0.000 at any
+floor. The A/B, same seeds, same budgets, only the rate changing, 9 sweeps per control:
+
+| rate | spring sweeps clean at some budget | projectile sweeps clean at some budget |
+|---|---|---|
+| 0 | 3 of 9 | 7 of 9 |
+| 11 | 0 of 9 | 2 of 9 |
+
+The mechanism is the budget. Every reference evaluation is charged, so the same seed walks a different
+sample path, and which cell holds the single loud numerical reading moves with it. Control
+cleanliness in this build is sensitive to sampling trajectory, not only to evidence semantics: the
+flags are 0.39% of a domain — one cell — and one cell moves when the points move.
+
+The ladder default is therefore `differential_every = 0`, which is why the current figures reproduce
+the pre-channel row exactly (134 detecting and 97 localising sweeps, 579 boundary rows with a band,
+238 inside tolerance, 60 of 60 archives replaying 35,712 executions). The channel is wired, floored
+and demonstrated — at rate 11 on `linear_algebra/quadratic_small_root` it reports four real
+implementation disagreements, worst `rel=1.111e-1` on the small root, the cancellation that entry
+exists to contain — and `--differential-every` lets anyone measure its cost in one command. What has
+not been settled is whether it earns that budget: at rate 11 it bought +3 localising sweeps, cost −1
+detecting sweep, and carried the control-cleanliness cost above. That stays open, and recorded as
+open, rather than being resolved by choosing the rate that flatters the current tables.
 
 The first three were produced by the same command:
 

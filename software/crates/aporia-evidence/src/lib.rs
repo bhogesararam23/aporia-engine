@@ -15,6 +15,6 @@ pub mod calibrate;
 pub mod channel;
 pub mod fuse;
 
-pub use calibrate::Calibrator;
+pub use calibrate::{Calibrator, MIN_SCALE};
 pub use channel::{Channel, Confidence, Evidence, EvidenceSet, PatternKind, Subject};
 pub use fuse::{ChannelCorrelation, Contribution, Risk, fuse, strongest};
