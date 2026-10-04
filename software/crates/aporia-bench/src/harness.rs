@@ -32,6 +32,11 @@ pub struct Plan {
     pub calibrate_every: u64,
     pub refine_every: u64,
     pub numerical_every: u64,
+    /// Every nth base point is re-run with each declared symmetric parameter pair swapped, so a
+    /// `check symmetric(...)` is actually tested rather than declared and never checked. Costs one
+    /// evaluation per declared pair per firing; a model declaring no symmetry pays nothing, which is
+    /// why this is on by default.
+    pub symmetric_every: u64,
     /// Every nth base point is also run through the independent double-double reference evaluator,
     /// which is what makes the Differential channel exist during a measurement. Costs one reference
     /// evaluation per firing — the reference path is several times slower per step than the runtime —
@@ -54,6 +59,7 @@ impl Default for Plan {
             calibrate_every: 25,
             refine_every: 40,
             numerical_every: 11,
+            symmetric_every: 1,
             // Off in the ladder, on in `explain` and on demand via `--differential-every`.
             //
             // Measured by A/B on the two controls at budgets 160 and 640, seeds 1,2,3, identical in
@@ -87,6 +93,7 @@ impl Plan {
             policy: Policy::default(),
             calibrate_every: self.calibrate_every,
             numerical_every: self.numerical_every,
+            symmetric_every: self.symmetric_every,
             differential_every: self.differential_every,
             refine_every: self.refine_every,
             max_steps_per_evaluation: 2_000_000,
@@ -313,7 +320,7 @@ pub fn archive_and_replay(
 
 fn campaign_config_json(plan: &Plan, strategy: Strategy, seed: u64) -> String {
     format!(
-        "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},\"calibrate_every\":{},\"refine_every\":{},\"numerical_every\":{},\"differential_every\":{}}}",
+        "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},\"calibrate_every\":{},\"refine_every\":{},\"numerical_every\":{},\"differential_every\":{},\"symmetric_every\":{}}}",
         plan.budgets.last().copied().unwrap_or(0),
         crate::metrics::strategy_name(strategy),
         seed,
@@ -322,6 +329,7 @@ fn campaign_config_json(plan: &Plan, strategy: Strategy, seed: u64) -> String {
         plan.refine_every,
         plan.numerical_every,
         plan.differential_every,
+        plan.symmetric_every,
     )
 }
 
@@ -451,6 +459,7 @@ pub fn results_json(
                 ("probe_every", Json::count(plan.probe_every)),
                 ("numerical_every", Json::count(plan.numerical_every)),
                 ("differential_every", Json::count(plan.differential_every)),
+                ("symmetric_every", Json::count(plan.symmetric_every)),
                 ("refine_every", Json::count(plan.refine_every)),
                 ("calibrate_every", Json::count(plan.calibrate_every)),
             ]),
@@ -556,6 +565,14 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
         out,
         "evaluations {}  instruction steps {}",
         campaign.evaluations, campaign.instruction_steps
+    );
+    // The extra executions a campaign paid for have to be visible or the config lines are just
+    // intentions: `symmetric_every 1` says the rate was set, the swap count says the swaps ran.
+    let _ = writeln!(
+        out,
+        "probes: {} perturbation pairs, {} symmetry swaps",
+        campaign.probes.pairs.len(),
+        campaign.probes.swaps.len()
     );
     let _ = writeln!(
         out,

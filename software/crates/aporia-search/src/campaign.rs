@@ -25,7 +25,7 @@
 use crate::plan::{Acquisition, Family, Strategy, to_parameters};
 use aporia_boundary::{Atlas, FACE_EPS, Label, Policy};
 use aporia_evidence::{Calibrator, ChannelCorrelation, Evidence, EvidenceSet, fuse};
-use aporia_ir::Model;
+use aporia_ir::{Model, RelationKind};
 use aporia_numerics::Rng;
 use aporia_properties::{Pair, Probes, constraints, divergence, numerical, sensitivity};
 use aporia_runtime::interp::run as evaluate;
@@ -62,6 +62,12 @@ pub struct Config {
     /// than the runtime, so the rate is a declared cost. Off by default for library callers; the
     /// benchmark sets a rate, because a channel that never fires is not a channel.
     pub differential_every: u64,
+    /// Re-run a base point with each declared symmetric parameter pair swapped, every nth base
+    /// point. Costs one evaluation per declared pair per firing, and is charged.
+    ///
+    /// Zero for a model that declares no symmetry costs nothing, because there is nothing to swap:
+    /// the rate is only paid by models that ask for the check.
+    pub symmetric_every: u64,
     /// Relabel and refine the atlas every nth evaluation.
     pub refine_every: u64,
     pub max_steps_per_evaluation: u64,
@@ -78,6 +84,7 @@ impl Default for Config {
             calibrate_every: 250,
             numerical_every: 0,
             differential_every: 0,
+            symmetric_every: 1,
             refine_every: 64,
             max_steps_per_evaluation: 20_000_000,
         }
@@ -110,6 +117,7 @@ impl Config {
             concat!(
                 "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},",
                 "\"calibrate_every\":{},\"numerical_every\":{},\"differential_every\":{},",
+                "\"symmetric_every\":{},",
                 "\"refine_every\":{},",
                 "\"atlas\":{{\"suspicious_mean\":{},\"suspicious_peak\":{},\"min_samples\":{},",
                 "\"min_channels\":{},\"suspicious_channels\":{},\"max_depth\":{}}}}}"
@@ -121,6 +129,7 @@ impl Config {
             self.calibrate_every,
             self.numerical_every,
             self.differential_every,
+            self.symmetric_every,
             self.refine_every,
             self.policy.suspicious_mean,
             self.policy.suspicious_peak,
@@ -238,6 +247,16 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         max_steps: config.max_steps_per_evaluation,
     };
     let mut last_credit = 0usize;
+    // The parameter pairs the author declared symmetric, collected once. A model that declares none
+    // pays nothing for this machinery, which is why the rate below is on by default.
+    let symmetric_pairs: Vec<[u16; 2]> = model
+        .relations
+        .iter()
+        .filter_map(|r| match &r.kind {
+            RelationKind::Symmetric { pair, .. } => Some(*pair),
+            _ => None,
+        })
+        .collect();
 
     while evaluations < config.budget {
         let round = evaluations;
@@ -281,6 +300,46 @@ pub fn run(model: &Model, config: Config) -> Campaign {
                 }
                 probes.axis_step[axis] = step;
                 group.push(pid);
+            }
+        }
+
+        // Declared symmetry is only testable by running the swapped point, so it is done deliberately
+        // rather than left to two samples happening to land mirrored.
+        if config.symmetric_every > 0
+            && !symmetric_pairs.is_empty()
+            && round.is_multiple_of(config.symmetric_every)
+        {
+            for &[a, b] in &symmetric_pairs {
+                if evaluations >= config.budget {
+                    break;
+                }
+                let mut swapped = x.clone();
+                let (va, vb) = (swapped[a as usize], swapped[b as usize]);
+                let (Some(da), Some(db)) = (domain_of(model, a), domain_of(model, b)) else {
+                    continue;
+                };
+                // Interchangeable values need the same interval. The lowering has already rejected a
+                // swap between different kinds of quantity, but the same kind is not the same box.
+                if (da.0 - db.0).abs() > FACE_EPS || (da.1 - db.1).abs() > FACE_EPS {
+                    continue;
+                }
+                // And each value has to land inside the other's declared domain, so the swapped point
+                // is a legitimate execution of this model rather than a point nobody declared.
+                if !(va >= db.0 && va <= db.1 && vb >= da.0 && vb <= da.1) {
+                    continue;
+                }
+                swapped[a as usize] = vb;
+                swapped[b as usize] = va;
+                let (o, c) = eval(model, &swapped, exec, evaluations);
+                evaluations += 1;
+                steps += c;
+                let sid = records.push(o);
+                online_risk.push(0.0);
+                probes.swaps.push(aporia_properties::SwapProbe {
+                    base: id,
+                    swapped: sid,
+                    pair: [a, b],
+                });
             }
         }
 
@@ -610,6 +669,16 @@ pub fn perturb(model: &Model, x: &[f64], axis: usize) -> Option<(Vec<f64>, f64)>
     };
     y[axis] = base + delta;
     Some((y, (delta / width).abs()))
+}
+
+/// The interval a parameter is declared over, if it has one. A discrete choice set has no
+/// interchangeable coordinates, so a symmetry across it is not testable by swapping values.
+fn domain_of(model: &Model, param: u16) -> Option<(f64, f64)> {
+    use aporia_ir::Domain;
+    match &model.params.get(param as usize)?.domain {
+        Domain::Interval { lo, hi } => Some((*lo, *hi)),
+        Domain::Choices(_) => None,
+    }
 }
 
 fn subset_records(records: &Records, ids: &[u64]) -> Records {
@@ -945,6 +1014,227 @@ mod tests {
             finding(2, &[[0.5, 1.0], [1.0, 2.0]], &["P|require0"], 0.8),
         ];
         assert_eq!(merge_findings(two).len(), 2);
+    }
+
+    #[test]
+    fn a_declared_symmetry_is_swapped_executed_and_leaves_no_evidence() {
+        // The whole point of this test is the wiring, not the arithmetic: `check symmetric` existed
+        // as a relation kind, as a lowering, and as a measurement function, and no campaign ever
+        // produced a `SwapProbe`, so the claim could be declared and silently never tested.
+        let m = model(
+            "model s \"\" {\n input a in [0, 10]\n input b in [0, 10]\n let y = a + b\n check symmetric(y wrt (a, b))\n}\n",
+        );
+        let c = run(
+            &m,
+            Config {
+                budget: 120,
+                ..Config::default()
+            },
+        );
+        assert!(
+            !c.probes.swaps.is_empty(),
+            "the campaign recorded no swap probes at all"
+        );
+        for s in &c.probes.swaps {
+            assert_eq!(s.pair, [0, 1]);
+            let (Some(base), Some(sw)) = (c.records.by_id(s.base), c.records.by_id(s.swapped))
+            else {
+                panic!("a swap names executions that were never recorded: {s:?}");
+            };
+            // The swapped point is a real execution of real coordinates, mirrored on both axes.
+            assert_eq!(base.x[0], sw.x[1], "the values were not exchanged");
+            assert_eq!(base.x[1], sw.x[0]);
+            for v in &sw.x {
+                assert!(
+                    (0.0..=10.0).contains(v),
+                    "swapped point left the domain: {v}"
+                );
+            }
+        }
+        // a + b is symmetric, so testing it must produce nothing rather than something plausible.
+        assert!(
+            !c.evidence.iter().any(|e| e.detail.contains("were swapped")),
+            "{:?}",
+            c.evidence
+                .iter()
+                .filter(|e| e.detail.contains("swapped"))
+                .map(|e| &e.detail)
+                .collect::<Vec<_>>()
+        );
+        // Not even a small one: a `B` scale that is not the default is the calibration readout's way
+        // of saying the Behavioral channel saw magnitude on a model whose declared symmetry holds.
+        let behavioural: Vec<&Evidence> = c
+            .evidence
+            .iter()
+            .filter(|e| e.channel == Channel::Behavioral)
+            .collect();
+        assert!(
+            behavioural.is_empty(),
+            "{:?}",
+            behavioural
+                .iter()
+                .map(|e| (e.subject.key(), e.magnitude, e.detail.clone()))
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn round_off_in_a_true_symmetry_is_measured_and_stays_round_off() {
+        // `check symmetric` is a statement about the mathematics, but a swap compares two
+        // *executions*. `0.3 * turns_a * turns_b` is left-associated, so the base runs (0.3*a)*b and
+        // the swap runs (0.3*b)*a, and those round differently at isolated points: measured here at a
+        // budget of 640, 159 of the 160 swaps came back bit-identical and one came back 1.1677e-16
+        // apart. The property that matters is that a last-ulp artifact is reported as a last-ulp
+        // artifact rather than becoming suspicion, so this test pins both halves of that.
+        let m = model(
+            "model coupled_coils \"\" {\n  input turns_a : count in [1, 40]\n  input turns_b : count in [1, 40]\n  let self_term = 0.5 * (turns_a * turns_a + turns_b * turns_b)\n  let mutual = 0.3 * turns_a * turns_b\n  let reactance = self_term + mutual\n  require reactance > 0\n  check symmetric(reactance wrt (turns_a, turns_b))\n}\n",
+        );
+        let c = run(
+            &m,
+            Config {
+                budget: 640,
+                ..Config::default()
+            },
+        );
+        assert!(
+            !c.probes.swaps.is_empty(),
+            "the control was never actually swapped"
+        );
+        let behavioural: Vec<&Evidence> = c
+            .evidence
+            .iter()
+            .filter(|e| e.channel == Channel::Behavioral)
+            .collect();
+        for e in &behavioural {
+            assert!(
+                e.magnitude < 1e-9,
+                "a symmetry artifact was reported at {:e}, which is not round-off",
+                e.magnitude
+            );
+        }
+        assert!(
+            c.findings.is_empty(),
+            "{:?}",
+            c.findings.first().map(|f| &f.evidence)
+        );
+        assert_eq!(
+            c.atlas
+                .leaf_ids()
+                .iter()
+                .filter(|id| c
+                    .atlas
+                    .cell(**id)
+                    .is_some_and(|x| x.label == Label::Suspicious))
+                .count(),
+            0,
+            "round-off was promoted to suspicion"
+        );
+    }
+
+    #[test]
+    fn an_asymmetric_model_is_caught_by_the_swapped_execution() {
+        let m = model(
+            "model t \"\" {\n input a in [0, 10]\n input b in [0, 10]\n let y = 2 * a + b\n check symmetric(y wrt (a, b))\n}\n",
+        );
+        let c = run(
+            &m,
+            Config {
+                budget: 120,
+                ..Config::default()
+            },
+        );
+        let hits: Vec<&Evidence> = c
+            .evidence
+            .iter()
+            .filter(|e| e.detail.contains("were swapped"))
+            .collect();
+        assert!(!hits.is_empty(), "the asymmetry was never measured");
+        for h in &hits {
+            assert_eq!(h.channel, aporia_evidence::Channel::Behavioral);
+            assert_eq!(h.observations.len(), 2, "a swap compares two executions");
+            assert!(
+                c.records.by_id(h.observations[0]).is_some()
+                    && c.records.by_id(h.observations[1]).is_some(),
+                "the evidence names executions that never ran"
+            );
+        }
+        // One item per swapped base point, not one for the whole experiment: the first commit of
+        // this path produced a single item and hid every other point where the relation held.
+        assert_eq!(hits.len(), c.probes.swaps.len());
+    }
+
+    #[test]
+    fn swapped_executions_are_paid_for_out_of_the_budget() {
+        let m = model(
+            "model u \"\" {\n input a in [0, 10]\n input b in [0, 10]\n let y = a * b\n check symmetric(y wrt (a, b))\n}\n",
+        );
+        let off = run(
+            &m,
+            Config {
+                budget: 120,
+                symmetric_every: 0,
+                probe_every: 0,
+                calibrate_every: 1_000,
+                refine_every: 1_000,
+                ..Config::default()
+            },
+        );
+        let on = run(
+            &m,
+            Config {
+                budget: 120,
+                symmetric_every: 1,
+                probe_every: 0,
+                calibrate_every: 1_000,
+                refine_every: 1_000,
+                ..Config::default()
+            },
+        );
+        assert!(
+            off.probes.swaps.is_empty(),
+            "a rate of 0 must not swap anything"
+        );
+        // The first version of this assertion checked `on.evaluations > off.evaluations`, which told
+        // me nothing about charging: the budget is a cap, so both runs stop at 120 and the extra
+        // evaluations are paid for by *displacing* other work rather than by exceeding the total.
+        // The observable consequence of that is the decision log -- one entry per base point -- and
+        // a swapped base point leaves less budget for the next one.
+        assert_eq!(on.evaluations, off.evaluations, "both runs fill the cap");
+        assert!(
+            on.decisions.len() < off.decisions.len(),
+            "swaps cost nothing: {} base points with them, {} without",
+            on.decisions.len(),
+            off.decisions.len()
+        );
+        assert_eq!(
+            on.records.len() as u64,
+            on.evaluations,
+            "every charged evaluation has to be a recorded execution"
+        );
+        assert!(
+            on.evaluations <= 120,
+            "the budget was overspent: {}",
+            on.evaluations
+        );
+    }
+
+    #[test]
+    fn a_model_that_declares_no_symmetry_pays_for_none() {
+        let m = model(
+            "model v \"\" {\n input a in [0, 10]\n input b in [0, 10]\n let y = a + b\n require y >= 0\n}\n",
+        );
+        let c = run(
+            &m,
+            Config {
+                budget: 120,
+                probe_every: 0,
+                ..Config::default()
+            },
+        );
+        assert!(c.probes.swaps.is_empty(), "nothing was declared");
+        // 120 evaluations, one record each: the symmetry machinery is not charged to a model that
+        // does not ask for it.
+        assert_eq!(c.records.len() as u64, c.evaluations);
     }
 
     #[test]

@@ -236,6 +236,32 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
             }
             continue;
         }
+        // Symmetry is a comparison between two executions, and the campaign records one such pair per
+        // sampled base point. Folding them into a single item -- which is what one measurement over
+        // the whole probe set would do -- would report "this relation held at the first point we
+        // swapped" as if it were the model's property, and would hide every other point where it did
+        // not. So each swap contributes its own evidence, named to the two executions compared.
+        if let RelationKind::Symmetric { out: o, pair } = &r.kind {
+            for swap in probes.swaps.iter().filter(|s| &s.pair == pair) {
+                let Some((d, ids)) = swap_distance(records, swap, *o) else {
+                    continue;
+                };
+                if d <= 0.0 {
+                    continue;
+                }
+                out.push(Evidence::new(
+                    Channel::Behavioral,
+                    Subject::Relation(r.id),
+                    d,
+                    ids.to_vec(),
+                    format!(
+                        "{o} changed by {d:.3e} when p{} and p{} were swapped",
+                        pair[0], pair[1]
+                    ),
+                ));
+            }
+            continue;
+        }
         let (magnitude, observations, detail) = match &r.kind {
             RelationKind::Monotone {
                 out: o,
@@ -275,22 +301,6 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
                     format!("{o} scales like p{param}^{slope:.3}, declared {power}"),
                 )
             }
-            RelationKind::Symmetric { out: o, pair } => {
-                let Some((d, ids)) = swap_distance(records, probes, *o, *pair) else {
-                    continue;
-                };
-                if d <= 0.0 {
-                    continue;
-                }
-                (
-                    d,
-                    ids.to_vec(),
-                    format!(
-                        "{o} changed by {d:.3} when p{} and p{} were swapped",
-                        pair[0], pair[1]
-                    ),
-                )
-            }
             RelationKind::Lipschitz {
                 out: o,
                 param,
@@ -306,9 +316,9 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
                     format!("{o} changed at {slope:.3} per unit of p{param}, bound {bound}"),
                 )
             }
-            RelationKind::Conserved { .. } => {
-                // Handled above, once per execution: a trajectory's drift is not a comparison
-                // between two probes, so it does not belong in this single-item shape.
+            RelationKind::Symmetric { .. } | RelationKind::Conserved { .. } => {
+                // Both handled above, one item per execution or per swap: neither is a single
+                // measurement over the probe set, so neither belongs in this one-item shape.
                 continue;
             }
         };
@@ -799,13 +809,15 @@ fn local_exponents(
 
 /// Relative distance between an execution and the same execution with two parameters swapped,
 /// named to the two executions that were compared.
+///
+/// Takes the swap probe itself rather than searching `probes` for a matching pair. A campaign records
+/// one swap per declared pair per sampled base point, and taking the first of them would turn a
+/// relation claimed to hold everywhere into a statement about one lucky point.
 fn swap_distance(
     records: &Records,
-    probes: &Probes,
+    swap: &crate::pair::SwapProbe,
     output: u16,
-    pair: [u16; 2],
 ) -> Option<(f64, [u64; 2])> {
-    let swap = probes.swaps.iter().find(|s| s.pair == pair)?;
     let (Some(a), Some(b)) = (records.by_id(swap.base), records.by_id(swap.swapped)) else {
         return None;
     };
