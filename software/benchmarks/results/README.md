@@ -4,7 +4,7 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Ten files are committed. Each one is the record of what a change did, and only the last is current.
+Eleven files are committed. Each one is the record of what a change did, and only the last is current.
 
 | file | what it is |
 |---|---|
@@ -17,15 +17,16 @@ Ten files are committed. Each one is the record of what a change did, and only t
 | `results-1791144581.json` | as above with a `1e-13` differential floor — **byte-identical to the previous row**, which is what exposed the floor as a no-op |
 | `results-1791145006.json` | as above with the floor at `1e-9` — again byte-identical, so the floor is not what moved the controls |
 | `results-1791146048.json` | differential wired and floored, ladder run at `differential_every = 0` |
-| `results-1791150251.json` | **current**: declared symmetry wired as swap probes, plus a new symmetry control. Every one of the previous run's 180 sweeps reproduced outcome-for-outcome (see "Wiring declared symmetry") |
+| `results-1791150251.json` | declared symmetry wired as swap probes, plus a new symmetry control. Every one of the previous run's 180 sweeps reproduced outcome-for-outcome (see "Wiring declared symmetry") |
+| `results-1791153844.json` | **current**: the risk-threshold counterexample oracle wired. Across all 189 sweeps the only measured field that differs from the previous run is `counterexamples` (see "The risk-threshold oracle") |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
 `differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
 sampling costs are not recorded cannot be compared against one that ran under different ones. The
-figures quoted throughout this file are from `results-1791146048.json` unless a table says otherwise,
-because `results-1791150251.json` reproduces all of them for the entries the earlier run measured —
-the two runs differ only in the one entry the later run adds, and where that addition moves a
-corpus-wide mean it is listed in the symmetry section below.
+figures quoted throughout this file are from `results-1791153844.json`, the current run; it differs
+from `results-1791150251.json` in the counterexample rows and nothing else, and from
+`results-1791146048.json` in those rows plus the one corpus entry the symmetry control added. The
+older rows are evidence about what each change did, not separate citable results.
 
 ### The differential channel, and a sampling lesson
 
@@ -140,6 +141,68 @@ around it. It is the second symptom of the missing risk-threshold counterexample
 `aporia-bench explain` now prints what the campaign actually executed:
 `probes: 86 perturbation pairs, 256 symmetry swaps` on `coupled_coils`, and `0 symmetry swaps` on a
 model that declares none.
+
+### The risk-threshold oracle
+
+Minimising a counterexample needs a predicate that still answers "is this a failure?" as the case
+shrinks. There was one predicate, `FailureOracle`, and it asks *does a declared rule fail here*. For
+a finding made by the measurement channels — a cell flagged because an output moves twenty-five times
+further than usual along an axis — no rule fails anywhere, so ddmin had no criterion to preserve and
+the harness recorded no smaller description. Those 54 rows of 341 sat in nine entries, and three
+entries never verified at all: `control/symplectic_spring`, `aerospace/projectile_clean` and
+`aerospace/projectile_zero_gravity`.
+
+`aporia-bench::risk::RiskScorer` is the second predicate: the campaign's own evidence model, **frozen**
+— its fitted `Calibrator`, its measured `ChannelCorrelation`, its per-(output, axis) median slopes, and
+`Policy::suspicious_mean` as the bar — asked about coordinates the search never sampled. The
+freezing is the design. Recomputing the ordinary slope from a candidate's own three-point star makes
+every candidate typical of itself (ratio 1, channel silent), and refitting the calibrator on the
+candidates would let the reduction grade itself by a standard the report never used.
+
+It is deliberately narrower than the report, and says so. Four channels are measurable at a point:
+Physical (the model's rules and its divergence), Sensitivity (a probe slope against the frozen
+median), Numerical (f64 against f32 at the same coordinates) and Differential (the runtime against the
+independent reference). The Behavioral channel is not in the oracle at all, because a declared
+relation — monotonicity, a scaling exponent, a symmetry — is judged over the whole record set, and
+rebuilding it from one step would produce a *louder* claim than the report made. A finding whose risk
+comes only from a relation is not minimisable here; there is a test that asserts the oracle refuses
+rather than improvises.
+
+What was measured before trusting it:
+
+- **It reproduces the report at the flagged points.** On three corpus campaigns, every finding's own
+  representative scores identically under the frozen scorer and under the report: 1.000 → 1.000,
+  0.997 → 0.997, 0.740 → 0.740, 0.998 → 0.998. The fallback is only used for a finding the scorer
+  reproduces (`agrees_with`), and only after the rule oracle has failed.
+- **A scorer given *every* sensor over-flags, so it is not given every sensor.** The first version
+  judged a candidate with all the channels the campaign ran anywhere. On `control/symplectic_spring`
+  it flagged 34 of 200 recorded points where the report flagged 4 — because the report probes every
+  seventh round and compares precisions every eleventh, so most of its own records were never measured
+  that way at all. Over-flagging is the unsafe direction: ddmin would verify a reduction at coordinates
+  the atlas would not have flagged. Now a scorer is built per finding and restricted to the channels
+  that finding was actually made of.
+- **A verified reduction is a claim about the failure's shape, not a zoom into the flagged cell.**
+  Measured on `rlc_resonance`, a Physical-driven finding's reduced case pinned axis 0 at 1.29898 while
+  the labelled cell spanned [2.039219, 2.041658]. That is what dropping a parameter *means*: the
+  failure does not depend on it, and the witness set for a dropped axis is the whole declared domain.
+  Every witness of the reduced case is re-checked by the same oracle, so the row is verifiable — but it
+  is not "the same region, smaller", and an earlier version of this file would have implied that.
+- **100% verified does not mean 100% shrunk.** Of the 54 rows now attributed to the risk oracle, 15
+  drop a parameter outright; the other 39 reduce span or significant digits (descriptions like
+  `x in [0.4181, 0.5818]` against a full-precision pinned start). None is the untouched starting case.
+  `dimensions`, `digits` and `description` are in every row, so this can be re-checked rather than
+  taken on faith.
+- **Cost is reported, not hidden.** A row that needed both predicates records
+  `minimisation_evaluations` for the rule attempt *and* the risk attempt together, and
+  `oracle: "rule" | "risk"` says which question the row answers. The two answers are not the same
+  claim: a rule failure says the model is wrong at those coordinates; a risk hit says the instrument
+  would still flag them. On a control, that distinction is the entire content of the measurement.
+
+Everything else in the ladder is untouched: comparing the new run against the previous one sweep by
+sweep, all 189 sweeps and all 945 campaigns agree on every measured field except `counterexamples`
+(and `wall_ms`, which is not comparable). Detections 134, localisations 97, control cleanliness 118 of
+135, boundary rows 1125 with 813 banded and 238 inside tolerance, 63 of 63 archives replaying 37,506
+executions — identical.
 
 Definitions live in `crates/aporia-bench/src/metrics.rs`, next to the code that computes them. The
 two that carry the weight here:
@@ -342,15 +405,15 @@ Three distinct limits, and they are not the same problem.
   A-IR; outputs, traces, raised flags and instruction-step counts are compared as bit patterns. This
   is the one number in this file with no asterisk on it. The three new archives are the symmetry
   control's, so the swapped executions are inside what replay re-checks.
-- **Minimisation produced a verified smaller description for 16 of 20 entries** (14 in the first run,
-  15 in the second) on 287 of 341 individual findings. The current run is the same 341 attempts with
-  the same result: the symmetry control produces no findings, so it adds nothing to minimise. The count of attempts fell when findings were
-  merged, because there are fewer claims to minimise, and the verified share held at 84.2% (88.8%
-  before merging). The four entries that never produce one still fail for the reason recorded in
-  decision 0012: the counterexample oracle asks whether a *declared rule* fails, and a finding
-  produced only by the measurement channels violates no rule, so ddmin has nothing to preserve. Those
-  findings need a risk-threshold oracle with a frozen calibrator, which the harness does not wire up
-  yet. That is open work, not a result.
+- **Minimisation produced a verified smaller description for 287 of 341 individual findings across the
+  three 20-entry runs** (14 entries in the first, 15, then 16) — and for **341 of 341 in the current
+  run**, with all 19 entries that produced findings represented. The count of attempts fell when
+  findings were merged, because there are fewer claims to minimise, and the verified share held at
+  84.2% (88.8% before merging) until the risk-threshold oracle landed. The entries that never produced
+  one failed for the reason recorded in decision 0012: the counterexample oracle asked whether a
+  *declared rule* fails, and a finding produced only by the measurement channels violates no rule, so
+  ddmin had nothing to preserve. That is now a second oracle rather than an open hole — see "The
+  risk-threshold oracle" below, including what its 100% does and does not prove.
 - **Duplicate discovery rate: 0.447 → 0.625 → 0.677 → 0.469**, averaged over the runs at the top of the
   ladder that have a declared region and at least one finding (162 rows in the first run, 149, 148 and
   148 in the later ones). The metric counts a finding as a duplicate when it is assigned to a region

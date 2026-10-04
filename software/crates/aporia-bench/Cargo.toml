@@ -12,6 +12,7 @@ description = "APORIA's measurement harness: the corpus, the ground-truth checks
 aporia-ir = { path = "../aporia-ir" }
 aporia-dsl = { path = "../aporia-dsl" }
 aporia-runtime = { path = "../aporia-runtime" }
+aporia-numerics = { path = "../aporia-numerics" }
 aporia-evidence = { path = "../aporia-evidence" }
 aporia-properties = { path = "../aporia-properties" }
 aporia-boundary = { path = "../aporia-boundary" }

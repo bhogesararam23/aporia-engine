@@ -68,6 +68,10 @@ pub struct CaseSize {
     pub digits: u64,
     pub description: String,
     pub verified: bool,
+    /// Which question this row answers: `"rule"` — a declared rule fails at these coordinates — or
+    /// `"risk"` — the report's own frozen evidence model still puts them at or above the bar that
+    /// flagged the cell. Never both, and never silently the second one dressed as the first.
+    pub oracle: &'static str,
     pub evaluations: u64,
 }
 
@@ -78,6 +82,7 @@ impl CaseSize {
             ("digits", Json::count(self.digits)),
             ("description", Json::text(self.description.clone())),
             ("verified", Json::Bool(self.verified)),
+            ("oracle", Json::text(self.oracle.to_string())),
             ("minimisation_evaluations", Json::count(self.evaluations)),
         ])
     }
@@ -299,6 +304,17 @@ impl Outcome {
 
 /// Minimise up to three of the campaign's findings. Separate from `Outcome::measure` so the harness
 /// decides when the cost is worth paying.
+///
+/// Two oracles, in that order, and the second only when the first cannot answer. `FailureOracle` asks
+/// whether a declared rule fails, which is the strongest thing a counterexample can be verified
+/// against and costs nothing extra; when a finding came from the measurement channels instead, a rule
+/// never fails anywhere and the reduction has no criterion to preserve. Then [`RiskScorer`] asks the
+/// question the report itself asked — is this point still at or above the bar that made the cell
+/// SUSPICIOUS — against the campaign's own frozen calibrator, correlation and ordinary slopes.
+///
+/// Which oracle produced a row is recorded, because the two answers are not the same claim: a rule
+/// failure says the model is wrong at these coordinates, a risk hit says the instrument would still
+/// flag them. On a control that distinction is the entire content of the measurement.
 #[must_use]
 pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<CaseSize> {
     let Some(model) = entry.model.as_ref() else {
@@ -309,21 +325,46 @@ pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<C
         .iter()
         .take(3)
         .map(|f| {
-            let minimal = aporia_minimize::minimize(
+            let config = aporia_minimize::Config {
+                budget,
+                ..aporia_minimize::Config::default()
+            };
+            let rule = aporia_minimize::minimize(
                 &aporia_minimize::FailureOracle::new(model),
                 model,
                 &f.representative,
-                aporia_minimize::Config {
-                    budget,
-                    ..aporia_minimize::Config::default()
-                },
+                config,
             );
+            let rule_cost = rule.evaluations;
+            // Built per finding, and only trusted if it reproduces the finding first: the scorer is
+            // the campaign's frozen evidence model, and the agreement check is what stops a reduction
+            // from being graded by a question the report never asked.
+            let scorer = crate::risk::RiskScorer::for_finding(campaign, f);
+            let (minimal, oracle, evaluations) = if rule.verified || !scorer.agrees_with(model, f) {
+                (rule, "rule", rule_cost)
+            } else {
+                let risk_oracle = |x: &[f64]| scorer.violating(model, x);
+                // The budget is the shared one: the fallback is not a second helping of search, it is
+                // the same finding asked of a different oracle, and the cost of both attempts is
+                // reported together so a reader can see what the second question added.
+                let risk =
+                    aporia_minimize::minimize(&risk_oracle, model, &f.representative, config);
+                let risk_cost = risk.evaluations;
+                if risk.verified {
+                    (risk, "risk", rule_cost + risk_cost)
+                } else {
+                    // Neither verified: report the rule attempt, which is the claim the reader would
+                    // have expected, and let `verified: false` say that nothing was established.
+                    (rule, "rule", rule_cost + risk_cost)
+                }
+            };
             CaseSize {
                 dimensions: minimal.case.dimensions() as u64,
                 digits: minimal.case.digits() as u64,
                 description: minimal.case.describe(),
                 verified: minimal.verified,
-                evaluations: minimal.evaluations,
+                oracle,
+                evaluations,
             }
         })
         .collect()

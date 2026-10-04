@@ -15,6 +15,7 @@
 pub mod corpus;
 pub mod harness;
 pub mod metrics;
+pub mod risk;
 pub mod truth;
 
 use std::path::PathBuf;
