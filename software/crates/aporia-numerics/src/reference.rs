@@ -189,6 +189,7 @@ impl Evaluator<'_> {
         }
     }
 
+    #[expect(clippy::unused_self)]
     fn un(&mut self, op: Unop, a: Dd) -> Dd {
         match op {
             Unop::Neg => a.neg(),

@@ -47,7 +47,7 @@ impl Value {
     pub fn as_i64(self) -> Option<i64> {
         match self {
             Self::I64(v) => Some(v),
-            Self::Bool(b) => Some(if b { 1 } else { 0 }),
+            Self::Bool(b) => Some(i64::from(b)),
             _ => None,
         }
     }
@@ -88,6 +88,11 @@ impl Value {
 /// at dt = 0.041 is telling APORIA exactly what the project is looking for. The flags exist so the
 /// story survives to the evidence layer instead of being a NaN nobody recorded.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "this is a flag record: each bit is a distinct IEEE-754 or budget event, and a \
+              one-of-six enum would lose the cases that co-occur, which is most of them"
+)]
 pub struct Flags {
     pub nan: bool,
     pub inf: bool,
@@ -255,7 +260,7 @@ mod tests {
         };
         let m = a.merge(b);
         assert!(m.nan && m.inf);
-        assert!(a.is_clean() == false);
+        assert!(!a.is_clean());
     }
 
     #[test]

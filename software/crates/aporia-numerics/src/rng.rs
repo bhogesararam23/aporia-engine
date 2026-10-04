@@ -4,9 +4,9 @@
 //! again from the same seed is not evidence. So APORIA uses one small, explicit generator,
 //! deterministic and versioned by its own behaviour.
 //!
-//! SplitMix64 is the choice. It is eleven lines, has no state beyond one word, produces full-period
+//! `splitmix64` is the choice. It is eleven lines, has no state beyond one word, produces full-period
 //! output with a documented statistical profile, and its every-next-state is a bijective mix of the
-//! previous one, so skipping ahead by index is exact rather than approximated by iterating.
+//! previous one, so skipping ahead by an index is exact rather than approximated by iterating.
 
 /// A splitmix64 stream.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

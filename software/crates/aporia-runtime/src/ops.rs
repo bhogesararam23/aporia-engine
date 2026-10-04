@@ -8,12 +8,11 @@ use crate::value::{Flags, FpMode};
 use aporia_ir::{Binop, Builtin, NumType, Unop};
 
 /// Arithmetic on two floating values.
-/// Arithmetic on two floating values.
 #[must_use]
 pub fn bin_f64(op: Binop, a: f64, b: f64, mode: FpMode) -> (f64, Flags) {
     let mut f = Flags::default();
     match op {
-        Binop::Div | Binop::Rem => f.zero_division = b == 0.0 || (op == Binop::Rem && b == 0.0),
+        Binop::Div | Binop::Rem => f.zero_division = b == 0.0,
         Binop::Pow => f.invalid_domain = a < 0.0 && b.fract() != 0.0,
         _ => {}
     }
@@ -154,14 +153,14 @@ pub fn un_f64(op: Unop, a: f64, mode: FpMode) -> (f64, Flags) {
         Unop::Asin => (
             a.asin(),
             Flags {
-                invalid_domain: !(a >= -1.0 && a <= 1.0),
+                invalid_domain: !(-1.0..=1.0).contains(&a),
                 ..Default::default()
             },
         ),
         Unop::Acos => (
             a.acos(),
             Flags {
-                invalid_domain: !(a >= -1.0 && a <= 1.0),
+                invalid_domain: !(-1.0..=1.0).contains(&a),
                 ..Default::default()
             },
         ),
@@ -216,17 +215,12 @@ pub fn call_f64(builtin: Builtin, args: &[f64], mode: FpMode) -> (f64, Flags) {
 #[must_use]
 pub fn cast(to: NumType, v: f64) -> f64 {
     match to {
-        NumType::F64 => v,
+        // Unit carries no value, so it passes through like F64; the type is what changes, not the
+        // number.
+        NumType::F64 | NumType::Unit => v,
         NumType::F32 => f64::from(v as f32),
         NumType::I64 => v.trunc() as i64 as f64,
-        NumType::Bool => {
-            if v == 0.0 {
-                0.0
-            } else {
-                1.0
-            }
-        }
-        NumType::Unit => v,
+        NumType::Bool => f64::from(v != 0.0),
     }
 }
 
@@ -314,11 +308,11 @@ mod tests {
     #[test]
     fn fma_and_the_two_step_form_differ_by_a_rounding() {
         // The reason both spellings are in the language: they are two paths, not one path twice.
-        let (a, _) = bin_f64(Binop::Mul, 1e10, 1.0000000000000002, FpMode::F64);
+        let (a, _) = bin_f64(Binop::Mul, 1e10, 1.000_000_000_000_000_2, FpMode::F64);
         let (b, _) = bin_f64(Binop::Add, a, -1e10, FpMode::F64);
         let (c, _) = call_f64(
             Builtin::Fma,
-            &[1e10, 1.0000000000000002, -1e10],
+            &[1e10, 1.000_000_000_000_000_2, -1e10],
             FpMode::F64,
         );
         assert_ne!(

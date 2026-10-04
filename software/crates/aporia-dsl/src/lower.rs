@@ -662,6 +662,10 @@ impl Binder {
         });
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one arm per relation; the shapes differ too much to share code"
+    )]
     fn relation(&mut self, c: &CheckStmt) -> Option<(String, RelationKind)> {
         let span = c.span;
         match &c.relation {
@@ -1894,7 +1898,7 @@ mod tests {
         let p = &m.params[0];
         match &p.domain {
             Domain::Interval { lo, hi } => assert_eq!((*lo, *hi), (0.0, 1000.0)),
-            other => panic!("expected an interval, got {other:?}"),
+            Domain::Choices { .. } => panic!("expected an interval, got a choice list"),
         }
         assert_eq!(p.to_si, 1.0);
     }

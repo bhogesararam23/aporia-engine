@@ -101,7 +101,7 @@ struct Batch<'a> {
 impl Batch<'_> {
     fn execute(&mut self) {
         self.init_slots();
-        let entry = self.model.blocks.get(0).cloned().unwrap_or_default();
+        let entry = self.model.blocks.first().cloned().unwrap_or_default();
         let instrs = entry.instrs.clone();
         for id in instrs {
             self.instr(id);
@@ -189,6 +189,10 @@ impl Batch<'_> {
         }
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one arm per A-IR instruction; splitting the dispatch would scatter it"
+    )]
     fn instr(&mut self, id: Id) {
         if self.aborted {
             return;
@@ -317,16 +321,8 @@ impl Batch<'_> {
                 }
             },
             Operand::Param(i) => self.xs[lane * self.arity + *i as usize],
-            Operand::Slot(i) => self
-                .slots
-                .get(*i as usize)
-                .map(|s| s[lane])
-                .unwrap_or(f64::NAN),
-            Operand::Node(id) => self
-                .env
-                .get(*id as usize)
-                .map(|r| r[lane])
-                .unwrap_or(f64::NAN),
+            Operand::Slot(i) => self.slots.get(*i as usize).map_or(f64::NAN, |s| s[lane]),
+            Operand::Node(id) => self.env.get(*id as usize).map_or(f64::NAN, |r| r[lane]),
         }
     }
 }

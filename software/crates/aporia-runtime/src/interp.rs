@@ -221,19 +221,19 @@ impl Machine<'_> {
     fn operand(&mut self, o: &Operand) -> Value {
         match o {
             Operand::Lit(l) => lit_value(*l),
-            Operand::Param(i) => self
-                .model
-                .params
-                .get(*i as usize)
-                .map(|p| {
-                    let raw = self.x.get(*i as usize).copied().unwrap_or(f64::NAN);
-                    if p.ty.num == NumType::I64 {
-                        Value::I64(raw as i64)
-                    } else {
-                        Value::F64(raw)
-                    }
-                })
-                .unwrap_or(Value::F64(f64::NAN)),
+            Operand::Param(i) => {
+                self.model
+                    .params
+                    .get(*i as usize)
+                    .map_or(Value::F64(f64::NAN), |p| {
+                        let raw = self.x.get(*i as usize).copied().unwrap_or(f64::NAN);
+                        if p.ty.num == NumType::I64 {
+                            Value::I64(raw as i64)
+                        } else {
+                            Value::F64(raw)
+                        }
+                    })
+            }
             Operand::Slot(i) => self
                 .slots
                 .get(*i as usize)

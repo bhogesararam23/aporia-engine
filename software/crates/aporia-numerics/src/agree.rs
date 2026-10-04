@@ -7,7 +7,6 @@ use std::fmt;
 /// Signed magnitudes close to zero have dense representable neighbours, so `ulps` alone is a poor
 /// measure across a wide range; `relative` and `absolute` are reported together and each is used for
 /// the case it suits.
-#[expect(clippy::float_cmp)]
 #[must_use]
 pub fn ulps(a: f64, b: f64) -> u64 {
     if a.is_nan() || b.is_nan() {
@@ -17,7 +16,6 @@ pub fn ulps(a: f64, b: f64) -> u64 {
         // Exact equality is the question being asked here, not an approximation of one.
         return 0;
     }
-    #[expect(clippy::cast_possible_wrap)]
     // Reading the bit patterns as signed integers is the algorithm: IEEE-754 orders them
     // monotonically that way, wrapping included, which is why the casts below are exact.
     #[expect(clippy::cast_possible_wrap)]
@@ -31,7 +29,6 @@ pub fn ulps(a: f64, b: f64) -> u64 {
 
 /// Relative difference, using the larger magnitude as the denominator so the value stays in
 /// `[0, ∞)` and behaves when one side is zero.
-#[expect(clippy::float_cmp)]
 #[must_use]
 pub fn relative(a: f64, b: f64) -> f64 {
     if a == b {
