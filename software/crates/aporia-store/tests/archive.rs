@@ -82,10 +82,7 @@ fn write_dir(name: &str, cfg: ExecConfig) -> (PathBuf, Model, Records) {
         .map(|i| {
             Evidence::new(
                 Channel::Sensitivity,
-                Subject::LocalSlope {
-                    output: 0,
-                    axis: 0,
-                },
+                Subject::LocalSlope { output: 0, axis: 0 },
                 1.0 + i as f64 * 0.5,
                 vec![i],
                 String::new(),

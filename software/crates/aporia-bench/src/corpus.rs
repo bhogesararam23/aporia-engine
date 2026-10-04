@@ -57,8 +57,8 @@ impl std::fmt::Display for Problem {
 /// missing from a comparison without anyone noticing.
 pub fn load(root: &Path) -> Result<Vec<Entry>, String> {
     let registry_path = root.join("registry.json");
-    let registry_text =
-        std::fs::read_to_string(&registry_path).map_err(|e| format!("{}: {e}", registry_path.display()))?;
+    let registry_text = std::fs::read_to_string(&registry_path)
+        .map_err(|e| format!("{}: {e}", registry_path.display()))?;
     let registry = aporia_store::Json::parse(&registry_text)
         .map_err(|e| format!("{}: {e}", registry_path.display()))?;
     let families = registry
@@ -84,7 +84,10 @@ pub fn load(root: &Path) -> Result<Vec<Entry>, String> {
         }
     }
     if out.is_empty() {
-        return Err(format!("registry.json under {} names no entries", root.display()));
+        return Err(format!(
+            "registry.json under {} names no entries",
+            root.display()
+        ));
     }
     Ok(out)
 }
@@ -98,27 +101,20 @@ fn load_entry(family: &str, name: &str, dir: &Path) -> Result<Entry, String> {
             dir.display()
         ));
     }
-    let source =
-        std::fs::read_to_string(&model_path).map_err(|e| format!("{}: {e}", model_path.display()))?;
+    let source = std::fs::read_to_string(&model_path)
+        .map_err(|e| format!("{}: {e}", model_path.display()))?;
     let truth_text = std::fs::read_to_string(&truth_path)
         .map_err(|e| format!("{}: {e}", truth_path.display()))?;
     let truth_value = aporia_store::Json::parse(&truth_text)
         .map_err(|e| format!("{}: {e}", truth_path.display()))?;
     let truth = Truth::from_json(&truth_value).map_err(|e| format!("{name}: {e}"))?;
     let compiled = compile(&model_path.display().to_string(), &source);
-    let located =
-        aporia_dsl::span::Source::new(model_path.display().to_string(), source.clone());
+    let located = aporia_dsl::span::Source::new(model_path.display().to_string(), source.clone());
     let reported = compiled
         .diagnostics
         .items
         .iter()
-        .map(|d| {
-            d.render(&located)
-                .lines()
-                .next()
-                .unwrap_or("")
-                .to_string()
-        })
+        .map(|d| d.render(&located).lines().next().unwrap_or("").to_string())
         .collect::<Vec<_>>();
     let errors = compiled
         .diagnostics
@@ -380,4 +376,3 @@ pub fn centre_line(model: &Model) -> Vec<f64> {
         })
         .collect()
 }
-

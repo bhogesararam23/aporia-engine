@@ -375,10 +375,7 @@ mod tests {
     fn shared_provenance_is_detected_and_empty_never_counts() {
         let a = ev(
             Channel::Sensitivity,
-            LocalSlope {
-                output: 0,
-                axis: 0,
-            },
+            LocalSlope { output: 0, axis: 0 },
             0.6,
             &[7, 8],
         );
@@ -434,10 +431,7 @@ mod tests {
         set.push(ev(Channel::Behavioral, Relation(1), 0.8, &[2]));
         set.push(ev(
             Channel::Sensitivity,
-            LocalSlope {
-                output: 0,
-                axis: 0,
-            },
+            LocalSlope { output: 0, axis: 0 },
             0.4,
             &[1, 2],
         ));

@@ -95,8 +95,10 @@ impl Calibrator {
                 continue;
             }
             let floor = Channel::ALL[i].noise_floor().max(1e-12);
-            c.claims
-                .insert(claim_code(Channel::ALL[i], &key), median(&values).max(floor));
+            c.claims.insert(
+                claim_code(Channel::ALL[i], &key),
+                median(&values).max(floor),
+            );
         }
         c
     }
@@ -428,7 +430,7 @@ mod tests {
     fn a_claim_with_too_few_measurements_falls_back_to_the_channel() {
         // Two numbers cannot say what "typical" is: the median of a pair is its midpoint, so a claim
         // measured twice would be calibrated to report neither of them as unusual, whatever they say.
-        let items = vec![slope(3, 1.0), slope(3, 1000.0)];
+        let items = [slope(3, 1.0), slope(3, 1000.0)];
         let c = Calibrator::fit(items.iter());
         let key = Subject::LocalSlope { output: 3, axis: 0 }.key();
         assert!(!c.has_claim_scale(Channel::Sensitivity, &key));

@@ -370,11 +370,7 @@ pub fn inferred_patterns(model: &Model, records: &Records, probes: &Probes) -> V
                 // discontinuity, which is what this channel exists to find. Declared relations are
                 // unaffected: an author who wrote `monotone_up` is owed an answer about direction,
                 // and `relations` gives it one.
-                if violated > 0
-                    && violated * 4 < total
-                    && worst > 1e-6
-                    && severity >= 2.0f64.ln()
-                {
+                if violated > 0 && violated * 4 < total && worst > 1e-6 && severity >= 2.0f64.ln() {
                     out.push(Evidence::new(
                         Channel::Behavioral,
                         Subject::Pattern {
@@ -469,7 +465,10 @@ pub fn sensitivity(records: &Records, probes: &Probes) -> Vec<Evidence> {
             seen.push((pair.axis, j, slope, base.id, moved.id));
         }
     }
-    let typical: Vec<f64> = slopes.iter().map(|v| aporia_numerics::median_of(v)).collect();
+    let typical: Vec<f64> = slopes
+        .iter()
+        .map(|v| aporia_numerics::median_of(v))
+        .collect();
     for (axis, j, slope, base_id, moved_id) in seen {
         let reference = typical[axis as usize * width + j];
         if reference <= 0.0 || !reference.is_finite() {
@@ -753,7 +752,12 @@ fn exponent_evidence(
 }
 
 /// Every local exponent estimate along one axis, each with the pair that produced it.
-fn local_exponents(records: &Records, probes: &Probes, output: u16, param: u16) -> Vec<(f64, [u64; 2])> {
+fn local_exponents(
+    records: &Records,
+    probes: &Probes,
+    output: u16,
+    param: u16,
+) -> Vec<(f64, [u64; 2])> {
     let mut out = Vec::new();
     for pair in probes.pairs.iter().filter(|p| p.axis == param) {
         let (Some(base), Some(moved)) = (records.by_id(pair.base), records.by_id(pair.perturbed))
@@ -783,7 +787,12 @@ fn local_exponents(records: &Records, probes: &Probes, output: u16, param: u16) 
 
 /// Relative distance between an execution and the same execution with two parameters swapped,
 /// named to the two executions that were compared.
-fn swap_distance(records: &Records, probes: &Probes, output: u16, pair: [u16; 2]) -> Option<(f64, [u64; 2])> {
+fn swap_distance(
+    records: &Records,
+    probes: &Probes,
+    output: u16,
+    pair: [u16; 2],
+) -> Option<(f64, [u64; 2])> {
     let swap = probes.swaps.iter().find(|s| s.pair == pair)?;
     let (Some(a), Some(b)) = (records.by_id(swap.base), records.by_id(swap.swapped)) else {
         return None;
@@ -794,10 +803,7 @@ fn swap_distance(records: &Records, probes: &Probes, output: u16, pair: [u16; 2]
     if !y0.is_finite() || !y1.is_finite() {
         return None;
     }
-    Some((
-        aporia_numerics::relative(*y0, *y1),
-        [a.id, b.id],
-    ))
+    Some((aporia_numerics::relative(*y0, *y1), [a.id, b.id]))
 }
 
 fn observation_ids(_records: &Records, probes: &Probes) -> Vec<u64> {
@@ -1062,7 +1068,12 @@ mod tests {
         // difference, not the size of the numbers involved.
         let r = dataset(&m, &[&[1.0], &[1.01], &[10.0], &[10.01]]);
         let ev = sensitivity(&r, &pairs(&[(0, 1, 0), (2, 3, 0)]));
-        assert_eq!(ev.len(), 1, "{:?}", ev.iter().map(|e| &e.detail).collect::<Vec<_>>());
+        assert_eq!(
+            ev.len(),
+            1,
+            "{:?}",
+            ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
+        );
         // Only the steeper pair is above ordinary: slopes 2.01 and 20.01, their median 11.01, so the
         // ratio for the steep one is 1.82 and the shallow one reports nothing.
         assert_eq!(ev[0].channel, Channel::Sensitivity);
@@ -1152,8 +1163,7 @@ mod tests {
             ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
         );
         assert!(
-            ev.iter()
-                .all(|e| !e.subject.key().contains("continuous")),
+            ev.iter().all(|e| !e.subject.key().contains("continuous")),
             "{:?}",
             ev.iter().map(|e| e.subject.key()).collect::<Vec<_>>()
         );
@@ -1205,7 +1215,11 @@ mod tests {
                 )
             });
         assert!(found.magnitude > 1.0, "{}", found.magnitude);
-        assert_eq!(found.observations, vec![0, 4], "named to the probe that reversed");
+        assert_eq!(
+            found.observations,
+            vec![0, 4],
+            "named to the probe that reversed"
+        );
     }
 
     #[test]
