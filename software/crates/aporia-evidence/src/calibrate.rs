@@ -71,15 +71,28 @@ impl Calibrator {
         Self::fit(sets.iter().flat_map(|s| s.items.iter()))
     }
 
+    /// How unusual a measurement is, on a scale where the experiment's own typical value is zero.
+    ///
+    /// This is *excess over typical*, not a raw saturating map, and the difference decides whether
+    /// the tool is usable. A smooth quadratic has a relative gain of exactly two at every point;
+    /// mapping the typical value to 0.63 would call the whole domain of a well-behaved model
+    /// suspicious. Reporting only what stands out above the population is what makes a high risk
+    /// mean "somewhere in here is unlike elsewhere" rather than "this model contains numbers".
+    ///
+    /// The consequence, stated plainly: an experiment in which everything is anomalous has nothing
+    /// that stands out, and this reports nothing unusual. That is the honest reading, and the fitted
+    /// scale goes into the manifest so a reader can see that it happened.
     #[must_use]
     pub fn strength(&self, channel: Channel, magnitude: f64) -> f64 {
         if !magnitude.is_finite() || magnitude <= 0.0 {
             return 0.0;
         }
         let scale = self.scale[channel.index()];
-        // Saturating, monotone, and dimensionless: magnitude equal to the fitted scale lands at
-        // about 0.63, twice the scale at 0.86, ten times at essentially 1.
-        1.0 - (-magnitude / scale).exp()
+        let excess = magnitude / scale - 1.0;
+        if excess <= 0.0 {
+            return 0.0;
+        }
+        1.0 - (-excess).exp()
     }
 
     #[must_use]
@@ -95,6 +108,9 @@ impl Calibrator {
     /// Attach strengths to a batch of evidence in place.
     pub fn apply(&self, items: &mut [Evidence]) {
         for e in items {
+            if e.is_fixed() {
+                continue;
+            }
             e.strength = self.strength(e.channel, e.magnitude);
         }
     }
@@ -153,10 +169,51 @@ mod tests {
     }
 
     #[test]
-    fn an_unfitted_channel_maps_the_magnitude_directly() {
+    fn an_unfitted_channel_treats_one_as_the_typical_value() {
         let c = Calibrator::new();
         assert!(!c.is_fitted(Channel::Numerical));
-        assert!((c.strength(Channel::Numerical, 1.0) - (1.0 - (-1.0f64).exp())).abs() < 1e-12);
+        // Scale 1 is the default, so a magnitude of one is "typical" and reads as nothing unusual,
+        // while twice that lands at 1 - e^-1.
+        assert_eq!(c.strength(Channel::Numerical, 1.0), 0.0);
+        assert!((c.strength(Channel::Numerical, 2.0) - (1.0 - (-1.0f64).exp())).abs() < 1e-12);
+    }
+
+    #[test]
+    fn the_typical_measurement_of_a_channel_reads_as_zero() {
+        // The property the search depends on: nothing counts as standing out unless it differs from
+        // the rest of the experiment.
+        let items: Vec<Evidence> = (0..21)
+            .map(|i| evidence(Channel::Sensitivity, 0.1 + i as f64 * 0.1))
+            .collect();
+        let c = Calibrator::fit(items.iter());
+        let typical = c.scale_of(Channel::Sensitivity);
+        assert_eq!(c.strength(Channel::Sensitivity, typical * 0.9), 0.0);
+        assert!(c.strength(Channel::Sensitivity, typical) < 1e-12);
+        assert!(c.strength(Channel::Sensitivity, typical * 2.0) > 0.5);
+    }
+
+    #[test]
+    fn a_fired_rule_is_not_calibrated_away() {
+        // Twenty identical hard violations plus one ordinary measurement: the violations must stay
+        // at full strength even though a purely relative calibration would flatten them.
+        let mut items: Vec<Evidence> = (0..20)
+            .map(|i| {
+                Evidence::new(
+                    Channel::Physical,
+                    crate::channel::Subject::Constraint(0),
+                    1.0,
+                    vec![i],
+                    String::new(),
+                )
+                .absolute(1.0)
+            })
+            .collect();
+        items.push(evidence(Channel::Sensitivity, 3.0));
+        let c = Calibrator::fit(items.iter());
+        c.apply(&mut items);
+        assert_eq!(items[0].strength, 1.0);
+        assert!(items[0].is_fixed());
+        assert!(!items[20].is_fixed());
     }
 
     #[test]
@@ -166,7 +223,7 @@ mod tests {
             .collect();
         let c = Calibrator::fit(items.iter());
         let typical = c.scale_of(Channel::Sensitivity);
-        let s = c.strength(Channel::Sensitivity, typical);
+        let s = c.strength(Channel::Sensitivity, typical * 2.0);
         assert!((s - 0.632).abs() < 0.01, "{s}");
         assert!(c.is_fitted(Channel::Sensitivity));
     }
@@ -190,7 +247,7 @@ mod tests {
 
     #[test]
     fn a_channel_that_produced_nothing_keeps_its_default() {
-        let items = vec![evidence(Channel::Physical, 2.0)];
+        let items = [evidence(Channel::Physical, 2.0)];
         let c = Calibrator::fit(items.iter());
         assert!(c.is_fitted(Channel::Physical));
         assert!(!c.is_fitted(Channel::Differential));
@@ -218,15 +275,30 @@ mod tests {
     }
 
     #[test]
-    fn applying_a_calibration_fills_every_strength() {
+    fn applying_a_calibration_leaves_only_the_unusual_above_zero() {
+        // Two channels, each with a typical value and an outlier: the outlier must be lifted, the
+        // typical one must stay at zero, and nothing may exceed one.
         let items = vec![
             evidence(Channel::Behavioral, 0.5),
+            evidence(Channel::Behavioral, 0.5),
+            evidence(Channel::Behavioral, 5.0),
             evidence(Channel::Sensitivity, 2.0),
+            evidence(Channel::Sensitivity, 2.0),
+            evidence(Channel::Sensitivity, 20.0),
         ];
         let c = Calibrator::fit(items.iter());
         let mut items = items;
         c.apply(&mut items);
-        assert!(items.iter().all(|e| e.strength > 0.0 && e.strength <= 1.0));
+        assert!(items.iter().all(|e| (0.0..=1.0).contains(&e.strength)));
+        assert_eq!(items[0].strength, 0.0);
+        assert!(
+            items[2].strength > 0.9,
+            "the behavioural outlier stayed quiet"
+        );
+        assert!(
+            items[5].strength > 0.9,
+            "the sensitivity outlier stayed quiet"
+        );
     }
 
     #[test]

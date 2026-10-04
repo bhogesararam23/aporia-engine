@@ -99,12 +99,10 @@ pub fn constraints(model: &Model, o: &Observation) -> Vec<Evidence> {
                         if other.holds(l, r, *tolerance) {
                             continue;
                         }
-                        let bound = match other {
-                            CmpOp::Lt | CmpOp::Le | CmpOp::Ge => r,
-                            _ => r,
-                        };
                         (
-                            residual(l, bound),
+                            // Whichever comparison failed, the distance to the declared bound is the
+                            // same quantity: how far the value sits outside the rule.
+                            residual(l, r),
                             format!("{} violated: {l} not {other:?} {r}", c.name),
                         )
                     }
@@ -121,13 +119,19 @@ pub fn constraints(model: &Model, o: &Observation) -> Vec<Evidence> {
             }
         };
         if magnitude > 0.0 {
-            out.push(Evidence::new(
+            let e = Evidence::new(
                 Channel::Physical,
                 Subject::Constraint(c.id),
                 magnitude,
                 vec![o.id],
                 detail,
-            ));
+            );
+            // A `finite` rule is a boolean outcome, not a magnitude to compare against other
+            // measurements of the same channel.
+            out.push(match &c.kind {
+                ConstraintKind::Finite { .. } => e.absolute(1.0),
+                ConstraintKind::Cmp { .. } => e,
+            });
         }
     }
     out
@@ -141,27 +145,37 @@ pub fn divergence(model: &Model, o: &Observation) -> Vec<Evidence> {
     let mut out = Vec::new();
     for (j, y) in o.y.iter().enumerate() {
         if y.is_nan() {
-            out.push(Evidence::new(
-                Channel::Physical,
-                Subject::Divergence { output: j as u16 },
-                1.0,
-                vec![o.id],
-                format!("{} is NaN", model.outputs[j].name),
-            ));
+            out.push(
+                Evidence::new(
+                    Channel::Physical,
+                    Subject::Divergence { output: j as u16 },
+                    1.0,
+                    vec![o.id],
+                    format!("{} is NaN", model.outputs[j].name),
+                )
+                .absolute(1.0),
+            );
         } else if y.is_infinite() {
-            out.push(Evidence::new(
-                Channel::Physical,
-                Subject::Divergence { output: j as u16 },
-                0.9,
-                vec![o.id],
-                format!("{} is infinite", model.outputs[j].name),
-            ));
+            out.push(
+                Evidence::new(
+                    Channel::Physical,
+                    Subject::Divergence { output: j as u16 },
+                    1.0,
+                    vec![o.id],
+                    format!("{} is infinite", model.outputs[j].name),
+                )
+                .absolute(0.9),
+            );
         }
     }
     out
 }
 
 /// A declared relation, measured over the pairs that probe it.
+#[expect(
+    clippy::too_many_lines,
+    reason = "one arm per relation kind, and each measurement is its own algorithm"
+)]
 #[must_use]
 pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evidence> {
     let mut out = Vec::new();
@@ -401,7 +415,7 @@ pub fn disagreement(
                 ids.to_vec(),
                 format!(
                     "{} differs between paths: rel={rel:.3e} ulps={ulps}",
-                    model.outputs.get(j).map(|o| o.name.as_str()).unwrap_or("?")
+                    model.outputs.get(j).map_or("?", |o| o.name.as_str())
                 ),
             ));
         }
@@ -793,8 +807,7 @@ mod tests {
         assert_eq!(
             ev.len(),
             1,
-            "explicit Euler does not conserve energy: {:?}",
-            ev
+            "explicit Euler does not conserve energy: {ev:?}"
         );
         assert!(ev[0].magnitude > 1.0);
         assert!(ev[0].detail.contains("drifted"), "{}", ev[0].detail);
@@ -940,6 +953,24 @@ mod tests {
             "{:?}",
             ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn a_nan_is_a_fact_and_not_a_relative_measurement() {
+        // Even if every other finding in the experiment is a NaN, that is not evidence that NaN is
+        // the expected outcome: the strength must stay at full.
+        let m = model(
+            "model n \"\" {
+ input x in [-4, 4]
+ let y = sqrt(x)
+ require finite(y)
+}
+",
+        );
+        let ev = divergence(&m, &record(&m, 0, &[-1.0]));
+        assert_eq!(ev.len(), 1);
+        assert!(ev[0].is_fixed(), "{:?}", ev[0]);
+        assert_eq!(ev[0].strength, 1.0);
     }
 
     #[test]

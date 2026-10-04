@@ -62,7 +62,6 @@ impl Probes {
     }
 
     /// Pairs along one axis.
-    #[must_use]
     pub fn on_axis(&self, axis: u16) -> impl Iterator<Item = (&Pair, ProbeKind)> {
         self.pairs
             .iter()

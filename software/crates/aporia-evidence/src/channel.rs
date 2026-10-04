@@ -154,6 +154,8 @@ pub struct Evidence {
     pub strength: f64,
     pub observations: Vec<u64>,
     pub detail: String,
+    /// See [`Evidence::absolute`].
+    pub fixed: bool,
 }
 
 impl Evidence {
@@ -172,6 +174,7 @@ impl Evidence {
             strength: 0.0,
             observations,
             detail,
+            fixed: false,
         }
     }
 
@@ -194,6 +197,24 @@ impl Evidence {
         self.observations
             .iter()
             .any(|a| other.observations.contains(a))
+    }
+
+    /// Evidence whose strength is a fact rather than a measurement.
+    ///
+    /// A rule that fired is fired; it must not be diluted because every other violation in the
+    /// experiment fired by the same amount. Calibration answers "how unusual is this number", and
+    /// "unusual" has no meaning for a boolean outcome, so this flag lets the calibrator leave such
+    /// an item alone. Set by the divergence and hard-failure analyses.
+    #[must_use]
+    pub fn absolute(mut self, strength: f64) -> Self {
+        self.strength = strength.clamp(0.0, 1.0);
+        self.fixed = true;
+        self
+    }
+
+    #[must_use]
+    pub fn is_fixed(&self) -> bool {
+        self.fixed
     }
 
     /// The report's confidence word. `strength` is continuous; people need a discrete one.
