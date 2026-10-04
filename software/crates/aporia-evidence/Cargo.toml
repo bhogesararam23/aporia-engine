@@ -1,0 +1,15 @@
+[package]
+name = "aporia-evidence"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Evidence as first-class data: five channels, robust calibration, correlation-aware fusion and Pareto ranking."
+
+[dependencies]
+aporia-ir = { path = "../aporia-ir" }
+
+[lints]
+workspace = true
