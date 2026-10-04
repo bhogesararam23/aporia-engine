@@ -49,6 +49,19 @@ pub struct Config {
     /// Re-run the model in f32 every nth base point and record the comparison. Costs one evaluation
     /// per run, so it is off by default.
     pub numerical_every: u64,
+    /// Re-run the model through the independent double-double reference path every nth base point,
+    /// and record where the two implementations disagree.
+    ///
+    /// This is the Differential channel: a different program, in a different crate, with deliberately
+    /// duplicated arithmetic, computing the same answer (`aporia_numerics::reference`). The f32
+    /// comparison above asks "does the answer depend on the precision I chose"; this one asks "do two
+    /// implementations agree", which is a different question and is the evidence the spec's fifth
+    /// channel names.
+    ///
+    /// It costs one reference evaluation per firing, and the reference path is several times slower
+    /// than the runtime, so the rate is a declared cost. Off by default for library callers; the
+    /// benchmark sets a rate, because a channel that never fires is not a channel.
+    pub differential_every: u64,
     /// Relabel and refine the atlas every nth evaluation.
     pub refine_every: u64,
     pub max_steps_per_evaluation: u64,
@@ -64,6 +77,7 @@ impl Default for Config {
             policy: Policy::default(),
             calibrate_every: 250,
             numerical_every: 0,
+            differential_every: 0,
             refine_every: 64,
             max_steps_per_evaluation: 20_000_000,
         }
@@ -95,7 +109,8 @@ impl Config {
         format!(
             concat!(
                 "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},",
-                "\"calibrate_every\":{},\"numerical_every\":{},\"refine_every\":{},",
+                "\"calibrate_every\":{},\"numerical_every\":{},\"differential_every\":{},",
+                "\"refine_every\":{},",
                 "\"atlas\":{{\"suspicious_mean\":{},\"suspicious_peak\":{},\"min_samples\":{},",
                 "\"min_channels\":{},\"suspicious_channels\":{},\"max_depth\":{}}}}}"
             ),
@@ -105,6 +120,7 @@ impl Config {
             self.probe_every,
             self.calibrate_every,
             self.numerical_every,
+            self.differential_every,
             self.refine_every,
             self.policy.suspicious_mean,
             self.policy.suspicious_peak,
@@ -282,6 +298,29 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         if let Some(o) = records.by_id(id) {
             fresh.extend(constraints(model, o));
             fresh.extend(divergence(model, o));
+            // Differential channel: the same point through an independent implementation. The
+            // reference evaluator lives in another crate, repeats the arithmetic on purpose, and
+            // works in double-double, so agreement between it and the runtime is evidence about the
+            // model rather than evidence about shared code. Charged as the evaluation it costs: a
+            // channel that gets something for free makes every later cost comparison dishonest.
+            if config.differential_every > 0
+                && round.is_multiple_of(config.differential_every)
+                && evaluations < config.budget
+            {
+                let reference = aporia_numerics::reference::evaluate(
+                    model,
+                    &x,
+                    config.max_steps_per_evaluation,
+                );
+                evaluations += 1;
+                steps += reference.steps;
+                fresh.extend(aporia_properties::against_reference(
+                    model,
+                    &[id],
+                    &o.y,
+                    &reference.values(),
+                ));
+            }
         }
         let subset = subset_records(&records, &group);
         let subset_probes = subset_probes(&probes, &group);

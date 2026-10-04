@@ -546,7 +546,18 @@ pub fn numerical(model: &Model, ids: &[u64], f64_out: &[f64], f32_out: &[f64]) -
     disagreement(model, ids, f64_out, f32_out, Channel::Numerical)
 }
 
-/// Numerical channel, stronger form: the model against its double-double reference.
+/// Differential channel: the runtime against an independent implementation of the same model.
+///
+/// The distinction from `numerical` is the one §7 of the specification draws. f64-versus-f32 asks
+/// "does the answer depend strongly on the numerical choices I made inside this one program?" — one
+/// implementation, two configurations. Against the reference path asks "do two programs agree?" —
+/// `aporia_numerics::reference` is a separate evaluator that repeats the arithmetic on purpose,
+/// because if it shared the runtime's operations then agreement would prove something about the code
+/// and nothing about the model. A disagreement between configurations is a conditioning signal; a
+/// disagreement between implementations is a claim that one of them is wrong.
+///
+/// This function had no caller anywhere in the project until the campaign wired it, which is how a
+/// five-channel instrument shipped with four channels for a whole measurement campaign.
 #[must_use]
 pub fn against_reference(
     model: &Model,
@@ -554,13 +565,14 @@ pub fn against_reference(
     fast: &[f64],
     reference: &[f64],
 ) -> Vec<Evidence> {
-    let mut out = disagreement(model, ids, fast, reference, Channel::Numerical);
-    for e in &mut out {
-        // The reference comparison is the more trustworthy of the two numerical signals, and the
-        // magnitude needs to reflect that it is measured against a better answer rather than a
-        // worse one. The scaling is a factor of f64 epsilon relative to the observed distance.
-        e.magnitude *= 1.0 / 1e-9;
-    }
+    let out = disagreement(model, ids, fast, reference, Channel::Differential);
+    // No magnitude fudge here. An earlier version multiplied this channel's distances by 1e9 "because
+    // the reference is the more trustworthy signal", which was a way of making one channel outrank
+    // another by decree; it predates per-claim calibration, and with 0014 in place it is both
+    // unnecessary and harmful — it put the channel's own typical value at 1e9 times the measured
+    // distance, so genuine 0.2% disagreements between two implementations calibrated to zero.
+    // "How unusual is this for this claim" is now answered by the calibrator, not baked into the
+    // measurement.
     out
 }
 

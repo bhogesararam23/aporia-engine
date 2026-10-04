@@ -41,10 +41,19 @@ impl Channel {
     #[must_use]
     pub const fn noise_floor(self) -> f64 {
         match self {
-            // Only the numerical channel has a noise band: the others measure something whose
-            // smallest meaningful value is set by the model, not by the representation.
+            // f64 against f32: the expected disagreement of a well-conditioned computation is about
+            // 1e-7, so anything at that level is the representation talking, not the model.
             Self::Numerical => 1e-6,
-            Self::Behavioral | Self::Physical | Self::Differential | Self::Sensitivity => 0.0,
+            // f64 against the double-double reference: the expected disagreement of a
+            // well-conditioned computation is a few ulps of f64. Without a floor here the wiring of
+            // the differential channel made the controls *dirtier* rather than cleaner — the
+            // spring's differential magnitudes ran down to 1e-16, its channel median collapsed onto
+            // the 1e-12 absolute guard in `fit`, and dividing by that amplified ordinary round-off
+            // into maximum strength. Measured: control zero-suspicion campaigns went 73/90 down to
+            // 49/90 and control suspicious volume at the top of the ladder went 0.15% to 1.09%
+            // before this floor existed.
+            Self::Differential => 1e-13,
+            Self::Behavioral | Self::Physical | Self::Sensitivity => 0.0,
         }
     }
 

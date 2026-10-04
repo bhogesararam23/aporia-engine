@@ -32,6 +32,11 @@ pub struct Plan {
     pub calibrate_every: u64,
     pub refine_every: u64,
     pub numerical_every: u64,
+    /// Every nth base point is also run through the independent double-double reference evaluator,
+    /// which is what makes the Differential channel exist during a measurement. Costs one reference
+    /// evaluation per firing — the reference path is several times slower per step than the runtime —
+    /// so it is a rate rather than a flag, and the rate is recorded in the plan the results carry.
+    pub differential_every: u64,
     /// Where per-entry archives go. Left empty, the harness skips archiving: the archives are the
     /// expensive part of a run and their numbers do not change the search.
     pub archive_dir: std::path::PathBuf,
@@ -49,6 +54,7 @@ impl Default for Plan {
             calibrate_every: 25,
             refine_every: 40,
             numerical_every: 11,
+            differential_every: 11,
             archive_dir: std::path::PathBuf::new(),
         }
     }
@@ -64,6 +70,7 @@ impl Plan {
             policy: Policy::default(),
             calibrate_every: self.calibrate_every,
             numerical_every: self.numerical_every,
+            differential_every: self.differential_every,
             refine_every: self.refine_every,
             max_steps_per_evaluation: 2_000_000,
         }
@@ -289,7 +296,7 @@ pub fn archive_and_replay(
 
 fn campaign_config_json(plan: &Plan, strategy: Strategy, seed: u64) -> String {
     format!(
-        "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},\"calibrate_every\":{},\"refine_every\":{},\"numerical_every\":{}}}",
+        "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},\"calibrate_every\":{},\"refine_every\":{},\"numerical_every\":{},\"differential_every\":{}}}",
         plan.budgets.last().copied().unwrap_or(0),
         crate::metrics::strategy_name(strategy),
         seed,
@@ -297,6 +304,7 @@ fn campaign_config_json(plan: &Plan, strategy: Strategy, seed: u64) -> String {
         plan.calibrate_every,
         plan.refine_every,
         plan.numerical_every,
+        plan.differential_every,
     )
 }
 
