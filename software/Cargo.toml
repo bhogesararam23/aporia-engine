@@ -2,8 +2,10 @@
 resolver = "3"
 members = [
     "crates/aporia-dsl",
+    "crates/aporia-boundary",
     "crates/aporia-evidence",
     "crates/aporia-ir",
+    "crates/aporia-properties",
     "crates/aporia-numerics",
     "crates/aporia-runtime",
 ]

@@ -1,0 +1,16 @@
+[package]
+name = "aporia-boundary"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The Trust Atlas: an adaptive partition of the parameter space, its classification rules, and the boundary bands read out of it."
+
+[dependencies]
+aporia-ir = { path = "../aporia-ir" }
+aporia-evidence = { path = "../aporia-evidence" }
+
+[lints]
+workspace = true

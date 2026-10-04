@@ -3,6 +3,14 @@
 version = 4
 
 [[package]]
+name = "aporia-boundary"
+version = "0.1.0"
+dependencies = [
+ "aporia-evidence",
+ "aporia-ir",
+]
+
+[[package]]
 name = "aporia-dsl"
 version = "0.1.0"
 dependencies = [
@@ -26,6 +34,17 @@ version = "0.1.0"
 dependencies = [
  "aporia-dsl",
  "aporia-ir",
+]
+
+[[package]]
+name = "aporia-properties"
+version = "0.1.0"
+dependencies = [
+ "aporia-dsl",
+ "aporia-evidence",
+ "aporia-ir",
+ "aporia-numerics",
+ "aporia-runtime",
 ]
 
 [[package]]
