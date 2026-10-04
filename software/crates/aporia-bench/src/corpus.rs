@@ -48,68 +48,98 @@ impl std::fmt::Display for Problem {
     }
 }
 
-/// Load every entry under a corpus root. A directory with a model but no truth file, or the other
-/// way round, is reported rather than skipped.
+/// Load every entry the registry names.
+///
+/// The registry, not the filesystem, decides what is a corpus entry. Walking directories instead
+/// meant an experiment archive written under the corpus root was parsed as a model, and it would
+/// also have accepted a stray directory a person left there. A file the registry names and the
+/// filesystem lacks is an error, because a silently skipped benchmark is a number that went
+/// missing from a comparison without anyone noticing.
 pub fn load(root: &Path) -> Result<Vec<Entry>, String> {
+    let registry_path = root.join("registry.json");
+    let registry_text =
+        std::fs::read_to_string(&registry_path).map_err(|e| format!("{}: {e}", registry_path.display()))?;
+    let registry = aporia_store::Json::parse(&registry_text)
+        .map_err(|e| format!("{}: {e}", registry_path.display()))?;
+    let families = registry
+        .get("families")
+        .and_then(aporia_store::Json::as_array)
+        .ok_or_else(|| "registry.json has no families array".to_string())?;
     let mut out = Vec::new();
-    let families = sorted_dirs(root)?;
     for family in families {
-        let family_name = file_name(&family);
-        if family_name.starts_with('.') {
-            continue;
-        }
-        for dir in sorted_dirs(&family)? {
-            let name = file_name(&dir);
-            let model_path = dir.join("model.ap");
-            let truth_path = dir.join("truth.json");
-            if !model_path.exists() || !truth_path.exists() {
-                return Err(format!(
-                    "{} needs both model.ap and truth.json",
-                    dir.display()
-                ));
-            }
-            let source = std::fs::read_to_string(&model_path)
-                .map_err(|e| format!("{}: {e}", model_path.display()))?;
-            let truth_text = std::fs::read_to_string(&truth_path)
-                .map_err(|e| format!("{}: {e}", truth_path.display()))?;
-            let truth_value = aporia_store::Json::parse(&truth_text)
-                .map_err(|e| format!("{}: {e}", truth_path.display()))?;
-            let truth = Truth::from_json(&truth_value).map_err(|e| format!("{name}: {e}"))?;
-            let compiled = compile(&model_path.display().to_string(), &source);
-            let located =
-                aporia_dsl::span::Source::new(model_path.display().to_string(), source.clone());
-            let reported = compiled
-                .diagnostics
-                .items
-                .iter()
-                .map(|d| d.render(&located).lines().next().unwrap_or("").to_string())
-                .collect::<Vec<_>>();
-            let problems = compiled
-                .diagnostics
-                .items
-                .iter()
-                .filter(|d| d.severity == aporia_dsl::span::Severity::Error)
-                .count();
-            let model = if problems == 0 {
-                Some(compiled.model)
-            } else {
-                None
-            };
-            out.push(Entry {
-                family: family_name.clone(),
-                name,
-                dir,
-                source,
-                model,
-                diagnostics: reported,
-                truth,
-            });
+        let name = family
+            .get("name")
+            .and_then(aporia_store::Json::as_str)
+            .ok_or_else(|| "a family has no name".to_string())?;
+        let entries = family
+            .get("entries")
+            .and_then(aporia_store::Json::as_array)
+            .ok_or_else(|| format!("family {name} has no entries array"))?;
+        for entry in entries {
+            let entry_name = entry
+                .as_str()
+                .ok_or_else(|| format!("family {name} has a non-string entry"))?;
+            let dir = root.join(name).join(entry_name);
+            out.push(load_entry(name, entry_name, &dir)?);
         }
     }
     if out.is_empty() {
-        return Err(format!("no corpus entries found under {}", root.display()));
+        return Err(format!("registry.json under {} names no entries", root.display()));
     }
     Ok(out)
+}
+
+fn load_entry(family: &str, name: &str, dir: &Path) -> Result<Entry, String> {
+    let model_path = dir.join("model.ap");
+    let truth_path = dir.join("truth.json");
+    if !model_path.exists() || !truth_path.exists() {
+        return Err(format!(
+            "{} needs both model.ap and truth.json",
+            dir.display()
+        ));
+    }
+    let source =
+        std::fs::read_to_string(&model_path).map_err(|e| format!("{}: {e}", model_path.display()))?;
+    let truth_text = std::fs::read_to_string(&truth_path)
+        .map_err(|e| format!("{}: {e}", truth_path.display()))?;
+    let truth_value = aporia_store::Json::parse(&truth_text)
+        .map_err(|e| format!("{}: {e}", truth_path.display()))?;
+    let truth = Truth::from_json(&truth_value).map_err(|e| format!("{name}: {e}"))?;
+    let compiled = compile(&model_path.display().to_string(), &source);
+    let located =
+        aporia_dsl::span::Source::new(model_path.display().to_string(), source.clone());
+    let reported = compiled
+        .diagnostics
+        .items
+        .iter()
+        .map(|d| {
+            d.render(&located)
+                .lines()
+                .next()
+                .unwrap_or("")
+                .to_string()
+        })
+        .collect::<Vec<_>>();
+    let errors = compiled
+        .diagnostics
+        .items
+        .iter()
+        .filter(|d| d.severity == aporia_dsl::span::Severity::Error)
+        .count();
+    let model = if errors == 0 {
+        Some(compiled.model)
+    } else {
+        None
+    };
+    Ok(Entry {
+        family: family.to_string(),
+        name: name.to_string(),
+        dir: dir.to_path_buf(),
+        source,
+        model,
+        diagnostics: reported,
+        truth,
+    })
 }
 
 /// The direct answer to "is this point a failure", from the model's own declared rules.
@@ -351,21 +381,3 @@ pub fn centre_line(model: &Model) -> Vec<f64> {
         .collect()
 }
 
-fn sorted_dirs(path: &Path) -> Result<Vec<PathBuf>, String> {
-    let mut out = Vec::new();
-    for entry in std::fs::read_dir(path).map_err(|e| format!("{}: {e}", path.display()))? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let p = entry.path();
-        if p.is_dir() {
-            out.push(p);
-        }
-    }
-    out.sort();
-    Ok(out)
-}
-
-fn file_name(path: &Path) -> String {
-    path.file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_default()
-}
