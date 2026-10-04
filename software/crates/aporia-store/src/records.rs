@@ -140,6 +140,10 @@ pub fn read(bytes: &[u8]) -> Result<Records, crate::StoreError> {
             flags: Flags::from_bits(flag_byte),
             steps,
             id,
+            // Rule values are not archived: they are whatever the model computes from `x`, and a
+            // replay recomputes them. Storing them would let a stale value disagree with the
+            // outputs it was derived from.
+            rule_values: Vec::new(),
         });
     }
     if at != bytes.len() {

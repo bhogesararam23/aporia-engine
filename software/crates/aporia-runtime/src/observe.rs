@@ -24,6 +24,9 @@ pub struct Observation {
     pub steps: u64,
     /// A stable id within an experiment, used by evidence and by the report to point back here.
     pub id: u64,
+    /// The values of instruction results that a declared rule reads, paired with the node id. Empty
+    /// for a model whose rules only name parameters and outputs.
+    pub rule_values: Vec<(u32, f64)>,
 }
 
 impl Observation {
@@ -36,6 +39,7 @@ impl Observation {
             flags: outcome.flags,
             steps: outcome.steps,
             id,
+            rule_values: outcome.rule_values.clone(),
         }
     }
 
@@ -136,6 +140,7 @@ mod tests {
                 traces: vec![vec![1.0, 2.0]],
                 flags: Flags::default(),
                 steps,
+                rule_values: Vec::new(),
             },
         )
     }

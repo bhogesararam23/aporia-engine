@@ -711,6 +711,38 @@ impl Model {
             .position(|s| s.name == name)
             .map(|i| i as SlotId)
     }
+
+    /// Every instruction result that a declared rule reads, in first-mention order.
+    ///
+    /// A rule like `require abs(root - stable) < bound` compares two computed values. They are not
+    /// outputs — the author asked for a check, not a measurement — and an observation that only
+    /// carries parameter and output values cannot answer whether the rule held. This is the list an
+    /// execution has to record so the physical channel can evaluate the rules that were actually
+    /// written, instead of only the ones that happened to name a top-level value.
+    ///
+    /// Relations are not included: they name outputs and traces, both of which an observation
+    /// already carries.
+    #[must_use]
+    pub fn rule_nodes(&self) -> Vec<Id> {
+        let mut out: Vec<Id> = Vec::new();
+        let mut mention = |operand: &Operand| {
+            if let Operand::Node(id) = operand
+                && !out.contains(id)
+            {
+                out.push(*id);
+            }
+        };
+        for c in &self.constraints {
+            match &c.kind {
+                ConstraintKind::Cmp { lhs, rhs, .. } => {
+                    mention(lhs);
+                    mention(rhs);
+                }
+                ConstraintKind::Finite { value } => mention(value),
+            }
+        }
+        out
+    }
 }
 
 #[cfg(test)]

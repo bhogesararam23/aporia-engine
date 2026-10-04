@@ -19,6 +19,10 @@ pub struct Outcome {
     pub flags: Flags,
     /// Instructions executed, which is the unit the cost metrics count in.
     pub steps: u64,
+    /// The values of the instruction results that a declared `require` reads, paired with the node
+    /// id they belong to. A rule comparing two computed quantities cannot be evaluated from outputs
+    /// alone, because the author asked for a check rather than a measurement.
+    pub rule_values: Vec<(u32, f64)>,
 }
 
 impl Outcome {
@@ -69,11 +73,20 @@ impl Machine<'_> {
             .iter()
             .map(|o| self.operand(&o.value).as_f64())
             .collect();
+        // Rule operands are read from the finished environment. A node inside a loop holds its last
+        // iteration's value, which is the value the rule sees when the model says "this always
+        // holds" and the search asks whether it did.
+        let rule_nodes = self.model.rule_nodes();
+        let rule_values = rule_nodes
+            .into_iter()
+            .map(|id| (id, self.env[id as usize].as_f64()))
+            .collect();
         Outcome {
             outputs,
             traces: self.traces,
             flags: self.flags,
             steps: self.steps,
+            rule_values,
         }
     }
 

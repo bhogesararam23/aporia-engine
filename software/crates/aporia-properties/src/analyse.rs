@@ -48,8 +48,17 @@ fn observation_value(o: &Observation, operand: &Operand, model: &Model) -> Optio
         Operand::Lit(l) => l.as_f64(),
         Operand::Param(i) => o.x.get(*i as usize).copied(),
         Operand::Slot(_) | Operand::Node(_) => {
-            // Outputs are the only stable names at observation time; slots and nodes are resolved
-            // through the output list the lowering produced.
+            // First the values an execution recorded for the rules it was given: a rule over a
+            // computed quantity, like `abs(root - stable) < bound`, names no output at all, and
+            // without this the rule would be skipped and the physical channel would be blind to
+            // exactly the faults an author is most likely to write a rule about.
+            if let Operand::Node(id) = operand
+                && let Some((_, v)) = o.rule_values.iter().find(|(n, _)| *n == *id)
+            {
+                return Some(*v);
+            }
+            // Otherwise fall back to the output the value was named by, which is how a rule over a
+            // top-level `let` resolves.
             model
                 .outputs
                 .iter()
@@ -719,6 +728,44 @@ mod tests {
         );
         assert_eq!(ev[0].channel, Channel::Physical);
         assert_eq!(ev[0].observations, vec![0]);
+    }
+
+    #[test]
+    fn a_rule_over_computed_values_is_evaluated_not_skipped() {
+        // `require gap < bound` names two intermediate results and no output at all. Resolving rule
+        // operands only through the output list made this rule invisible: nothing was reported, on
+        // either side of the boundary, which is the worst kind of blindness because it looks like
+        // agreement.
+        let m = model(
+            "model q \"\" {
+ input b in [1, 10000]
+ let s = b * b
+ let gap = s - b * b
+ let bound = 0.001
+ require gap < bound
+}
+",
+        );
+        let nodes = m.rule_nodes();
+        assert!(!nodes.is_empty(), "the rule should name computed operands");
+        let good = record(&m, 0, &[2.0]);
+        assert!(
+            constraints(&m, &good).is_empty(),
+            "gap is exactly zero, so the rule holds"
+        );
+        let bad = model(
+            "model q2 \"\" {
+ input b in [1, 10000]
+ let gap = b - 100
+ let bound = 5
+ require gap < bound
+}
+",
+        );
+        let over = record(&bad, 1, &[9000.0]);
+        let ev = constraints(&bad, &over);
+        assert_eq!(ev.len(), 1, "a computed lhs must still be checked");
+        assert_eq!(ev[0].channel, Channel::Physical);
     }
 
     #[test]

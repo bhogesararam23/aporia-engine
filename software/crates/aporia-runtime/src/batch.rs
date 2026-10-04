@@ -24,6 +24,9 @@ pub struct BatchOutcome {
     /// One flag set per candidate, so a single NaN in a batch of a million is attributable.
     pub flags: Vec<Flags>,
     pub steps: u64,
+    /// `[node][candidate]` for the instruction results that a declared `require` reads, so the
+    /// batched path can answer the same rule questions the scalar one can.
+    pub rule_values: Vec<(u32, Vec<f64>)>,
 }
 
 impl BatchOutcome {
@@ -74,11 +77,23 @@ pub fn run_batch(model: &Model, xs: &[f64], count: usize, cfg: ExecConfig) -> Ba
         .iter()
         .map(|o| (0..count).map(|lane| b.read(&o.value, lane)).collect())
         .collect();
+    let rule_values = b
+        .model
+        .rule_nodes()
+        .into_iter()
+        .map(|id| {
+            (
+                id,
+                (0..count).map(|lane| b.env[id as usize][lane]).collect(),
+            )
+        })
+        .collect();
     BatchOutcome {
         outputs,
         traces: b.traces,
         flags: b.flags,
         steps: b.steps,
+        rule_values,
     }
 }
 
