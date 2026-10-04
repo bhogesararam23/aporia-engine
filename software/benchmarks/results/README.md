@@ -1,138 +1,209 @@
 # Measurements
 
 This directory holds the output of `aporia-bench run`, and this file explains what those numbers
-say — including where they say the method does not work.
+say — including where they say the method does not work, and where an earlier version of this file
+said something the data does not support.
 
-The run recorded here:
+Two runs are committed.
+
+| file | what it is |
+|---|---|
+| `results-1791114389.json` | the first measurement, from the pipeline as of `7b9e777` |
+| `results-1791123062.json` | the current measurement, after the evidence-semantics and atlas-labelling work in `8d188e6` |
+
+Both were produced by the same command:
 
 ```
 aporia-bench run --budgets 40,80,160,320,640 --seeds 1,2,3
 ```
 
-on 2026-10-04, on an Intel Core Ultra 5 125H, Rust 1.99.0 release build, no GPU involved. 20 corpus
-entries × 3 strategies × 3 seeds × 5 budgets = 900 campaign runs, 180 sweeps. `results-*.json`
-holds every per-budget measurement; the numbers quoted below are read out of it.
+on 2026-10-04 on an Intel Core Ultra 5 125H, Rust 1.99.0 release build, no GPU involved.
+20 corpus entries × 3 strategies × 3 seeds × 5 budgets = 900 campaign runs, 180 sweeps.
 
 Definitions live in `crates/aporia-bench/src/metrics.rs`, next to the code that computes them. The
 two that carry the weight here:
 
 - **detected** — some suspicious cell touches a declared region. Loose on purpose.
-- **localised** — a suspicious cell touches a declared region *and* is at least half inside
-  declared regions. A big lazy cell cannot pass it.
+- **localised** — a suspicious cell touches a declared region *and* is at least half inside declared
+  regions. A big lazy cell cannot pass it.
 
-## What happened
+Everything quoted below was recomputed from the JSON in this directory; if a number here cannot be
+derived from those files, it does not belong here.
 
-| entry | region volume | adaptive | stratified | random |
-|---|---|---|---|---|
-| `analytic/sqrt_domain` | 50% | 40 | 40 | 40 |
-| `analytic/log_positive` | 20% | 40 | 40 | 40 |
-| `analytic/exp_overflow` | 29% | 40 | 40 | 40 |
-| `ode/euler_decay` | 17% | 40 | 40 | 40 |
-| `control/naive_euler_spring` | 79% | 40 | 40 | 40 |
-| `aerospace/projectile_sign_mutant` | 50% | 40 | 40 | 40 |
-| `synthetic/wide_1d` | 40% | 80 | 80 | **40** |
-| `linear_algebra/quadratic_small_root` | 99% | 80 | 160 | **40** |
-| `synthetic/quarter_2d` | 25% | 320 | 320 | 320 |
-| `synthetic/narrow_1d` | 4% | **320** | never | 640 |
-| `electromagnetics/rlc_resonance` | 0.088% | **640** | never | never |
-| `synthetic/one_pct_2d` | 1% | 640 | 640 | 640 (1 of 3 seeds) |
-| `synthetic/one_pct_3d` | 2% | never | never | never |
-| `synthetic/tenth_pct_3d` | 0.1% | never | never | never |
-| `ode/euler_decay_2d` | curved, ≈27% | never | never | never |
-| `analytic/reciprocal_bound` | 2e-6 | never | never | never |
-| `aerospace/projectile_zero_gravity` | measure zero | never | never | never |
-| `synthetic/narrow_1d_unreachable` | 1e-6 | never | never | never |
+## What happened, per entry
 
-Budgets are model evaluations including probe evaluations, so the columns are directly comparable.
-`never` means "not within 640 evaluations", not "never at any budget".
+Best budget at which each strategy resolved, and how many of its three seeds got there. `—` means not
+within 640 evaluations, not "never at any budget". Median column is wall time at the top of the
+ladder, which is the compute-cost figure.
 
-**Two entries adaptive won, two it lost, and seven were decided at the smallest budget by all three
-strategies.** On `synthetic/narrow_1d` (a well 4% of the line) adaptive localised on 2 of 3 seeds
-where stratified never did. On `electromagnetics/rlc_resonance` — a resonance band 0.088% of the
-domain — adaptive localised at 640 and neither baseline localised at any budget in the ladder. On
-`synthetic/wide_1d` and `linear_algebra/quadratic_small_root`, where the region is most of the
-space, plain random coverage won at 40 evaluations while adaptive spent the same budget probing and
-refining and got there at 80.
+| entry | fault | adaptive | stratified | random | med ms |
+|---|---|---|---|---|---|
+| `analytic/sqrt_domain` | domain assumption | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 60 |
+| `analytic/log_positive` | domain assumption | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 35 |
+| `analytic/exp_overflow` | overflow | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 34 |
+| `analytic/reciprocal_bound` | overflow | det 40, never loc | det 40, never loc | det 80, never loc | 28 |
+| `ode/euler_decay` | time step | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 92 |
+| `ode/euler_decay_2d` | time step, curved | det 40, never loc | det 40, never loc | det 40, never loc | 131 |
+| `control/naive_euler_spring` | state ordering | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 238 |
+| `linear_algebra/quadratic_small_root` | cancellation | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 46 |
+| `aerospace/projectile_sign_mutant` | sign error | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 69 |
+| `synthetic/wide_1d` | 40% of a line | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 37 |
+| `synthetic/quarter_2d` | 25% of a plane | loc 40 (3/3) | loc 40 (3/3) | loc 40 (3/3) | 45 |
+| `synthetic/narrow_1d` | 4% of a line | loc 320 (3/3) | loc **160** (3/3) | loc **160** (3/3) | 21 |
+| `synthetic/one_pct_2d` | 1% of a plane | loc 640 (1/3) | never loc, det 160 | loc 320 (1/3) | 25 |
+| `synthetic/one_pct_3d` | 2% of a cube | loc 640 (1/3) | loc 640 (3/3) | never loc, det 80 | 28 |
+| `electromagnetics/rlc_resonance` | 0.088% band | loc 640 (1/3) | never loc, det 40 | never loc, det 320 | 39 |
+| `synthetic/tenth_pct_3d` | 0.1% of a cube | nothing | nothing | nothing | 25 |
+| `synthetic/narrow_1d_unreachable` | 1e-6 of a line | det 40, never loc | det 40, never loc | nothing | 26 |
+| `aerospace/projectile_zero_gravity` | measure-zero region | nothing | nothing | nothing | 58 |
+| `control/symplectic_spring` | none (control) | nothing, as it should be | — | — | 171 |
+| `aerospace/projectile_clean` | none (control) | nothing, as it should be | — | — | 61 |
 
-That is the shape one should expect: concentrating effort pays when the thing to find is small and
-does not pay when it is everywhere. The first two rows of the second half of the table are the cases
-where the method was supposed to show an advantage, and it did; the losses are the cases where a
-baseline is the right tool. Neither result is a reason to stop, and neither is a reason to claim
-victory.
+Across all 180 sweeps: **140 detect at some budget, 97 localise.** In the first run those were 153
+and 92. The two movements mean different things and both are reported below.
 
-## The result that matters most is a bad one
+## The strategy comparison got weaker, and that is the honest result
 
-Neither control stayed clean.
+`aporia-bench verdict` now says: **adaptive better on 1 entry, worse on 2, equal or unresolved on
+15.** In the first run it was 2 and 2.
 
-| control | suspicious volume, as a fraction of the space |
-|---|---|
-| `aerospace/projectile_clean` | 0.9% random, 2.8% stratified, 2.9% adaptive |
-| `control/symplectic_spring` | 2.6% to 3.1% |
+What changed is that the baselines got better, not that adaptive got worse: fixing the labelling
+bugs moved `synthetic/narrow_1d` from 3 resolving seeds to 9, `synthetic/one_pct_3d` from 0
+localising sweeps to 4, and `synthetic/quarter_2d`'s best localising budget from 320 to 40 — and
+plain coverage and stratification took those wins at the same or a smaller budget than adaptive did.
+`narrow_1d` and `one_pct_3d` are now entries where stratified *beats* adaptive.
 
-Across all 180 runs at every budget, **not one run reported zero suspicion anywhere**.
+The one place adaptive still wins is the one it won before: `electromagnetics/rlc_resonance`, a
+resonance band 0.088% of the domain, localised at 640 by adaptive on one seed and by neither
+baseline at any budget in the ladder. The research question is about exactly that case, and one
+entry is not an answer. It is a reason the ladder needs more entries of that shape, not a result to
+stop on.
 
-Both models are correct everywhere inside their declared domain — the range of a projectile with
-gravity bounded away from zero, and a symplectic integrator whose energy stays bounded. Every cubic
-unit of suspicion the atlas reported in those two entries is a false positive: by the definition in
-`metrics.rs`, both controls scored a **100% false-positive rate**, and the mean suspicious volume
-over the three strategies and three seeds is between 0.9% and 3.1% of the parameter space.
+## The controls, and a correction to this file
 
-The cause is visible in the per-run diagnostics (`aporia-bench explain <entry>`): the behavioural
-channel's continuity measure reports a large secant-slope ratio wherever the *sample spacing*
-happens to be coarse, and after calibration by excess over typical, a channel whose typical value
-is small amplifies ordinary variation into strength 1.0. A previous iteration of this code made that
-worse in two ways that are now fixed and measured — a numerical channel comparing f32 against f64 had
-its typical value at round-off level, and a continuity finding was attributed to every observation
-the experiment had probed rather than to the two samples that showed it. Fixing both moved the top findings of `electromagnetics/rlc_resonance` from cells
-around w = 1.55 to cells at w = 1.988 and w = 2.0002, which straddle the true resonance band, and
-that change is what made the entry localise at all. Suspicious volume across the corpus did not
-fall: averaged over the 60 runs at the largest budget it is 0.0211 adaptive, 0.0209 stratified,
-0.0176 random, so adaptive is 16% *worse* than random on unjustified suspicion. The controls are
-still not clean.
+The first version of this file reported the controls as "0.9% random, 2.8% stratified, 2.9%
+adaptive" and concluded that no run was clean. The conclusion was right; the table was only half the
+data. Those numbers were the mean suspicious volume at the *top* of the ladder. Computed the same way
+from the same JSON at every budget, the first run was far worse than this file admitted:
 
-What is left is the honest open problem: **a trusted cell has to be earnable**, and right now the
-policy lets a single amplified behavioural measurement make a cell suspicious in a model that
-declares nothing false. Until that is fixed, the useful reading of a Trust Atlas from this build is
-"suspicious means *look here*", and the count of suspicious cells is a cost, not a conclusion.
+| budget | 40 | 80 | 160 | 320 | 640 |
+|---|---|---|---|---|---|
+| first run, mean control suspicious volume | 38.9% | 46.5% | 45.1% | 12.0% | 2.55% |
+| current run | 0.22% | 0.82% | 0.78% | 1.22% | 2.30% |
 
-## Where localisation stops working
+That table understating the problem is a documentation failure, not a measurement one: the numbers
+were in the file this one claims to explain, and the summary was read from the interesting row
+instead of the whole column.
 
-Three distinct limits show up, and they are not the same problem:
+Where the controls are now:
 
-- **Sample density.** A 0.1% box in three dimensions is hit by roughly one evaluation in a
-  thousand; at a 640 budget no strategy localises it, and detection (a cell merely touching it)
-  still succeeds at 80. That is a sampling fact, not a representation fact.
-- **Partition resolution.** `analytic/reciprocal_bound` is 2e-6 wide and
-  `synthetic/narrow_1d_unreachable` is 2e-6 across. `Policy::max_depth` is 12, so a unit axis
-  cannot be narrower than about 2.4e-4: these entries are beyond what the representation can
-  express at any budget, and they are in the corpus to keep that visible rather than rhetorically
-  buried.
+- **29 of 90 control campaigns report no suspicion at all** (was 10 of 90).
+- **16 of 18 control sweeps are clean at at least one budget** (was 6 of 18).
+- **0 of 18 are clean at every budget.** Both controls, all three strategies, all three seeds still
+  flag *something* somewhere in the ladder, and the amount grows with the budget for adaptive: the
+  spring goes 0.00% → 0.00% → 0.26% → 2.47% → 3.52% as the budget doubles from 40 to 640.
+
+What the remaining flags are made of, read from `aporia-bench explain control/symplectic_spring`:
+almost entirely the sensitivity channel — `o1 moved 782x further than usual along p0`. For a symplectic
+integrator observed over a long horizon that is a *true* statement about that part of its step-size
+range: the answer genuinely swings far more there than elsewhere. It is not a defect, and the model
+violates no rule there. That is the open question this build has not answered: **a single channel's
+opinion, at maximum strength, is currently enough to make a cell SUSPICIOUS.** The candidate answer
+is corroboration — one channel holds a cell at UNKNOWN and appears in the report as "delicate", while
+SUSPICIOUS requires two channels surviving the provenance discount, or an absolute fact such as a
+fired rule or a NaN. `Policy.min_channels` is not the knob for that and must not be used as one: it
+guards TRUSTED, and after the fix below it now means "channels *measured*", not "channels that spoke".
+
+## Corpus-wide volume and unjustified suspicion
+
+Mean over the 60 runs at the top of the ladder, per strategy:
+
+| | suspicious volume | of which unjustified | control suspicious |
+|---|---|---|---|
+| first run — adaptive | 0.0211 | 0.580 | 0.0292 |
+| first run — stratified | 0.0209 | 0.613 | 0.0271 |
+| first run — random | 0.0176 | 0.599 | 0.0202 |
+| current — adaptive | 0.2163 | 0.451 | 0.0247 |
+| current — stratified | 0.2366 | 0.457 | 0.0254 |
+| current — random | 0.2157 | 0.437 | 0.0189 |
+
+Suspicious volume went up by an order of magnitude while the *unjustified* share of it went down.
+That is not a contradiction and it is the important reading of this change: in the first run most
+cells that should have been suspicious were not labelable at all (`trusted_volume: 0`, everything
+UNKNOWN), and the suspicious volume that did exist was slivers produced by a refinement bug. 0.021
+of a broken atlas is not a better false-positive rate than 0.216 of a working one; the useful column
+is the third and the fourth.
+
+## Boundary precision, which had no data before
+
+`boundaries` is measured against the declared transition in each entry's `truth.json`, normalised by
+the axis width, and only exists where the atlas produced a band — two labelled cells that disagree.
+
+| | first run | current |
+|---|---|---|
+| boundary-checked rows | 810 | 810 |
+| rows with at least one band | 585 | **627** |
+| bands inside the declared tolerance | 165 | **247** |
+| median normalised error | 0.0746 | 0.1044 |
+
+Two of those three movements are good and one is not. Band *coverage* and in-tolerance hits went up
+because TRUSTED became reachable at all: a band needs two labelled cells, and in the first run a
+large number of cells could never be labelled trusted, so the boundary of a known square root
+reported `"error": "no band on this axis"`. The median error got 40% *worse*, from 0.0746 to 0.1044
+of the axis width, because the cells that now form bands are honest-sized rather than the drilled
+slivers the refinement bug produced. A precise-looking 0.07 measured on an atlas that could not
+label anything is not a better result than a coarse 0.10 measured on one that can. Reported both
+ways, with the direction of each stated.
+
+## Where localisation still stops working
+
+Three distinct limits, and they are not the same problem.
+
+- **Sample density.** `synthetic/tenth_pct_3d` is a well of half-width 0.0464 on each of three
+  axes, so its volume is 1.0e-4 of the domain and 640 evaluations *expect* 0.064 hits inside it —
+  fewer than one run in fifteen touches the fault at all, whatever the strategy. It now detects in **0 of 9**
+  sweeps, where the first run detected in 9 of 9. The first run's detections were noise: cells
+  flagged by the elasticity artifact and the invented monotonicity claim, tinting so much of the
+  space — up to 87.5% of a control's domain at a budget of 80 — that one of the resulting slivers
+  brushed the true box. That is the clearest example in the corpus of a "detection" that was never a
+  detection, and the drop from 153 to 140 is mostly this entry and `narrow_1d_unreachable`.
+- **Partition resolution.** `analytic/reciprocal_bound` is 2e-6 wide and `narrow_1d_unreachable` is
+  2e-6 across; `Policy::max_depth` is 12, so a unit axis cannot be narrower than about 2.4e-4. They
+  are beyond what the representation expresses at any budget in the ladder, and they stay in the
+  corpus so that fact is visible rather than rhetorically buried.
 - **Curvature.** `ode/euler_decay_2d`'s boundary is the hyperbola `k*dt = 1`, declared as 24
-  rectangular slices, each a strict subset of the true region. Detection succeeds at 40 and
-  localisation never does, which is the cost of an axis-aligned partition against a curved
-  transition, paid in cells. It is reported here because §12's promise that resolution follows
-  evidence has a shape it cannot follow.
+  rectangular slices each a strict subset of the true region. Detection succeeds at 40 on every
+  seed and localisation never does: the cost of an axis-aligned partition against a curved
+  transition, paid in cells.
 
-## Counterexamples and replay
+## Counterexamples, replay, and the cost of finding
 
-- **Replay: 60 of 60 archived runs reproduced bit-for-bit, 35,712 executions, zero mismatches.**
-  Every archive was written by the harness at the largest budget for seed 1, opened with
+- **Replay: 60 of 60 archived runs reproduced bit-for-bit, 35,712 executions, zero mismatches**, in
+  both runs. Every archive was written by the harness at the largest budget for seed 1, opened with
   `Loaded::open`, checked against its manifest digests, and re-executed against its own recorded
   A-IR; outputs, traces, raised flags and instruction-step counts are compared as bit patterns.
   This is the one number in this file with no asterisk on it.
-- **Minimisation produced a verified smaller description for 14 of 20 entries**, 220 of 538
-  individual findings. `analytic/sqrt_domain` reduced to one parameter
-  and four digits in 125 oracle calls; `synthetic/one_pct_2d` to two parameters and 22 digits in
-  507; `ode/euler_decay_2d` to two parameters and 8 digits in 175. The other six entries never produced one, and the individual refusals reported
-  `verified: no` after a single oracle call, which is not a minimiser failure: the counterexample
-  oracle asks the model whether its *declared rule* fails, and a finding produced by the behavioural
-  or sensitivity channels violates no rule, so there is nothing for ddmin to preserve. Those
-  findings need a risk-threshold oracle with a frozen calibrator, which the harness does not wire up
-  yet. The distinction is recorded rather than smoothed over.
+- **Minimisation produced a verified smaller description for 15 of 20 entries** (was 14 of 20), on
+  332 of 465 individual findings (was 220 of 538). The six that never produced one still fail for
+  the reason recorded in `docs/decisions/0012`: the counterexample oracle asks whether a *declared
+  rule* fails, and a finding produced only by the sensitivity channel violates no rule, so ddmin has
+  nothing to preserve. Those findings need a risk-threshold oracle with a frozen calibrator, which
+  the harness does not wire up yet. That is open work, not a result.
+- **Duplicate discovery rate went up, from 0.447 to 0.625** averaged over the runs at the top of the
+  ladder that have a declared region and at least one finding (162 such rows in the first run, 149 in
+  the current one; the rest have no declared region or nothing to duplicate). The metric counts a
+  finding as a duplicate when it is assigned to a declared region the report has already claimed
+  (`metrics.rs::duplicate_rate`), so about two thirds of findings on a current run describe a fault
+  that had already been described. Mean findings on those rows went 53.0 → 80.2. This is a regression
+  and it follows directly from the labelling fix: cells that should be suspicious are now suspicious,
+  so one region produces many findings rather than a few slivers. The number is in the JSON; the
+  merge rule that would reduce it is not written yet.
 
 ## Reading this table later
 
 `aporia-bench run` regenerates the JSON, and every archive it writes replays. The corpus verifies
 before any measurement runs — `run` refuses to produce numbers when a declared region does not hold
 against direct evaluation of the model's own rules — so a change in these columns means the method
-changed, not that a ground truth drifted.
+changed, not that a ground truth drifted. The reasoning behind the changes between the two files is
+in `docs/decisions/0014` and `0015` (internal), and the code that implements each claim is the
+commit named in the table at the top of this file.
