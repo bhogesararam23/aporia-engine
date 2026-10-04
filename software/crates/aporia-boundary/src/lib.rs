@@ -14,4 +14,4 @@
 
 mod atlas;
 
-pub use atlas::{Atlas, Band, Cell, Coverage, Label, Policy};
+pub use atlas::{Atlas, Band, Cell, Coverage, FACE_EPS, Label, Point, Policy};

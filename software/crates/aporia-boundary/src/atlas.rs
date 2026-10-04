@@ -15,6 +15,17 @@
 
 use aporia_ir::{Domain, Model};
 
+/// One measurement inside a cell: the record it came from, where it was, what it was worth and
+/// which channels spoke. Keeping the point itself is what lets a split put each measurement in the
+/// right child instead of discarding it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Point {
+    pub observation: u64,
+    pub x: Vec<f64>,
+    pub risk: f64,
+    pub channels: u8,
+}
+
 /// An axis-aligned box in parameter space, stored as half-open-ish inclusive bounds per axis.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cell {
@@ -24,7 +35,8 @@ pub struct Cell {
     pub depth: u8,
     /// How many executions have landed inside this cell.
     pub samples: u32,
-    /// Sum of risk scores, so the mean is recoverable without storing every value.
+    /// Sum of risk scores. `points` already holds every value, but keeping the sum means the
+    /// policy can classify a cell without walking them.
     pub risk_sum: f64,
     /// Highest risk seen in the cell. A mean hides a narrow failure; a maximum does not.
     pub risk_max: f64,
@@ -32,6 +44,29 @@ pub struct Cell {
     /// Which channels have spoken inside this cell. A cell that only ever heard one channel is
     /// reported as less well understood than one that heard four.
     pub channels: u8,
+    /// Every evaluation that landed here, with the record id, risk and channel mask that came with
+    /// it. Kept because the alternative is worse: a split that dropped the parent's measurements
+    /// left children with no evidence, so an atlas could become entirely UNKNOWN by refining
+    /// itself. With the points present, a split moves each measurement into whichever child now
+    /// contains it, labels survive refinement, and a band can only shrink because the evidence
+    /// says so.
+    pub points: Vec<Point>,
+}
+
+impl Cell {
+    /// Recompute the aggregates from `points`, after a split moved them between cells.
+    pub fn recompute(&mut self) {
+        self.samples = self.points.len() as u32;
+        self.risk_sum = self.points.iter().map(|p| p.risk).sum();
+        self.risk_max = self.points.iter().fold(0.0f64, |a, p| a.max(p.risk));
+        self.channels = self.points.iter().fold(0u8, |a, p| a | p.channels);
+        self.label = Label::Unknown;
+    }
+
+    /// Every evaluation this cell has seen, oldest first.
+    pub fn risks(&self) -> impl Iterator<Item = f64> + '_ {
+        self.points.iter().map(|p| p.risk)
+    }
 }
 
 impl Cell {
@@ -180,6 +215,7 @@ pub struct Atlas {
     /// Ids of cells that are leaves: no other cell lists them as a parent.
     pub leaves: Vec<u32>,
     policy: Policy,
+    observations: u64,
 }
 
 impl Atlas {
@@ -205,11 +241,13 @@ impl Atlas {
             risk_max: 0.0,
             label: Label::Unknown,
             channels: 0,
+            points: Vec::new(),
         };
         Self {
             cells: vec![root],
             leaves: vec![0],
             policy,
+            observations: 0,
         }
     }
 
@@ -245,9 +283,21 @@ impl Atlas {
     }
 
     /// Record one evaluation.
+    ///
+    /// The observation id is the atlas' own counter. It matches the campaign's record ids because a
+    /// point is recorded once per evaluation, in evaluation order; the search test that compares
+    /// `records` against `atlas` cell points is what keeps that promise honest.
     pub fn record(&mut self, x: &[f64], risk: f64, channels: u8) {
+        let observation = self.observations;
+        self.observations += 1;
         let id = self.locate(x);
         let cell = &mut self.cells[id as usize];
+        cell.points.push(Point {
+            observation,
+            x: x.to_vec(),
+            risk,
+            channels,
+        });
         cell.samples += 1;
         cell.risk_sum += risk;
         cell.risk_max = cell.risk_max.max(risk);
@@ -297,49 +347,68 @@ impl Atlas {
             .retain(|id| keep.contains(id) || added.contains(id));
         // A parent that was split is no longer a leaf, so keep only the survivors and the new ones.
         // The split parents drop out and their children take their place.
-        self.leaves = keep.into_iter().chain(added.into_iter()).collect();
+        self.leaves = keep.into_iter().chain(added).collect();
         self.relabel();
         self.cells.len() - before
     }
 
     /// Bisect one cell along the axis with the largest normalised extent, so depth is spent where
     /// the box is fuzziest rather than cycling through axes that are already narrow.
+    ///
+    /// The parent's measurements are distributed to whichever child now contains them. A point
+    /// lands in exactly one child, so refinement can neither invent evidence nor lose it, and a
+    /// cell's label always traces back to evaluations that really ran inside it.
     fn split(&mut self, id: u32) -> Option<Vec<u32>> {
-        let cell = self.cells.get(id as usize)?.clone();
+        let parent = self.cells.get(id as usize)?.clone();
         let root = self.cells[0].clone();
-        let axis = (0..cell.bounds.len()).max_by(|&a, &b| {
-            let ra = cell.width(a) / root.width(a).max(1e-30);
-            let rb = cell.width(b) / root.width(b).max(1e-30);
+        let axis = (0..parent.bounds.len()).max_by(|&a, &b| {
+            let ra = parent.width(a) / root.width(a).max(1e-30);
+            let rb = parent.width(b) / root.width(b).max(1e-30);
             ra.partial_cmp(&rb).unwrap_or(std::cmp::Ordering::Equal)
         })?;
-        let mid = cell.center(axis);
-        if !(mid.is_finite() && mid > cell.bounds[axis][0] && mid < cell.bounds[axis][1]) {
+        let mid = parent.center(axis);
+        if !(mid.is_finite() && mid > parent.bounds[axis][0] && mid < parent.bounds[axis][1]) {
             return None;
         }
         let base = self.cells.len() as u32;
+        let halves: Vec<[f64; 2]> =
+            vec![[parent.bounds[axis][0], mid], [mid, parent.bounds[axis][1]]];
         let mut children = Vec::with_capacity(2);
-        for side in 0..2 {
-            let mut b = cell.bounds.clone();
-            if side == 0 {
-                b[axis][1] = mid;
-            } else {
-                b[axis][0] = mid;
-            }
+        for (side, bound) in halves.into_iter().enumerate() {
+            let mut bounds = parent.bounds.clone();
+            bounds[axis] = bound;
+            let mut points: Vec<Point> = parent
+                .points
+                .iter()
+                .filter(|p| {
+                    let v = p.x.get(axis).copied().unwrap_or(f64::NAN);
+                    if side == 0 {
+                        v <= bound[1]
+                    } else {
+                        v > bound[0]
+                    }
+                })
+                .cloned()
+                .collect();
+            points.sort_by_key(|p| p.observation);
             children.push(Cell {
-                bounds: b,
+                bounds,
                 id: base + side as u32,
-                depth: cell.depth + 1,
-                // Statistics never move into children: the parent keeps what it saw, and a child
-                // starts unknown. Carrying the parent's sample count down would make the atlas
-                // claim resolution it never measured.
+                depth: parent.depth + 1,
                 samples: 0,
                 risk_sum: 0.0,
                 risk_max: 0.0,
                 label: Label::Unknown,
                 channels: 0,
+                points,
             });
         }
+        for child in &mut children {
+            child.recompute();
+        }
         let ids: Vec<u32> = children.iter().map(|c| c.id).collect();
+        // The parent keeps its statistics but stops being a leaf, so it is never double-counted in
+        // coverage; `refine` removes it from the leaf list.
         self.cells.extend(children);
         Some(ids)
     }
@@ -646,10 +715,18 @@ mod tests {
         assert_eq!(a.cell(children[0]).unwrap().bounds[0], [0.0, 0.5]);
         assert_eq!(a.cell(children[1]).unwrap().bounds[0], [0.5, 1.0]);
         assert_eq!(a.cell(children[0]).unwrap().depth, 1);
+        // An earlier contract ("a child starts with no evidence") is what broke the atlas: refining
+        // then wiped every label, so a campaign could make itself entirely UNKNOWN by splitting.
+        // The contract now is that measurements move to the child that contains them, which is why
+        // the total across the two children has to equal what the parent saw.
+        assert_eq!(a.cell(children[0]).unwrap().samples, 1);
         assert_eq!(
-            a.cell(children[0]).unwrap().samples,
-            0,
-            "a child starts with no evidence of its own"
+            children
+                .iter()
+                .map(|id| a.cell(*id).unwrap().samples)
+                .sum::<u32>(),
+            1,
+            "a point must land in exactly one child"
         );
     }
 
@@ -693,7 +770,13 @@ mod tests {
 
     #[test]
     fn a_boundary_between_two_labels_becomes_a_band() {
-        let mut a = Atlas::new(&model1d(0.0, 1.0), Policy { min_samples: 1, ..Policy::default() });
+        let mut a = Atlas::new(
+            &model1d(0.0, 1.0),
+            Policy {
+                min_samples: 1,
+                ..Policy::default()
+            },
+        );
         for i in 0..4 {
             a.record(&[i as f64 / 3.0], 0.0, 0b1);
             a.record(&[0.6 + i as f64 / 10.0], 0.9, 0b1);
@@ -707,7 +790,11 @@ mod tests {
         a.record(&[0.75], 0.9, 0b1);
         a.relabel();
         let bands = a.bands();
-        assert!(!bands.is_empty(), "no band found, coverage {:?}", a.coverage());
+        assert!(
+            !bands.is_empty(),
+            "no band found, coverage {:?}",
+            a.coverage()
+        );
         assert_eq!(bands[0].axis, 0);
         assert!(bands[0].hi >= bands[0].lo);
         assert!(bands[0].contains(0.5), "band {:?}", bands[0]);
@@ -716,7 +803,13 @@ mod tests {
     #[test]
     fn a_band_shrinks_as_the_atlas_refines() {
         let truth = 0.55;
-        let mut a = Atlas::new(&model1d(0.0, 1.0), Policy { min_samples: 1, ..Policy::default() });
+        let mut a = Atlas::new(
+            &model1d(0.0, 1.0),
+            Policy {
+                min_samples: 1,
+                ..Policy::default()
+            },
+        );
         let feed = |a: &mut Atlas, n: usize| {
             for i in 0..n {
                 let x = i as f64 / (n - 1) as f64;
@@ -728,14 +821,22 @@ mod tests {
         a.refine();
         feed(&mut a, 8);
         a.relabel();
-        let coarse = a.bands().into_iter().find(|b| b.axis == 0).expect("one band");
+        let coarse = a
+            .bands()
+            .into_iter()
+            .find(|b| b.axis == 0)
+            .expect("one band");
         assert!(coarse.contains(truth), "the band lost the real transition");
         let mut width = coarse.width();
         for _ in 0..5 {
             a.refine();
             feed(&mut a, 16);
             a.relabel();
-            let band = a.bands().into_iter().find(|b| b.axis == 0).expect("still one band");
+            let band = a
+                .bands()
+                .into_iter()
+                .find(|b| b.axis == 0)
+                .expect("still one band");
             assert!(band.contains(truth), "refinement lost the transition");
             width = band.width();
         }
@@ -842,6 +943,7 @@ mod tests {
             risk_max: 0.0,
             label: Label::Unknown,
             channels: 0,
+            points: Vec::new(),
         }
     }
 }
