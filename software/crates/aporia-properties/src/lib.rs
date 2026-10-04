@@ -13,7 +13,7 @@ mod analyse;
 mod pair;
 
 pub use analyse::{
-    against_reference, constraints, differential, divergence, inferred_patterns, numerical,
-    relations, sensitivity,
+    SlopeReference, against_reference, constraints, differential, divergence, inferred_patterns,
+    numerical, relations, sensitivity, sensitivity_at, slope_reference,
 };
 pub use pair::{Pair, ProbeKind, Probes, SwapProbe};

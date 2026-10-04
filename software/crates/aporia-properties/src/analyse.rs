@@ -437,9 +437,51 @@ pub fn inferred_patterns(model: &Model, records: &Records, probes: &Probes) -> V
 /// degrees, a velocity at a turnaround: none of them is a defect, and none of them is a finding here.
 #[must_use]
 pub fn sensitivity(records: &Records, probes: &Probes) -> Vec<Evidence> {
-    let mut out = Vec::new();
+    let (sightings, reference) = probe_slopes(records, probes);
+    slope_items(&sightings, &reference)
+}
+
+/// What "usual" means for the sensitivity channel: the median slope of every probe the campaign
+/// actually took, per (axis, output).
+///
+/// Separated from [`sensitivity`] because a caller that wants to ask about one *new* point cannot
+/// recompute this from that point's own neighbourhood. A three-point star is typical of itself: the
+/// ratio would be 1 by construction, the channel would fall silent, and the answer would be a
+/// property of the question rather than of the model. So a campaign-wide reference is measured once,
+/// frozen, and every candidate is judged against the same ordinary value the report used.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SlopeReference {
+    typical: Vec<f64>,
+    width: usize,
+}
+
+impl SlopeReference {
+    /// The ordinary slope for one output along one axis, or 0.0 when nothing was ever probed there.
+    /// Zero means "no ordinary amount to be unusual against", which [`slope_items`] reports as
+    /// nothing rather than as an infinite multiple.
+    #[must_use]
+    pub fn slope(&self, axis: u16, output: usize) -> f64 {
+        self.typical
+            .get(axis as usize * self.width + output)
+            .copied()
+            .unwrap_or(0.0)
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.typical.is_empty()
+    }
+}
+
+/// One probe's slope, kept with the two executions that produced it.
+type Sighting = (u16, usize, f64, u64, u64);
+
+/// Every probe slope in the record set, bucketed by (axis, output), plus the frozen median of each
+/// bucket. This is the only place the slope of a probe is defined, so the campaign-wide pass and a
+/// single-point query cannot drift apart in arithmetic.
+fn probe_slopes(records: &Records, probes: &Probes) -> (Vec<Sighting>, SlopeReference) {
     let Some(first) = records.items.first() else {
-        return out;
+        return (Vec::new(), SlopeReference::default());
     };
     let axes = first.x.len();
     let width = first.y.len();
@@ -447,7 +489,7 @@ pub fn sensitivity(records: &Records, probes: &Probes) -> Vec<Evidence> {
     // own typical slope along this axis: a pass over the pairs has to finish before a pass over them
     // can mean anything.
     let mut slopes = vec![Vec::new(); axes * width];
-    let mut seen: Vec<(u16, usize, f64, u64, u64)> = Vec::new();
+    let mut seen: Vec<Sighting> = Vec::new();
     for pair in &probes.pairs {
         let (Some(base), Some(moved)) = (records.by_id(pair.base), records.by_id(pair.perturbed))
         else {
@@ -479,14 +521,21 @@ pub fn sensitivity(records: &Records, probes: &Probes) -> Vec<Evidence> {
         .iter()
         .map(|v| aporia_numerics::median_of(v))
         .collect();
-    for (axis, j, slope, base_id, moved_id) in seen {
-        let reference = typical[axis as usize * width + j];
-        if reference <= 0.0 || !reference.is_finite() {
+    (seen, SlopeReference { typical, width })
+}
+
+/// The channel's output from measured slopes and a reference: `ratio - 1` for every probe that moved
+/// more than half again as far as the ordinary one, and nothing for the rest.
+fn slope_items(sightings: &[Sighting], reference: &SlopeReference) -> Vec<Evidence> {
+    let mut out = Vec::new();
+    for (axis, j, slope, base_id, moved_id) in sightings {
+        let typical = reference.slope(*axis, *j);
+        if typical <= 0.0 || !typical.is_finite() {
             // Every probe along this axis moved the output by nothing, so there is no ordinary
             // amount to be unusual against. Saying nothing is the honest answer.
             continue;
         }
-        let ratio = slope / reference;
+        let ratio = slope / typical;
         // Half again as far as the ordinary step, or nothing said. `ratio > 1` is not a usable bar:
         // two probes that moved the *same* distance differ in their last ulp, one of them then
         // exceeds the median of the pair, and the channel fills with findings whose whole content is
@@ -495,16 +544,61 @@ pub fn sensitivity(records: &Records, probes: &Probes) -> Vec<Evidence> {
             out.push(Evidence::new(
                 Channel::Sensitivity,
                 Subject::LocalSlope {
-                    output: j as u16,
-                    axis,
+                    output: *j as u16,
+                    axis: *axis,
                 },
                 ratio - 1.0,
-                vec![base_id, moved_id],
+                vec![*base_id, *moved_id],
                 format!("o{j} moved {ratio:.1}x further than usual along p{axis}"),
             ));
         }
     }
     out
+}
+
+/// Sensitivity evidence for one base execution and the probes taken from it, judged against a frozen
+/// [`SlopeReference`].
+///
+/// Same slope, same reference statistic, same bar and same sentence as [`sensitivity`]; the only
+/// difference is that the caller supplies the ordinary value instead of it being measured from the
+/// same handful of points. That is what makes the channel answerable about a point the campaign never
+/// sampled, which is what a counterexample minimiser needs: it proposes coordinates, and something
+/// has to say whether they are still as unusual as the ones the report flagged.
+#[must_use]
+pub fn sensitivity_at(
+    base: &Observation,
+    moved: &[(u16, &Observation)],
+    reference: &SlopeReference,
+) -> Vec<Evidence> {
+    let mut sightings: Vec<Sighting> = Vec::new();
+    for (axis, other) in moved {
+        let Some(x0) = base.x.get(*axis as usize).copied() else {
+            continue;
+        };
+        let Some(x1) = other.x.get(*axis as usize).copied() else {
+            continue;
+        };
+        let dx = (x1 - x0).abs();
+        if dx <= 0.0 || !dx.is_finite() {
+            continue;
+        }
+        for j in 0..base.y.len() {
+            let (Some(y0), Some(y1)) = (base.y.get(j).copied(), other.y.get(j).copied()) else {
+                continue;
+            };
+            if !y0.is_finite() || !y1.is_finite() {
+                continue;
+            }
+            sightings.push((*axis, j, (y1 - y0).abs() / dx, base.id, other.id));
+        }
+    }
+    slope_items(&sightings, reference)
+}
+
+/// The reference the campaign's own probes measured, frozen for reuse by a single-point query.
+#[must_use]
+pub fn slope_reference(records: &Records, probes: &Probes) -> SlopeReference {
+    probe_slopes(records, probes).1
 }
 
 /// Two paths that should give the same number: precision modes for numerical evidence, different
@@ -1134,6 +1228,84 @@ mod tests {
             "{:?}",
             ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
         );
+    }
+
+    #[test]
+    fn a_frozen_reference_answers_exactly_what_the_campaign_wide_pass_answered() {
+        // The single-point query exists so a minimiser can ask about coordinates the search never
+        // sampled. If it judged differently from the pass that produced the finding, "this point is
+        // still suspicious" would be a different claim in the two places, and a verified
+        // counterexample would not be the report's own counterexample. So: same data, same reference,
+        // same item, field for field.
+        let m = model("model g \"\" {\n input x in [0.1, 10]\n let y = x * x\n}\n");
+        let r = dataset(&m, &[&[1.0], &[1.01], &[10.0], &[10.01]]);
+        let p = pairs(&[(0, 1, 0), (2, 3, 0)]);
+        let wide = sensitivity(&r, &p);
+        let reference = slope_reference(&r, &p);
+        let one = sensitivity_at(
+            r.by_id(2).expect("the steep base was recorded"),
+            &[(0, r.by_id(3).expect("the steep probe was recorded"))],
+            &reference,
+        );
+        assert_eq!(
+            one.len(),
+            1,
+            "{:?}",
+            one.iter().map(|e| &e.detail).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            one[0], wide[0],
+            "the two paths disagree about the same probe"
+        );
+        // And the shallow probe stays silent under both, so this is equality and not both of them
+        // reporting the loudest thing in the set.
+        assert!(
+            sensitivity_at(
+                r.by_id(0).expect("the shallow base was recorded"),
+                &[(0, r.by_id(1).expect("the shallow probe was recorded"))],
+                &reference
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_point_that_was_never_probed_can_still_be_asked_about() {
+        // The whole reason for freezing the reference: the candidate is not in the record set, so
+        // nothing in the campaign describes it. x = 20 on y = x*x was never sampled, and its slope is
+        // far above the ordinary one measured at x = 1.
+        let m = model("model g \"\" {\n input x in [0.1, 30]\n let y = x * x\n}\n");
+        let r = dataset(&m, &[&[1.0], &[1.01]]);
+        let reference = slope_reference(&r, &pairs(&[(0, 1, 0)]));
+        let base = record(&m, 100, &[20.0]);
+        let moved = record(&m, 101, &[20.02]);
+        let ev = sensitivity_at(&base, &[(0, &moved)], &reference);
+        assert_eq!(
+            ev.len(),
+            1,
+            "{:?}",
+            ev.iter().map(|e| &e.detail).collect::<Vec<_>>()
+        );
+        assert_eq!(ev[0].observations, vec![100, 101]);
+        // Slopes 40.02 near x = 20 against an ordinary 2.01: nineteen times the usual move.
+        assert!(
+            ev[0].magnitude > 15.0 && ev[0].magnitude < 20.0,
+            "{}",
+            ev[0].magnitude
+        );
+    }
+
+    #[test]
+    fn a_point_with_no_reference_about_it_is_not_claimed_to_be_sensitive() {
+        // Nothing was probed, so there is no ordinary slope, so the channel has no answer -- and the
+        // honest answer is silence rather than "this point is fine". A minimiser reads the same
+        // absence as "cannot reduce", never as "reduced".
+        let m = model("model g \"\" {\n input x in [0.1, 10]\n let y = x * x\n}\n");
+        let empty = slope_reference(&Records::new(), &pairs(&[]));
+        assert!(empty.is_empty());
+        let base = record(&m, 0, &[5.0]);
+        let moved = record(&m, 1, &[5.01]);
+        assert!(sensitivity_at(&base, &[(0, &moved)], &empty).is_empty());
     }
 
     #[test]
