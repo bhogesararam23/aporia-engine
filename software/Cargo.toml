@@ -2,7 +2,9 @@
 resolver = "3"
 members = [
     "crates/aporia-dsl",
+    "crates/aporia-evidence",
     "crates/aporia-ir",
+    "crates/aporia-numerics",
     "crates/aporia-runtime",
 ]
 

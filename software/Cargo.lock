@@ -10,8 +10,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "aporia-evidence"
+version = "0.1.0"
+dependencies = [
+ "aporia-ir",
+]
+
+[[package]]
 name = "aporia-ir"
 version = "0.1.0"
+
+[[package]]
+name = "aporia-numerics"
+version = "0.1.0"
+dependencies = [
+ "aporia-dsl",
+ "aporia-ir",
+]
 
 [[package]]
 name = "aporia-runtime"

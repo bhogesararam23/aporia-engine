@@ -1,0 +1,18 @@
+[package]
+name = "aporia-numerics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Numerical evidence for APORIA: precision-distance metrics, a double-double reference evaluator, conditioning and the deterministic generator."
+
+[dependencies]
+aporia-ir = { path = "../aporia-ir" }
+
+[dev-dependencies]
+aporia-dsl = { path = "../aporia-dsl" }
+
+[lints]
+workspace = true
