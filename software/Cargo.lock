@@ -78,3 +78,14 @@ dependencies = [
  "aporia-properties",
  "aporia-runtime",
 ]
+
+[[package]]
+name = "aporia-store"
+version = "0.1.0"
+dependencies = [
+ "aporia-boundary",
+ "aporia-dsl",
+ "aporia-evidence",
+ "aporia-ir",
+ "aporia-runtime",
+]

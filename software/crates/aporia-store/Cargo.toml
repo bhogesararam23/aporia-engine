@@ -1,0 +1,21 @@
+[package]
+name = "aporia-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "APORIA's experiment archive: manifest, observation records, findings, digests and replay verification."
+
+[dependencies]
+aporia-ir = { path = "../aporia-ir" }
+aporia-runtime = { path = "../aporia-runtime" }
+aporia-evidence = { path = "../aporia-evidence" }
+aporia-boundary = { path = "../aporia-boundary" }
+
+[dev-dependencies]
+aporia-dsl = { path = "../aporia-dsl" }
+
+[lints]
+workspace = true

@@ -1,0 +1,431 @@
+//! The manifest: what an experiment was, written so a reader can check it.
+//!
+//! A manifest is the difference between a directory of numbers and an experiment. It records the
+//! model and its digests, the configuration that produced the samples, the calibration the evidence
+//! was scored with, the channel correlations the fusion used, and a digest for every artefact in the
+//! directory. Notably it does *not* record a conclusion — the atlas and the findings are files, and
+//! the manifest describes how they came to exist.
+//!
+//! Everything here is a plain field with a JSON name, and the JSON is written and read by this
+//! crate, so a manifest from a newer APORIA is readable by an older one as long as it recognises the
+//! schema string and ignores what it does not.
+
+use crate::json::Json;
+
+/// The schema this build writes. A reader that does not recognise it should say so rather than
+/// guess.
+pub const SCHEMA: &str = "aporia.experiment/1";
+
+/// Counts that make a report interpretable without opening the record file.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Counts {
+    pub evaluations: u64,
+    pub instruction_steps: u64,
+    pub params: u64,
+    pub outputs: u64,
+    pub constraints: u64,
+    pub relations: u64,
+    pub cells: u64,
+    pub samples: u64,
+    pub findings: u64,
+}
+
+impl Counts {
+    pub fn json(&self) -> Json {
+        Json::object(vec![
+            ("evaluations", Json::count(self.evaluations)),
+            ("instruction_steps", Json::count(self.instruction_steps)),
+            ("params", Json::count(self.params)),
+            ("outputs", Json::count(self.outputs)),
+            ("constraints", Json::count(self.constraints)),
+            ("relations", Json::count(self.relations)),
+            ("cells", Json::count(self.cells)),
+            ("samples", Json::count(self.samples)),
+            ("findings", Json::count(self.findings)),
+        ])
+    }
+
+    fn from_json(value: &Json) -> Self {
+        let field = |k: &str| value.get(k).and_then(Json::as_u64).unwrap_or(0);
+        Self {
+            evaluations: field("evaluations"),
+            instruction_steps: field("instruction_steps"),
+            params: field("params"),
+            outputs: field("outputs"),
+            constraints: field("constraints"),
+            relations: field("relations"),
+            cells: field("cells"),
+            samples: field("samples"),
+            findings: field("findings"),
+        }
+    }
+}
+
+/// What an experiment recorded about its own environment.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Environment {
+    pub os: String,
+    pub arch: String,
+    pub pointer_width: u64,
+    pub rust_channel: String,
+    pub cpu_features: Vec<String>,
+    pub notes: Vec<(String, String)>,
+}
+
+impl Environment {
+    /// What `std` knows without running anything. A caller may add the compiler channel and the CPU
+    /// feature list it detected, because those change what a benchmark result means.
+    #[must_use]
+    pub fn current() -> Self {
+        Self {
+            os: std::env::consts::OS.to_string(),
+            arch: std::env::consts::ARCH.to_string(),
+            pointer_width: usize::BITS as u64,
+            rust_channel: String::new(),
+            cpu_features: Vec::new(),
+            notes: Vec::new(),
+        }
+    }
+
+    fn to_json(&self) -> Json {
+        Json::object(vec![
+            ("os", Json::text(self.os.clone())),
+            ("arch", Json::text(self.arch.clone())),
+            ("pointer_width", Json::count(self.pointer_width)),
+            ("rust_channel", Json::text(self.rust_channel.clone())),
+            (
+                "cpu_features",
+                Json::Arr(
+                    self.cpu_features
+                        .iter()
+                        .map(|f| Json::text(f.clone()))
+                        .collect(),
+                ),
+            ),
+            (
+                "notes",
+                Json::object(
+                    self.notes
+                        .iter()
+                        .map(|(k, v)| (k.as_str(), Json::text(v.clone())))
+                        .collect(),
+                ),
+            ),
+        ])
+    }
+
+    fn from_json(value: &Json) -> Self {
+        Self {
+            os: value
+                .get("os")
+                .and_then(Json::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            arch: value
+                .get("arch")
+                .and_then(Json::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            pointer_width: value
+                .get("pointer_width")
+                .and_then(Json::as_u64)
+                .unwrap_or(0),
+            rust_channel: value
+                .get("rust_channel")
+                .and_then(Json::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            cpu_features: value
+                .get("cpu_features")
+                .and_then(Json::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(Json::as_str)
+                        .map(str::to_string)
+                        .collect()
+                })
+                .unwrap_or_default(),
+            notes: value
+                .get("notes")
+                .and_then(|n| match n {
+                    Json::Obj(fields) => Some(
+                        fields
+                            .iter()
+                            .map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_string()))
+                            .collect(),
+                    ),
+                    _ => None,
+                })
+                .unwrap_or_default(),
+        }
+    }
+}
+
+/// Everything a manifest says about one experiment.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Manifest {
+    pub schema: String,
+    pub tool_version: String,
+    /// Milliseconds since the Unix epoch. Recorded, never used in a digest, so a replay of the same
+    /// inputs at a different time still produces byte-identical artefacts.
+    pub created_unix_ms: u64,
+    pub model_name: String,
+    pub model_sha256: String,
+    pub air_sha256: String,
+    /// The campaign configuration, as JSON from whoever ran it. Kept as a value rather than a
+    /// struct so this crate does not have to know what a search strategy's fields are.
+    pub config: Json,
+    pub counts: Counts,
+    /// How the model was executed, recorded because a replay has to use the same configuration and
+    /// an f32 run is a different experiment from an f64 one.
+    pub exec_fp: String,
+    pub exec_max_steps: u64,
+    pub environment: Environment,
+    /// Fitted scale per channel, including the ones that were never fitted. Without this, a risk
+    /// number from one experiment cannot be compared with a number from another.
+    pub calibration: Vec<(String, f64)>,
+    /// Estimated correlation per channel pair, upper triangle only.
+    pub correlation: Vec<(String, String, f64)>,
+    pub correlation_samples: u64,
+    /// Relative path to digest, in the order the files were written.
+    pub files: Vec<(String, String)>,
+}
+
+impl Manifest {
+    #[must_use]
+    pub fn to_json(&self) -> Json {
+        Json::object(vec![
+            ("schema", Json::text(self.schema.clone())),
+            ("tool_version", Json::text(self.tool_version.clone())),
+            ("created_unix_ms", Json::count(self.created_unix_ms)),
+            ("model_name", Json::text(self.model_name.clone())),
+            ("model_sha256", Json::text(self.model_sha256.clone())),
+            ("air_sha256", Json::text(self.air_sha256.clone())),
+            ("config", self.config.clone()),
+            ("counts", self.counts.json()),
+            (
+                "exec",
+                Json::object(vec![
+                    ("fp", Json::text(self.exec_fp.clone())),
+                    ("max_steps", Json::count(self.exec_max_steps)),
+                ]),
+            ),
+            ("environment", self.environment.to_json()),
+            (
+                "calibration",
+                Json::object(
+                    self.calibration
+                        .iter()
+                        .map(|(c, v)| (c.as_str(), Json::number(*v)))
+                        .collect(),
+                ),
+            ),
+            (
+                "channel_correlation",
+                Json::Arr(
+                    self.correlation
+                        .iter()
+                        .map(|(a, b, v)| {
+                            Json::object(vec![
+                                ("a", Json::text(a.clone())),
+                                ("b", Json::text(b.clone())),
+                                ("rho", Json::number(*v)),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
+            ("correlation_samples", Json::count(self.correlation_samples)),
+            (
+                "files",
+                Json::object(
+                    self.files
+                        .iter()
+                        .map(|(p, d)| (p.as_str(), Json::text(d.clone())))
+                        .collect(),
+                ),
+            ),
+        ])
+    }
+
+    /// Read a manifest. Unknown schema is returned as an error rather than parsed optimistically.
+    pub fn from_json(value: &Json) -> Result<Self, crate::StoreError> {
+        if value.get("schema").and_then(Json::as_str) != Some(SCHEMA) {
+            return Err(crate::StoreError::Schema(
+                value
+                    .get("schema")
+                    .and_then(Json::as_str)
+                    .unwrap_or("<missing>")
+                    .to_string(),
+            ));
+        }
+        let text = |k: &str| {
+            value
+                .get(k)
+                .and_then(Json::as_str)
+                .unwrap_or_default()
+                .to_string()
+        };
+        Ok(Self {
+            schema: text("schema"),
+            tool_version: text("tool_version"),
+            created_unix_ms: value
+                .get("created_unix_ms")
+                .and_then(Json::as_u64)
+                .unwrap_or(0),
+            model_name: text("model_name"),
+            model_sha256: text("model_sha256"),
+            air_sha256: text("air_sha256"),
+            config: value.get("config").cloned().unwrap_or(Json::Null),
+            counts: Counts::from_json(value.get("counts").unwrap_or(&Json::Null)),
+            exec_fp: value
+                .get("exec")
+                .and_then(|e| e.get("fp"))
+                .and_then(Json::as_str)
+                .unwrap_or("f64")
+                .to_string(),
+            exec_max_steps: value
+                .get("exec")
+                .and_then(|e| e.get("max_steps"))
+                .and_then(Json::as_u64)
+                .unwrap_or(0),
+            environment: Environment::from_json(value.get("environment").unwrap_or(&Json::Null)),
+            calibration: value
+                .get("calibration")
+                .and_then(|c| match c {
+                    Json::Obj(fields) => Some(
+                        fields
+                            .iter()
+                            .map(|(k, v)| (k.clone(), v.as_f64().unwrap_or(0.0)))
+                            .collect(),
+                    ),
+                    _ => None,
+                })
+                .unwrap_or_default(),
+            correlation: value
+                .get("channel_correlation")
+                .and_then(Json::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| {
+                            let a = item.get("a")?.as_str()?.to_string();
+                            let b = item.get("b")?.as_str()?.to_string();
+                            let rho = item.get("rho")?.as_f64()?;
+                            Some((a, b, rho))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            correlation_samples: value
+                .get("correlation_samples")
+                .and_then(Json::as_u64)
+                .unwrap_or(0),
+            files: value
+                .get("files")
+                .and_then(|f| match f {
+                    Json::Obj(fields) => Some(
+                        fields
+                            .iter()
+                            .map(|(k, v)| (k.clone(), v.as_str().unwrap_or_default().to_string()))
+                            .collect(),
+                    ),
+                    _ => None,
+                })
+                .unwrap_or_default(),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn manifest() -> Manifest {
+        Manifest {
+            schema: SCHEMA.to_string(),
+            tool_version: "0.1.0".to_string(),
+            created_unix_ms: 1_760_000_000_000,
+            model_name: "projectile".to_string(),
+            model_sha256: "aa".repeat(32),
+            air_sha256: "bb".repeat(32),
+            config: Json::object(vec![
+                ("budget", Json::count(400)),
+                ("strategy", Json::text("adaptive")),
+            ]),
+            exec_fp: "f64".to_string(),
+            exec_max_steps: 50_000_000,
+            counts: Counts {
+                evaluations: 400,
+                instruction_steps: 12_874_501,
+                params: 3,
+                outputs: 1,
+                constraints: 2,
+                relations: 1,
+                cells: 37,
+                samples: 400,
+                findings: 4,
+            },
+            environment: Environment {
+                os: "windows".to_string(),
+                arch: "x86_64".to_string(),
+                pointer_width: 64,
+                rust_channel: "1.99.0".to_string(),
+                cpu_features: vec!["avx2".to_string(), "fma".to_string()],
+                notes: vec![("gpu".to_string(), "none present".to_string())],
+            },
+            calibration: vec![
+                ("behavioral".to_string(), 1.98),
+                ("physical".to_string(), 1.0),
+                ("numerical".to_string(), 0.02),
+                ("differential".to_string(), 1.0),
+                ("sensitivity".to_string(), 2.4),
+            ],
+            correlation: vec![("behavioral".to_string(), "sensitivity".to_string(), 0.72)],
+            correlation_samples: 400,
+            files: vec![
+                ("model.ap".to_string(), "cc".repeat(32)),
+                ("observations.bin".to_string(), "dd".repeat(32)),
+            ],
+        }
+    }
+
+    #[test]
+    fn a_manifest_round_trips_through_its_own_json() {
+        let m = manifest();
+        let text = m.to_json().to_pretty();
+        let back = Manifest::from_json(&Json::parse(&text).unwrap()).unwrap();
+        assert_eq!(m, back, "a written manifest must be readable without loss");
+    }
+
+    #[test]
+    fn the_schema_is_checked_rather_than_assumed() {
+        let mut m = manifest();
+        m.schema = "aporia.experiment/99".to_string();
+        let e = Manifest::from_json(&m.to_json()).unwrap_err();
+        match e {
+            crate::StoreError::Schema(s) => assert_eq!(s, "aporia.experiment/99"),
+            other => panic!("expected a schema refusal, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_missing_field_reads_as_zero_not_as_a_panic() {
+        // An older or hand-edited manifest should degrade loudly in the counts, not crash the tool
+        // that is trying to report on it.
+        let value = Json::parse(r#"{"schema":"aporia.experiment/1"}"#).unwrap();
+        let m = Manifest::from_json(&value).unwrap();
+        assert_eq!(m.counts, Counts::default());
+        assert!(m.files.is_empty());
+    }
+
+    #[test]
+    fn file_order_is_preserved_so_two_manifests_can_be_diffed() {
+        let text = manifest().to_json().to_pretty();
+        let at = text.find(r#""files""#).unwrap();
+        let model = text.find("model.ap").unwrap();
+        let observations = text.find("observations.bin").unwrap();
+        assert!(at < model && model < observations);
+    }
+}

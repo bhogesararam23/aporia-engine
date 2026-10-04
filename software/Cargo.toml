@@ -7,6 +7,7 @@ members = [
     "crates/aporia-ir",
     "crates/aporia-search",
     "crates/aporia-minimize",
+    "crates/aporia-store",
     "crates/aporia-properties",
     "crates/aporia-numerics",
     "crates/aporia-runtime",
@@ -15,7 +16,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 license = "MIT"
 authors = ["Ram Bhogesara <bhogesara.ram23@gmail.com>"]
 repository = "https://github.com/bhogesararam23/aporia-engine"
