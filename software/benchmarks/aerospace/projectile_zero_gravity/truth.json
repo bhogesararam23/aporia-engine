@@ -1,0 +1,26 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "domain_assumption",
+  "derivation": "the only change from projectile_clean is the lower bound of gravity, now zero. At g = 0 the division gives an infinite or NaN range, so the fault is a single degenerate plane in a three-parameter space.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "division by zero",
+      "axes": {
+        "g": [
+          0.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "g",
+      "at": 0.0,
+      "tolerance": 0.001
+    }
+  ],
+  "expect": "a measure-zero fault: an axis-aligned atlas can localise it only to a cell, and the honest result is a band at the domain edge rather than a tight interval",
+  "degenerate": true
+}

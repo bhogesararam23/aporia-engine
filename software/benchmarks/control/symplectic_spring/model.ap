@@ -1,0 +1,15 @@
+model symplectic_spring "the semi-implicit order for the same oscillator" {
+  input dt in [0.001, 0.3]
+  let w = 1
+  state x = 1.0
+  state v = 0.0
+  state energy = 0.5
+  loop 41 {
+    advance v = v - w * w * x * dt
+    advance x = x + v * dt
+    advance energy = 0.5 * v * v + 0.5 * w * w * x * x
+    watch energy
+  }
+  let final = energy
+  require final < 0.75
+}

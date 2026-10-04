@@ -1,0 +1,10 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "none",
+  "derivation": "this order uses the value just written into v, which makes the step symplectic: the computed energy oscillates around the true one instead of growing. Measured over the whole domain with 41 steps the largest value is 0.5831, against a bound of 0.75, so the rule holds everywhere and this entry is a control.",
+  "method": "analytic",
+  "regions": [],
+  "boundaries": [],
+  "expect": "no suspicious region at all; anything reported here is a false positive",
+  "control": true
+}

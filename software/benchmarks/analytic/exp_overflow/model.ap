@@ -1,0 +1,5 @@
+model exp_overflow "the exponential leaves the floating-point range" {
+  input x in [0, 1000]
+  let y = exp(x)
+  require finite(y)
+}

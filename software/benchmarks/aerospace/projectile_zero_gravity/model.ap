@@ -1,0 +1,7 @@
+model projectile_zero_gravity "a gravity domain that includes the division by zero" {
+  input v : m/s in [0, 1000]
+  input a : rad in [0, pi/2]
+  input g : m/s^2 in [0, 9.9]
+  let r = v * v * sin(2 * a) / g
+  require finite(r)
+}

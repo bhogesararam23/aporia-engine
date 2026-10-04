@@ -1,0 +1,10 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "unit_mistake",
+  "derivation": "highway is km/h and local is m/s: the same dimension and different scales, added together. APORIA's unit algebra checks scale on additive operations, so the frontend names the factor before any execution. The diagnostic is a warning rather than an error, and this entry records that honestly instead of claiming the checker refuses to compile it.",
+  "method": "static",
+  "regions": [],
+  "boundaries": [],
+  "expect": "a diagnostic naming the scale factor, produced before a single evaluation",
+  "static": true
+}

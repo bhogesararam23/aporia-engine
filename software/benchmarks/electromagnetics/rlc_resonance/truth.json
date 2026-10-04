@@ -1,0 +1,31 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "boundary_condition",
+  "derivation": "current peaks at the resonance w0 = 1/sqrt(LC) = 2 where the reactance cancels and only R remains, giving I = V/R = 1000 against a declared ceiling of 100. The width of the band was measured on a 20001-point scan rather than estimated from the reactance slope: the ceiling is exceeded between w = 1.99551 and w = 2.00450.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "the declared current ceiling is exceeded",
+      "axes": {
+        "w": [
+          1.9956,
+          2.0044
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "w",
+      "at": 1.9955,
+      "tolerance": 0.002
+    },
+    {
+      "axis": "w",
+      "at": 2.0045,
+      "tolerance": 0.002
+    }
+  ],
+  "expect": "a narrow interior band around the resonance, which is the shape the boundary families are for",
+  "narrow": true
+}

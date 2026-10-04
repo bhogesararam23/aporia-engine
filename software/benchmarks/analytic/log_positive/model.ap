@@ -1,0 +1,5 @@
+model log_positive "ln of a non-positive number" {
+  input v in [-5, 20]
+  let l = ln(v)
+  require finite(l)
+}

@@ -1,0 +1,70 @@
+{
+  "schema": "aporia.corpus/1",
+  "license": "MIT",
+  "attribution": "Every model in this corpus was written for APORIA. None of them downloads data, and none is derived from a third-party benchmark file, so there is nothing to attribute and no licence to comply with beyond this one.",
+  "provenance": {
+    "author": "Ram Bhogesara",
+    "created": "2026-10-04",
+    "how": "analytic models written in the Aporia DSL, plus mutants produced by changing exactly one line of a clean model, recorded in each entry's `mutant_of` field",
+    "external_families": "SciMLBenchmarks, OpenMDAO examples, NASA NTRS and NIST Matrix Market are the intended sources for later entries. None is used yet, so no download, licence check or attribution is claimed here."
+  },
+  "families": [
+    {
+      "name": "analytic",
+      "purpose": "ground truth is a closed-form property of the real numbers or of IEEE-754, so the true region and its boundary are exact",
+      "entries": ["sqrt_domain", "log_positive", "reciprocal_bound", "exp_overflow"]
+    },
+    {
+      "name": "ode",
+      "purpose": "step size and rate produce stability boundaries, including a curved one an axis-aligned atlas can only stair-step",
+      "entries": ["euler_decay", "euler_decay_2d"]
+    },
+    {
+      "name": "control",
+      "purpose": "the same equations in two update orders, one with a genuine trusted region and one without",
+      "entries": ["naive_euler_spring", "symplectic_spring"]
+    },
+    {
+      "name": "linear_algebra",
+      "purpose": "catastrophic cancellation over a nine-decade parameter range",
+      "entries": ["quadratic_small_root"]
+    },
+    {
+      "name": "aerospace",
+      "purpose": "a clean model used as a false-positive control, and two single-line mutants of it",
+      "entries": ["projectile_clean", "projectile_sign_mutant", "projectile_zero_gravity"]
+    },
+    {
+      "name": "electromagnetics",
+      "purpose": "a narrow interior band at a resonance, which is the shape boundary discovery is for",
+      "entries": ["rlc_resonance"]
+    },
+    {
+      "name": "mutants",
+      "purpose": "fault classes from the specification that APORIA should catch without executing anything",
+      "entries": ["unit_mistake"]
+    }
+  ],
+  "fault_classes_covered": [
+    "sign_error",
+    "boundary_condition",
+    "unit_mistake",
+    "cancellation",
+    "time_step_sensitivity",
+    "state_update_ordering",
+    "overflow_divergence",
+    "domain_assumption"
+  ],
+  "fault_classes_not_covered_yet": [
+    "incorrect_constant",
+    "incorrect_stopping_condition",
+    "normalisation_or_scaling",
+    "cpu_gpu_divergence",
+    "simd_divergence"
+  ],
+  "ground_truth": {
+    "format": "truth.json per entry, declaring axis-aligned boxes as a union, plus the boundary values and the derivation in plain language",
+    "why_boxes": "a union of boxes is checkable by direct evaluation. Where the true region is curved the entry says so, and the declared boxes are an inner approximation with the exact edge values listed in the derivation.",
+    "verification": "aporia-bench verifies every declaration against a dense grid evaluation of the model's own declared rules before any search result is reported, and the corpus test fails if a declaration does not hold"
+  }
+}

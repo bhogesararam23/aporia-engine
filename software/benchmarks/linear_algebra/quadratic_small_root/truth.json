@@ -1,0 +1,25 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "cancellation",
+  "derivation": "the smaller root of x^2 + b x + 1 is -1/b to leading order, and the unstable form computes it as (disc - b)/2, subtracting two numbers that agree to about log10(b^2/4) digits. The declared floor of 1e-7 is a magnitude the true root never falls below inside the domain until b reaches 1e7, where -1/b itself is -1e-7; measured crossing on this machine: b = 10000488.26 with one sign change, so the region is a clean interval rather than the ragged one a relative-error rule produces. A relative bound was tried first and rejected: the disagreement between two unstable forms is quantised by floating-point granularity, so it flickers over hundreds of crossings and cannot be declared as a box at all.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "the unstable form has lost the root entirely and returns a value below the declared floor",
+      "axes": {
+        "b": [
+          10500000.0,
+          1000000000.0
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "b",
+      "at": 10000488.0,
+      "tolerance": 200000.0
+    }
+  ],
+  "expect": "one band at the top of a nine-decade range, which a uniform sampler will not reach without spending most of its budget on the bottom eight"
+}

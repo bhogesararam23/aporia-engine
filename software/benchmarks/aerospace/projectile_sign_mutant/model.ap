@@ -1,0 +1,8 @@
+model projectile_sign_mutant "the same model with sin(2a) replaced by cos(2a)" {
+  input v : m/s in [0, 1000]
+  input a : rad in [0, pi/2]
+  input g : m/s^2 in [9.7, 9.9]
+  let r = v * v * cos(2 * a) / g
+  require r >= 0
+  check monotone_up(r wrt v)
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "none",
+  "derivation": "sin(2a) is non-negative on [0, pi/2] and g is bounded away from zero, so the declared rule holds everywhere and range rises with speed. This entry exists to be measured for false positives.",
+  "method": "analytic",
+  "regions": [],
+  "boundaries": [],
+  "expect": "a fully trusted atlas",
+  "control": true
+}

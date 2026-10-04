@@ -1,0 +1,334 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "time_step_sensitivity",
+  "derivation": "instability needs k*dt >= 1, a hyperbola in (k, dt) that no box expresses. The region is the union of 24 slices; each slice's dt floor is 1/k at the slice's *lower* k, so every point inside every box really does fail. The uncovered remainder is a set of slivers narrower than one slice, and the entry says so rather than pretending the union is the region.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "k*dt >= 1 across k in 1.6667..1.8056, so dt at or above 1/1.6667",
+      "axes": {
+        "k": [
+          1.6667,
+          1.805588
+        ],
+        "dt": [
+          0.599988,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 1.8056..1.9445, so dt at or above 1/1.8056",
+      "axes": {
+        "k": [
+          1.805588,
+          1.944475
+        ],
+        "dt": [
+          0.553836,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 1.9445..2.0834, so dt at or above 1/1.9445",
+      "axes": {
+        "k": [
+          1.944475,
+          2.083363
+        ],
+        "dt": [
+          0.514278,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 2.0834..2.2222, so dt at or above 1/2.0834",
+      "axes": {
+        "k": [
+          2.083363,
+          2.22225
+        ],
+        "dt": [
+          0.479993,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 2.2222..2.3611, so dt at or above 1/2.2222",
+      "axes": {
+        "k": [
+          2.22225,
+          2.361137
+        ],
+        "dt": [
+          0.449994,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 2.3611..2.5000, so dt at or above 1/2.3611",
+      "axes": {
+        "k": [
+          2.361137,
+          2.500025
+        ],
+        "dt": [
+          0.423525,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 2.5000..2.6389, so dt at or above 1/2.5000",
+      "axes": {
+        "k": [
+          2.500025,
+          2.638912
+        ],
+        "dt": [
+          0.399996,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 2.6389..2.7778, so dt at or above 1/2.6389",
+      "axes": {
+        "k": [
+          2.638912,
+          2.7778
+        ],
+        "dt": [
+          0.378944,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 2.7778..2.9167, so dt at or above 1/2.7778",
+      "axes": {
+        "k": [
+          2.7778,
+          2.916688
+        ],
+        "dt": [
+          0.359997,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 2.9167..3.0556, so dt at or above 1/2.9167",
+      "axes": {
+        "k": [
+          2.916688,
+          3.055575
+        ],
+        "dt": [
+          0.342855,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 3.0556..3.1945, so dt at or above 1/3.0556",
+      "axes": {
+        "k": [
+          3.055575,
+          3.194463
+        ],
+        "dt": [
+          0.327271,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 3.1945..3.3334, so dt at or above 1/3.1945",
+      "axes": {
+        "k": [
+          3.194463,
+          3.33335
+        ],
+        "dt": [
+          0.313042,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 3.3334..3.4722, so dt at or above 1/3.3334",
+      "axes": {
+        "k": [
+          3.33335,
+          3.472238
+        ],
+        "dt": [
+          0.299999,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 3.4722..3.6111, so dt at or above 1/3.4722",
+      "axes": {
+        "k": [
+          3.472238,
+          3.611125
+        ],
+        "dt": [
+          0.287999,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 3.6111..3.7500, so dt at or above 1/3.6111",
+      "axes": {
+        "k": [
+          3.611125,
+          3.750012
+        ],
+        "dt": [
+          0.276922,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 3.7500..3.8889, so dt at or above 1/3.7500",
+      "axes": {
+        "k": [
+          3.750012,
+          3.8889
+        ],
+        "dt": [
+          0.266666,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 3.8889..4.0278, so dt at or above 1/3.8889",
+      "axes": {
+        "k": [
+          3.8889,
+          4.027788
+        ],
+        "dt": [
+          0.257142,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 4.0278..4.1667, so dt at or above 1/4.0278",
+      "axes": {
+        "k": [
+          4.027788,
+          4.166675
+        ],
+        "dt": [
+          0.248275,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 4.1667..4.3056, so dt at or above 1/4.1667",
+      "axes": {
+        "k": [
+          4.166675,
+          4.305562
+        ],
+        "dt": [
+          0.24,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 4.3056..4.4444, so dt at or above 1/4.3056",
+      "axes": {
+        "k": [
+          4.305562,
+          4.44445
+        ],
+        "dt": [
+          0.232258,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 4.4444..4.5833, so dt at or above 1/4.4444",
+      "axes": {
+        "k": [
+          4.44445,
+          4.583338
+        ],
+        "dt": [
+          0.225,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 4.5833..4.7222, so dt at or above 1/4.5833",
+      "axes": {
+        "k": [
+          4.583338,
+          4.722225
+        ],
+        "dt": [
+          0.218182,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 4.7222..4.8611, so dt at or above 1/4.7222",
+      "axes": {
+        "k": [
+          4.722225,
+          4.861112
+        ],
+        "dt": [
+          0.211765,
+          0.6
+        ]
+      }
+    },
+    {
+      "reason": "k*dt >= 1 across k in 4.8611..5.0000, so dt at or above 1/4.8611",
+      "axes": {
+        "k": [
+          4.861112,
+          5.0
+        ],
+        "dt": [
+          0.205714,
+          0.6
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "dt",
+      "at": 0.5,
+      "tolerance": 0.05
+    },
+    {
+      "axis": "dt",
+      "at": 0.3,
+      "tolerance": 0.05
+    }
+  ],
+  "expect": "a curved transition that an axis-aligned atlas can only stair-step; the reported cell count is the cost of that",
+  "curved": true
+}

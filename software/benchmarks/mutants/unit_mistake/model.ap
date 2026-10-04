@@ -1,0 +1,6 @@
+model unit_mistake "a km/h value added to an m/s value" {
+  input highway : km/h in [0, 130]
+  input local : m/s in [0, 30]
+  let both = highway + local
+  require both < 50
+}

@@ -8,6 +8,7 @@ members = [
     "crates/aporia-search",
     "crates/aporia-minimize",
     "crates/aporia-store",
+    "crates/aporia-bench",
     "crates/aporia-properties",
     "crates/aporia-numerics",
     "crates/aporia-runtime",

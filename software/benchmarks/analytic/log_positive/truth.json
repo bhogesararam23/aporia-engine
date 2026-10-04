@@ -1,0 +1,25 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "domain_assumption",
+  "derivation": "ln(v) is -inf at v = 0 and NaN below it, so the region is v <= 0 and the boundary is v = 0.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "l is -inf or NaN",
+      "axes": {
+        "v": [
+          -5.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "v",
+      "at": 0.0,
+      "tolerance": 0.001
+    }
+  ],
+  "expect": "a band at the left edge of the domain"
+}

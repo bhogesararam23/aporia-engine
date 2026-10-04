@@ -1,0 +1,25 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "overflow_divergence",
+  "derivation": "exp overflows the f64 range above ln(DBL_MAX) = 709.78, so the region is x > 709.78. The boundary is a property of IEEE-754 double, not of this model.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "y is infinite",
+      "axes": {
+        "x": [
+          709.78,
+          1000.0
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "x",
+      "at": 709.78,
+      "tolerance": 0.01
+    }
+  ],
+  "expect": "one band near 709.78, with nearly a third of the domain above it untrustworthy"
+}

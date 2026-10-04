@@ -1,0 +1,31 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "overflow_divergence",
+  "derivation": "abs(1/(x-0.5)) >= 1e6 exactly when abs(x-0.5) <= 1e-6, which is the declared bound failing. The region is one millionth wide on each side of 0.5, so this entry measures atlas resolution rather than detection.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "the declared magnitude bound is exceeded",
+      "axes": {
+        "x": [
+          0.499999,
+          0.500001
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "x",
+      "at": 0.499999,
+      "tolerance": 2e-06
+    },
+    {
+      "axis": "x",
+      "at": 0.500001,
+      "tolerance": 2e-06
+    }
+  ],
+  "expect": "a very narrow band; a coarse atlas may miss it entirely and should report UNKNOWN rather than TRUSTED",
+  "narrow": true
+}

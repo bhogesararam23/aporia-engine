@@ -1,0 +1,6 @@
+model quadratic_small_root "the smaller root of x^2 + b x + 1, by the unstable form" {
+  input b in [2, 1000000000]
+  let disc = sqrt(b * b - 4)
+  let root = (0 - b + disc) / 2
+  require root < -0.0000001
+}

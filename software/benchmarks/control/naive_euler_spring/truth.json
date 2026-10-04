@@ -1,0 +1,25 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "state_update_ordering",
+  "derivation": "explicit Euler advances both state variables from the previous step's values, so its amplification factor is sqrt(1 + w^2*dt^2), which exceeds one for every positive dt: there is no stable step size, only steps small enough to stay under the bound within the 41 steps this model runs. The crossing was measured, not derived: energy reaches 0.75 between dt = 0.0996 and 0.0998, so the declared box starts at 0.1.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "energy has grown past the declared bound",
+      "axes": {
+        "dt": [
+          0.1,
+          0.3
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "dt",
+      "at": 0.0997,
+      "tolerance": 0.005
+    }
+  ],
+  "expect": "most of the domain untrustworthy with a genuine trusted region at small dt, and the pair with symplectic_spring shows that one reordered line is the whole difference"
+}

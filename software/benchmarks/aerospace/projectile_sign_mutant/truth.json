@@ -1,0 +1,30 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "sign_error",
+  "derivation": "cos(2a) goes negative past a = pi/4, so the declared non-negativity rule fails over the upper half of the angle domain - but only where there is a speed to multiply. At v = 0 the range is -0.0, which satisfies r >= 0, so the speed is part of the region and the zero-speed edge is not. That corner is the honest reason the box names two axes.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "range comes out negative",
+      "axes": {
+        "a": [
+          0.7854,
+          1.5708
+        ],
+        "v": [
+          0.001,
+          1000.0
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "a",
+      "at": 0.7854,
+      "tolerance": 0.02
+    }
+  ],
+  "expect": "a band in angle, independent of speed and gravity",
+  "mutant_of": "aerospace/projectile_clean"
+}

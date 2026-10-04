@@ -1,0 +1,8 @@
+model projectile_clean "range of a projectile, correct and inside its domain" {
+  input v : m/s in [0, 1000]
+  input a : rad in [0, pi/2]
+  input g : m/s^2 in [9.7, 9.9]
+  let r = v * v * sin(2 * a) / g
+  require r >= 0
+  check monotone_up(r wrt v)
+}

@@ -1,0 +1,11 @@
+model euler_decay_2d "explicit Euler with both the rate and the step free" {
+  input k in [0.5, 5]
+  input dt in [0.001, 0.6]
+  state e = 1.0
+  loop 41 {
+    advance e = e - k * e * dt
+    watch e
+  }
+  let final = e
+  require final > 0
+}

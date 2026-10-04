@@ -1,0 +1,6 @@
+model reciprocal_bound "a pole inside the declared domain" {
+  input x in [0, 1]
+  let y = 1 / (x - 0.5)
+  let magnitude = abs(y)
+  require magnitude < 1000000
+}

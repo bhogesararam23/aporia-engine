@@ -1,0 +1,25 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "time_step_sensitivity",
+  "derivation": "the update multiplies e by (1 - k*dt) per step. With k = 2 that factor is negative from dt = 0.5, and because the loop runs an odd number of times a negative factor leaves a negative answer, which is exactly what the declared rule catches. The step count being odd is deliberate: with an even count the sign hides the oscillation.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "the solution oscillates in sign instead of decaying",
+      "axes": {
+        "dt": [
+          0.5,
+          0.6
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "dt",
+      "at": 0.5,
+      "tolerance": 0.01
+    }
+  ],
+  "expect": "a band at the top of the step-size domain"
+}

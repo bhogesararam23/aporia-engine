@@ -1,0 +1,10 @@
+model rlc_resonance "series RLC current against a declared ceiling" {
+  input w in [0.01, 10]
+  let L = 1.0
+  let C = 0.25
+  let R = 0.001
+  let V = 1.0
+  let reactance = w * L - 1 / (w * C)
+  let I = V / sqrt(R * R + reactance * reactance)
+  require I < 100
+}

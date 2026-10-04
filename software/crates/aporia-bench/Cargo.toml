@@ -1,0 +1,23 @@
+[package]
+name = "aporia-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "APORIA's measurement harness: the corpus, the ground-truth checks, and the metrics the research question is answered with."
+
+[dependencies]
+aporia-ir = { path = "../aporia-ir" }
+aporia-dsl = { path = "../aporia-dsl" }
+aporia-runtime = { path = "../aporia-runtime" }
+aporia-evidence = { path = "../aporia-evidence" }
+aporia-properties = { path = "../aporia-properties" }
+aporia-boundary = { path = "../aporia-boundary" }
+aporia-search = { path = "../aporia-search" }
+aporia-minimize = { path = "../aporia-minimize" }
+aporia-store = { path = "../aporia-store" }
+
+[lints]
+workspace = true

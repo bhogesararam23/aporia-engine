@@ -1,0 +1,25 @@
+{
+  "schema": "aporia.truth/1",
+  "fault": "domain_assumption",
+  "derivation": "sqrt of a negative real is NaN, so the region is x < 0 exactly. The box stops just below zero because sqrt(0) = 0 is finite and does not violate anything; the boundary the entry claims is still x = 0.",
+  "method": "analytic",
+  "regions": [
+    {
+      "reason": "y is NaN",
+      "axes": {
+        "x": [
+          -10.0,
+          -1e-09
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "x",
+      "at": 0.0,
+      "tolerance": 0.001
+    }
+  ],
+  "expect": "one band on the x axis, facing the negative side"
+}

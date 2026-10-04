@@ -3,6 +3,21 @@
 version = 4
 
 [[package]]
+name = "aporia-bench"
+version = "0.1.0"
+dependencies = [
+ "aporia-boundary",
+ "aporia-dsl",
+ "aporia-evidence",
+ "aporia-ir",
+ "aporia-minimize",
+ "aporia-properties",
+ "aporia-runtime",
+ "aporia-search",
+ "aporia-store",
+]
+
+[[package]]
 name = "aporia-boundary"
 version = "0.1.0"
 dependencies = [
