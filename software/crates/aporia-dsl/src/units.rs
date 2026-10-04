@@ -23,6 +23,13 @@ pub struct Unit {
     pub integral: bool,
 }
 
+impl Default for Unit {
+    /// The default unit is a pure number, which is what an unannotated quantity means.
+    fn default() -> Self {
+        Self::dimensionless()
+    }
+}
+
 impl Unit {
     #[must_use]
     pub fn dimensionless() -> Self {

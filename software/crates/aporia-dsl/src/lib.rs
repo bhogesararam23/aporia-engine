@@ -15,6 +15,7 @@
 pub mod ast;
 pub mod builtins;
 pub mod lexer;
+pub mod lower;
 pub mod parser;
 pub mod span;
 pub mod token;

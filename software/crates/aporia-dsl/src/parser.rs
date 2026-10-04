@@ -335,9 +335,23 @@ impl Parser<'_> {
     fn state_decl(&mut self) -> Parsed<StateDecl> {
         let start = self.bump().span;
         let (name, name_span) = self.expect_ident()?;
-        let unit = self.annotated_unit()?;
+        let leading = self.annotated_unit()?;
         self.expect_punct(Punct::Equals)?;
         let init = self.expr()?;
+        let trailing = self.annotated_unit()?;
+        let unit = match (leading, trailing) {
+            (Some(_), Some(_)) => {
+                self.errors.push(
+                    Diagnostic::error(
+                        format!("`{name}` has a unit annotation on both sides of the `=`"),
+                        start.merge(init.span()),
+                    )
+                    .with_help("state is declared as `state name : unit = value`"),
+                );
+                return Err(Bail);
+            }
+            (l, t) => l.or(t),
+        };
         Ok(StateDecl {
             name,
             span: start.merge(name_span),
@@ -349,9 +363,20 @@ impl Parser<'_> {
     fn let_decl(&mut self) -> Parsed<LetDecl> {
         let start = self.bump().span;
         let (name, name_span) = self.expect_ident()?;
-        let unit = self.annotated_unit()?;
+        let leading = self.annotated_unit()?;
         self.expect_punct(Punct::Equals)?;
         let value = self.expr()?;
+        let trailing = self.annotated_unit()?;
+        let unit = match (leading, trailing) {
+            (Some(_), Some(_)) => {
+                self.errors.push(Diagnostic::error(
+                    format!("`{name}` has a unit annotation on both sides of the `=`"),
+                    start.merge(value.span()),
+                ));
+                return Err(Bail);
+            }
+            (l, t) => l.or(t),
+        };
         Ok(LetDecl {
             name,
             span: start.merge(name_span),

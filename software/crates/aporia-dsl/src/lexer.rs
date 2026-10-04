@@ -4,11 +4,14 @@
 //! of its own errors instead of stopping at the first: a mistyped quote or a stray character usually
 //! comes in threes, and reporting them together is what makes a benchmark file editable.
 
-use crate::span::{Diagnostic, Errors, Source, Span};
+use crate::span::{Diagnostic, Diagnostics, Source, Span};
 use crate::token::{Keyword, Punct, Token, TokenKind};
 
-/// Lex a whole source file.
-pub fn lex(src: &Source) -> Result<Vec<Token>, Errors> {
+/// Lex a whole source file, appending findings to `out`.
+///
+/// Returns the token stream unless something was recorded at error severity. Warnings travel the
+/// same channel and never suppress the tokens.
+pub fn lex(src: &Source, out: &mut Diagnostics) -> Option<Vec<Token>> {
     let mut lexer = Lexer {
         text: src.text(),
         pos: 0,
@@ -16,11 +19,9 @@ pub fn lex(src: &Source) -> Result<Vec<Token>, Errors> {
         errors: Vec::new(),
     };
     lexer.run();
-    if lexer.errors.is_empty() {
-        Ok(lexer.tokens)
-    } else {
-        Err(Errors(lexer.errors))
-    }
+    let failed = lexer.errors.iter().any(Diagnostic::is_error);
+    out.items.append(&mut lexer.errors);
+    if failed { None } else { Some(lexer.tokens) }
 }
 
 struct Lexer<'a> {
@@ -390,19 +391,25 @@ mod tests {
 
     fn kinds(text: &str) -> Vec<TokenKind> {
         let src = Source::new("t.ap", text);
-        lex(&src)
-            .expect("lexes")
+        let mut d = Diagnostics::new();
+        lex(&src, &mut d)
+            .unwrap_or_else(|| panic!("expected {text:?} to lex, got: {d}"))
             .into_iter()
             .map(|t| t.kind)
             .collect()
     }
 
+    /// Lex expecting failure, and return the first error-severity message.
     fn first_error(text: &str) -> String {
         let src = Source::new("t.ap", text);
-        lex(&src).err().map_or_else(
-            || panic!("expected an error from {text:?}"),
-            |e| e.0[0].message.clone(),
-        )
+        let mut d = Diagnostics::new();
+        assert!(lex(&src, &mut d).is_none(), "expected {text:?} to fail");
+        d.items
+            .iter()
+            .find(|x| x.is_error())
+            .unwrap_or_else(|| panic!("expected an error severity from {text:?}: {d}"))
+            .message
+            .clone()
     }
 
     #[test]
@@ -534,7 +541,8 @@ mod tests {
     #[test]
     fn spans_point_at_the_exact_token() {
         let src = Source::new("t.ap", "input gravity : m/s^2\n");
-        let toks = lex(&src).unwrap();
+        let mut d = Diagnostics::new();
+        let toks = lex(&src, &mut d).unwrap();
         let gravity = toks
             .iter()
             .find(|t| t.kind == TokenKind::Ident("gravity".into()))
@@ -561,15 +569,11 @@ mod tests {
     }
 
     #[test]
-    fn several_errors_on_one_line_are_all_reported() {
+    fn several_errors_on_a_line_are_all_reported() {
         let src = Source::new("t.ap", "let a = 1 ? ? ?\n");
-        let e = lex(&src).err().unwrap();
-        assert_eq!(
-            e.0.len(),
-            3,
-            "{:?}",
-            e.0.iter().map(|d| &d.message).collect::<Vec<_>>()
-        );
+        let mut d = Diagnostics::new();
+        assert!(lex(&src, &mut d).is_none());
+        assert_eq!(d.error_count(), 3, "{:?}", d.items);
     }
 
     #[test]
@@ -578,4 +582,13 @@ mod tests {
         let ks = kinds("\"energy \u{03b1} drift\"\n");
         assert!(matches!(&ks[0], TokenKind::Str(s) if s == "energy \u{03b1} drift"));
     }
+}
+
+#[test]
+fn a_warning_does_not_lose_the_tokens() {
+    let src = Source::new("t.ap", "let a__b = 1\n");
+    let mut d = Diagnostics::new();
+    let toks = lex(&src, &mut d).expect("a warning is not an error");
+    assert_eq!(d.warning_count(), 1, "{:?}", d.items);
+    assert!(toks.iter().any(|t| t.kind.describe().contains("a__b")));
 }

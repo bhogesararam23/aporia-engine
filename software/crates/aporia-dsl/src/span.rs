@@ -245,36 +245,95 @@ impl Diagnostic {
     }
 }
 
-/// Anything that went wrong badly enough to stop a phase.
-#[derive(Clone, Debug)]
-pub struct Errors(pub Vec<Diagnostic>);
+/// Every finding collected while a model is being compiled.
+///
+/// The front end is a pipeline of phases that all take this by hand, so a file can produce a
+/// warning at lexing, two at parsing and a unit error at checking, and the user still sees all of
+/// them in one run. A phase that records an [`Severity::Error`] stops the pipeline; warnings do not.
+#[derive(Clone, Debug, Default)]
+pub struct Diagnostics {
+    pub items: Vec<Diagnostic>,
+}
 
-impl Errors {
+impl Diagnostics {
     #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn push(&mut self, diagnostic: Diagnostic) {
+        self.items.push(diagnostic);
+    }
+
+    pub fn error(&mut self, message: impl Into<String>, span: Span) {
+        self.items.push(Diagnostic::error(message, span));
+    }
+
+    pub fn warning(&mut self, message: impl Into<String>, span: Span) {
+        self.items.push(Diagnostic::warning(message, span));
     }
 
     #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.items.iter().any(Diagnostic::is_error)
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
+    #[must_use]
+    pub fn error_count(&self) -> usize {
+        self.items.iter().filter(|d| d.is_error()).count()
+    }
+
+    #[must_use]
+    pub fn warning_count(&self) -> usize {
+        self.items
+            .iter()
+            .filter(|d| d.severity == Severity::Warning)
+            .count()
+    }
+
+    /// Render everything against the source it came from.
+    #[must_use]
     pub fn render_all(&self, src: &Source) -> String {
-        self.0
+        self.items
             .iter()
             .map(|d| d.render(src))
             .collect::<Vec<_>>()
             .join("\n")
     }
+
+    /// A one-line summary, the way a compiler finishes.
+    #[must_use]
+    pub fn summary(&self) -> String {
+        let e = self.error_count();
+        let w = self.warning_count();
+        match (e, w) {
+            (0, 0) => "no findings".to_string(),
+            (0, w) => format!("{w} warning{}", if w == 1 { "" } else { "s" }),
+            (e, 0) => format!("{e} error{}", if e == 1 { "" } else { "s" }),
+            (e, w) => format!(
+                "{e} error{} and {w} warning{}",
+                if e == 1 { "" } else { "s" },
+                if w == 1 { "" } else { "s" }
+            ),
+        }
+    }
 }
 
-impl fmt::Display for Errors {
+impl fmt::Display for Diagnostics {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for d in &self.0 {
+        for d in &self.items {
             writeln!(f, "{}: {}", d.severity.label(), d.message)?;
         }
         Ok(())
     }
 }
 
-impl std::error::Error for Errors {}
+impl std::error::Error for Diagnostics {}
 
 #[cfg(test)]
 mod tests {
@@ -307,6 +366,18 @@ mod tests {
         assert!(text.contains("    let v = a + b"), "{text}");
         assert!(text.contains("^^^"), "{text}");
         assert!(text.contains("this is metres"), "{text}");
+    }
+
+    #[test]
+    fn only_errors_stop_the_pipeline() {
+        let mut d = Diagnostics::new();
+        d.warning("unusual underscore pattern", Span::new(0, 1));
+        assert!(!d.has_errors());
+        d.error("cannot add m and s", Span::new(2, 3));
+        assert!(d.has_errors());
+        assert_eq!(d.error_count(), 1);
+        assert_eq!(d.warning_count(), 1);
+        assert_eq!(d.summary(), "1 error and 1 warning");
     }
 
     #[test]
