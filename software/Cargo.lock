@@ -29,6 +29,17 @@ name = "aporia-ir"
 version = "0.1.0"
 
 [[package]]
+name = "aporia-minimize"
+version = "0.1.0"
+dependencies = [
+ "aporia-dsl",
+ "aporia-evidence",
+ "aporia-ir",
+ "aporia-properties",
+ "aporia-runtime",
+]
+
+[[package]]
 name = "aporia-numerics"
 version = "0.1.0"
 dependencies = [

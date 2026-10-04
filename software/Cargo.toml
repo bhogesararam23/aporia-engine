@@ -6,6 +6,7 @@ members = [
     "crates/aporia-evidence",
     "crates/aporia-ir",
     "crates/aporia-search",
+    "crates/aporia-minimize",
     "crates/aporia-properties",
     "crates/aporia-numerics",
     "crates/aporia-runtime",
