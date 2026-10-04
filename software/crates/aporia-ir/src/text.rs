@@ -379,6 +379,9 @@ pub fn from_text(text: &str) -> Result<Model, TextError> {
     let mut model = Model::new(String::new());
     let mut cur_block: Option<BlockId> = None;
     let mut seen_format = false;
+    // Instructions are collected by their declared id rather than appended, because a dump is
+    // grouped by block and a lowered loop body is numbered before the `For` that enters it.
+    let mut placed: Vec<Option<Instr>> = Vec::new();
     for (lineno, raw) in text.lines().enumerate() {
         let line = lineno + 1;
         let raw = raw.trim_end();
@@ -470,8 +473,12 @@ pub fn from_text(text: &str) -> Result<Model, TextError> {
                     return Err(err(line, "instr line is too short"));
                 }
                 let id: u32 = fs[1].parse().map_err(|_| err(line, "bad instruction id"))?;
-                if id as usize != model.instrs.len() {
-                    return Err(err(line, "instructions must appear in id order"));
+                let at = id as usize;
+                if placed.get(at).is_some_and(Option::is_some) {
+                    return Err(err(line, format!("instruction {id} appears twice")));
+                }
+                if placed.len() < at + 1 {
+                    placed.resize(at + 1, None);
                 }
                 let ty = Ty {
                     num: parse_num(&fs[2]).map_err(|_| err(line, "bad instruction type"))?,
@@ -538,7 +545,7 @@ pub fn from_text(text: &str) -> Result<Model, TextError> {
                     }
                     other => return Err(err(line, format!("unknown instruction `{other}`"))),
                 };
-                model.instrs.push(Instr { ty, kind });
+                placed[at] = Some(Instr { ty, kind });
                 model.blocks[bid as usize].instrs.push(id);
             }
             "output" => {
@@ -698,6 +705,14 @@ pub fn from_text(text: &str) -> Result<Model, TextError> {
     if !seen_format {
         return Err(err(0, "missing `aporia-ir 1` header"));
     }
+    // Node operands index into `instrs` by position, so the ids have to form a complete set with no
+    // holes; a dump that skipped one would otherwise silently shift every later reference.
+    for (i, slot) in placed.into_iter().enumerate() {
+        let Some(instr) = slot else {
+            return Err(err(0, format!("instruction {i} is missing from the dump")));
+        };
+        model.instrs.push(instr);
+    }
     Ok(model)
 }
 
@@ -715,6 +730,104 @@ mod tests {
     use super::*;
     use crate::dim::{LENGTH, TIME};
     use crate::ir::{Binop, ConstraintKind, RelationKind};
+
+    /// A model shaped the way lowering shapes a real one: the loop body is numbered before the
+    /// `For` that enters it, so a dump grouped by block does not list instruction ids in order.
+    fn looped() -> Model {
+        let mut m = Model::new("decay");
+        m.params.push(Param {
+            name: "step".into(),
+            ty: Ty::float(Dimension::dimensionless()),
+            domain: Domain::interval(0.0, 1.0),
+            to_si: 1.0,
+            doc: String::new(),
+        });
+        m.slots.push(Slot {
+            name: "e".into(),
+            ty: Ty::float(Dimension::dimensionless()),
+            init: Operand::Lit(Lit::F64(1.0)),
+        });
+        let unit = Ty {
+            num: NumType::Unit,
+            dim: Dimension::dimensionless(),
+        };
+        let body = m.new_block();
+        let decay = m.push(
+            body,
+            Instr {
+                ty: Ty::float(Dimension::dimensionless()),
+                kind: InstrKind::Bin {
+                    op: Binop::Mul,
+                    a: Operand::Slot(0),
+                    b: Operand::Lit(Lit::F64(0.5)),
+                },
+            },
+        );
+        m.push(
+            body,
+            Instr {
+                ty: unit,
+                kind: InstrKind::Write {
+                    slot: 0,
+                    value: Operand::Node(decay),
+                },
+            },
+        );
+        let entrance = m.push_entry(Instr {
+            ty: unit,
+            kind: InstrKind::For {
+                trip: Operand::Lit(Lit::I64(3)),
+                body,
+            },
+        });
+        assert_eq!(entrance, 2, "the loop is numbered after its own body");
+        m.outputs.push(Output {
+            name: "e".into(),
+            ty: Ty::float(Dimension::dimensionless()),
+            value: Operand::Slot(0),
+            doc: String::new(),
+        });
+        m.traces.push(Trace {
+            name: "e".into(),
+            ty: Ty::float(Dimension::dimensionless()),
+            scope: body,
+            value: Operand::Slot(0),
+        });
+        m
+    }
+
+    #[test]
+    fn a_dump_grouped_by_block_reads_back_even_when_ids_interleave() {
+        let m = looped();
+        let text = to_text(&m);
+        let back = from_text(&text).unwrap_or_else(|e| panic!("{e}\n{text}"));
+        assert_eq!(to_text(&back), text, "the round trip changed the model");
+        assert_eq!(back.instrs.len(), m.instrs.len());
+        assert_eq!(back.blocks[1].instrs, vec![0, 1]);
+        assert_eq!(back.blocks[0].instrs, vec![2]);
+    }
+
+    #[test]
+    fn an_instruction_declared_twice_is_refused() {
+        let text = to_text(&looped());
+        // Renumber the entry `For` to collide with the body's first instruction.
+        let duplicated = text.replace("instr 2 unit", "instr 0 unit");
+        let e = from_text(&duplicated).unwrap_err();
+        assert!(e.message.contains("appears twice"), "{e}");
+    }
+
+    #[test]
+    fn a_dump_with_a_missing_instruction_is_refused() {
+        // Node operands index by position, so a hole would silently shift every later reference.
+        let text = to_text(&looped());
+        let dropped = text
+            .lines()
+            .filter(|l| !l.starts_with("instr 1 "))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let e = from_text(&dropped).unwrap_err();
+        assert!(e.message.contains("missing"), "{e}");
+    }
 
     fn sample() -> Model {
         let mut m = Model::new("pendulum_small");
