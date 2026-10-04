@@ -224,6 +224,9 @@ pub enum Unop {
     Round,
     Trunc,
     Not,
+    /// "this value is neither NaN nor infinite". A predicate, because a scientific model reaching
+    /// infinity is a legitimate outcome and APORIA needs to record where it happens.
+    IsFinite,
     /// Widening or narrowing conversion; the verifier rejects lossy ones unless explicit.
     Cast(NumType),
 }
@@ -253,6 +256,7 @@ impl Unop {
             Self::Ceil => "ceil",
             Self::Round => "round",
             Self::Trunc => "trunc",
+            Self::IsFinite => "is_finite",
             Self::Not => "not",
             Self::Cast(t) => match t {
                 NumType::F64 => "cast_f64",
@@ -294,7 +298,7 @@ impl Unop {
 
     #[must_use]
     pub const fn is_predicate(&self) -> bool {
-        matches!(self, Self::Not)
+        matches!(self, Self::Not | Self::IsFinite)
     }
 
     pub const ALL: &'static [Self] = &[
@@ -320,6 +324,7 @@ impl Unop {
         Self::Round,
         Self::Trunc,
         Self::Not,
+        Self::IsFinite,
         Self::Cast(NumType::F64),
         Self::Cast(NumType::F32),
         Self::Cast(NumType::I64),
