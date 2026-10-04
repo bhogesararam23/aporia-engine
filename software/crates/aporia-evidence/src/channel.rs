@@ -23,6 +23,31 @@ pub enum Channel {
 }
 
 impl Channel {
+    /// The magnitude below which this channel's measurement says nothing.
+    ///
+    /// A relative calibration divides by the experiment's own typical value, so a channel whose
+    /// typical value is round-off noise turns ordinary noise into maximum strength: comparing an
+    /// f32 and an f64 path of a smooth model disagrees at about 1e-7 everywhere, and twice that
+    /// tiny difference is not evidence of anything. The floor is what the channel *means*:
+    ///
+    /// - numerical compares two precisions, and f32 carries about seven digits, so anything under
+    ///   1e-6 relative is the precision gap itself rather than a sensitivity to it.
+    /// - differential compares paths that should agree exactly — scalar and batched, same
+    ///   arithmetic, same inputs — so a nonzero difference is already evidence and a floor would
+    ///   hide the bug the channel exists to find.
+    /// - physical reports facts: a violated rule or a NaN has no noise band.
+    /// - behavioural and sensitivity are ratios of quantities the model itself produced, whose
+    ///   natural scale is set by the experiment, so they keep no absolute floor.
+    #[must_use]
+    pub const fn noise_floor(self) -> f64 {
+        match self {
+            // Only the numerical channel has a noise band: the others measure something whose
+            // smallest meaningful value is set by the model, not by the representation.
+            Self::Numerical => 1e-6,
+            Self::Behavioral | Self::Physical | Self::Differential | Self::Sensitivity => 0.0,
+        }
+    }
+
     pub const ALL: [Channel; 5] = [
         Channel::Behavioral,
         Channel::Physical,

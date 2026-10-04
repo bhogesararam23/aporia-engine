@@ -189,6 +189,7 @@ pub fn divergence(model: &Model, o: &Observation) -> Vec<Evidence> {
 pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evidence> {
     let mut out = Vec::new();
     for r in &model.relations {
+        let mut named: Option<Vec<u64>> = None;
         let (magnitude, detail) = match &r.kind {
             RelationKind::Monotone {
                 out: o,
@@ -196,11 +197,14 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
                 direction,
             } => {
                 let expect_increasing = *direction == aporia_ir::Direction::Increasing;
-                let Some((violated, total, worst)) =
+                let Some((violated, total, worst, offenders)) =
                     scan_monotone(records, probes, *o, *param, expect_increasing)
                 else {
                     continue;
                 };
+                // A failed monotonicity claim is about the probes that broke it, so this arm names
+                // them; the other relations are statements over the whole probe set.
+                named = Some(offenders);
                 if violated == 0 {
                     continue;
                 }
@@ -283,7 +287,7 @@ pub fn relations(model: &Model, records: &Records, probes: &Probes) -> Vec<Evide
                 Channel::Behavioral,
                 Subject::Relation(r.id),
                 magnitude,
-                observation_ids(records, probes),
+                named.unwrap_or_else(|| observation_ids(records, probes)),
                 detail,
             ));
         }
@@ -305,7 +309,8 @@ pub fn inferred_patterns(model: &Model, records: &Records, probes: &Probes) -> V
             // Only "keeps rising" is inferred. A decreasing relation is the same measurement with a
             // sign change, and inferring both directions from noisy data doubles the false-positive
             // rate for no information. `violated` therefore counts the pairs that fell.
-            if let Some((violated, total, worst)) = scan_monotone(records, probes, o, param, true)
+            if let Some((violated, total, worst, offenders)) =
+                scan_monotone(records, probes, o, param, true)
                 && violated * 4 >= total
                 && violated > 0
                 && worst > 1e-6
@@ -318,7 +323,7 @@ pub fn inferred_patterns(model: &Model, records: &Records, probes: &Probes) -> V
                         kind: PatternKind::Increasing,
                     },
                     (violated as f64 / total as f64) * worst,
-                    observation_ids(records, probes),
+                    offenders,
                     format!("o{o} stopped rising with p{param} in {violated} of {total} probes"),
                 ));
             }
@@ -330,11 +335,11 @@ pub fn inferred_patterns(model: &Model, records: &Records, probes: &Probes) -> V
                         param,
                         kind: PatternKind::Continuity,
                     },
-                    jump,
-                    observation_ids(records, probes),
+                    jump.ratio,
+                    jump.observations,
                     format!(
-                        "{} jumps by {jump:.1}x its typical step along p{param}",
-                        model.outputs[o as usize].name
+                        "{} jumps by {:.1}x its typical step along p{param}",
+                        model.outputs[o as usize].name, jump.ratio
                     ),
                 ));
             }
@@ -471,10 +476,11 @@ fn scan_monotone(
     output: u16,
     param: u16,
     expect_increasing: bool,
-) -> Option<(usize, usize, f64)> {
+) -> Option<(usize, usize, f64, Vec<u64>)> {
     let mut violated = 0;
     let mut total = 0;
     let mut worst = 0.0f64;
+    let mut offenders: Vec<u64> = Vec::new();
     for pair in probes.pairs.iter().filter(|p| p.axis == param) {
         let (Some(base), Some(moved)) = (records.by_id(pair.base), records.by_id(pair.perturbed))
         else {
@@ -491,6 +497,9 @@ fn scan_monotone(
         let rose = y1 > y0;
         if rose != expect_increasing && y1 != y0 {
             violated += 1;
+            // The pairs that broke the pattern, not every pair that was examined: a relation that
+            // fails in one corner should make that corner suspicious, not the whole space.
+            offenders.extend([pair.base, pair.perturbed]);
             let scale = y0.abs().max(y1.abs()).max(1.0);
             worst = worst.max((y1 - y0).abs() / scale);
         }
@@ -498,7 +507,9 @@ fn scan_monotone(
     if total == 0 {
         None
     } else {
-        Some((violated, total, worst))
+        offenders.sort_unstable();
+        offenders.dedup();
+        Some((violated, total, worst, offenders))
     }
 }
 
@@ -605,27 +616,44 @@ fn max_slope(records: &Records, probes: &Probes, output: u16, param: u16) -> Opt
 
 /// How much the biggest step along an axis exceeds the median step: a cheap stand-in for a
 /// discontinuity detector that does not need the function to be smooth anywhere.
-fn largest_jump(model: &Model, records: &Records, output: u16, param: u16) -> Option<f64> {
+/// A discontinuity candidate: the slope ratio and the two samples that produced it.
+#[derive(Clone, Debug, PartialEq)]
+struct Jump {
+    ratio: f64,
+    observations: Vec<u64>,
+}
+
+fn largest_jump(model: &Model, records: &Records, output: u16, param: u16) -> Option<Jump> {
     let DomainWidth(width) = width_of(model, param)?;
-    let mut samples: Vec<(f64, f64)> = records
+    let mut samples: Vec<(f64, f64, u64)> = records
         .items
         .iter()
         .filter_map(|o| {
             let x = *o.x.get(param as usize)?;
             let y = *o.y.get(output as usize)?;
-            y.is_finite().then_some((x, y))
+            y.is_finite().then_some((x, y, o.id))
         })
         .collect();
     if samples.len() < 5 {
         return None;
     }
     samples.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    // The pair with the steepest secant as well as the ratio: a jump belongs *between* two
+    // samples, and charging it to every observation in the experiment is what made a sharp feature
+    // in one corner of the space look suspicious everywhere within reach of it.
     let mut steps: Vec<f64> = Vec::with_capacity(samples.len() - 1);
+    let mut worst_pair: Option<(u64, u64)> = None;
+    let mut best = 0.0f64;
     for w in samples.windows(2) {
         let dx = (w[1].0 - w[0].0) / width;
         let dy = (w[1].1 - w[0].1).abs();
         if dx > 1e-9 {
-            steps.push(dy / dx);
+            let slope = dy / dx;
+            steps.push(slope);
+            if slope > best {
+                best = slope;
+                worst_pair = Some((w[0].2, w[1].2));
+            }
         }
     }
     if steps.len() < 3 {
@@ -634,7 +662,11 @@ fn largest_jump(model: &Model, records: &Records, output: u16, param: u16) -> Op
     let med = aporia_numerics::median_of(&steps);
     let max = steps.iter().fold(0.0f64, |a, b| a.max(*b));
     if med > 0.0 && max / med > 20.0 {
-        Some(max / med)
+        let (base, moved) = worst_pair?;
+        Some(Jump {
+            ratio: max / med,
+            observations: vec![base, moved],
+        })
     } else {
         None
     }
@@ -953,6 +985,48 @@ mod tests {
         assert!(both_inf.is_empty());
         let one_inf = disagreement(&m, &[0], &[1.0], &[f64::INFINITY], Channel::Numerical);
         assert!(one_inf.is_empty());
+    }
+
+    #[test]
+    fn a_jump_is_attributed_to_the_two_samples_around_it() {
+        // A sharp feature must not make the whole explored space suspicious. Charging one
+        // discontinuity to every observation the experiment probed was what produced findings far
+        // from the fault, so the continuity evidence names only the two samples either side of it.
+        let m = model(
+            "model p \"\" {
+ input x in [0, 10]
+ let y = 1 / (x - 5)
+ require finite(y)
+}
+",
+        );
+        let xs: Vec<Vec<f64>> = [0.0, 1.0, 2.0, 3.0, 4.0, 4.9, 5.1, 6.0, 7.0, 8.0, 9.0, 10.0]
+            .into_iter()
+            .map(|x| vec![x])
+            .collect();
+        let r = dataset(
+            &m,
+            &xs.iter().map(std::vec::Vec::as_slice).collect::<Vec<_>>(),
+        );
+        let ev = inferred_patterns(&m, &r, &Probes::new());
+        let jump = ev
+            .iter()
+            .find(|e| e.detail.contains("jumps"))
+            .expect("the pole at x = 5 should read as a jump");
+        assert!(
+            jump.observations.len() <= 2,
+            "one jump named {} observations: {:?}",
+            jump.observations.len(),
+            jump.observations
+        );
+        // And they are the samples either side of the pole, not the first two that were run.
+        assert!(
+            jump.observations
+                .iter()
+                .all(|id| (4.0..=6.0).contains(&r.items[*id as usize].x[0])),
+            "named {:?}",
+            jump.observations
+        );
     }
 
     #[test]

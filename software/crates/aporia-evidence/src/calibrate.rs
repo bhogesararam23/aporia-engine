@@ -57,9 +57,11 @@ impl Calibrator {
                 continue;
             }
             let median = median(values);
-            // A floor keeps a channel whose typical magnitude is tiny — conservation residuals of
-            // order 1e-17 — from turning ordinary noise into maximum strength.
-            c.scale[i] = median.max(1e-12);
+            // The channel's own noise floor, not a global epsilon: the typical magnitude of an
+            // f32-versus-f64 comparison is round-off, and dividing by it would call every smooth
+            // model suspicious wherever the rounding happens to wobble.
+            let floor = Channel::ALL[i].noise_floor().max(1e-12);
+            c.scale[i] = median.max(floor);
             c.fitted[i] = true;
         }
         c
@@ -237,10 +239,19 @@ mod tests {
             .collect();
         items.push(evidence(Channel::Numerical, 1e6));
         let c = Calibrator::fit(items.iter());
-        // The median is 1e-14, well below the floor, so the floor is what ends up in the scale.
-        // That is the intended interaction: a channel whose typical magnitude is at noise level
-        // must not treat ordinary jitter as a finding.
-        assert_eq!(c.scale_of(Channel::Numerical), 1e-12);
+        // The median is 1e-14, far below the numerical channel's floor, so the floor is what ends
+        // up in the scale. That is the intended interaction: comparing an f32 and an f64 path of a
+        // smooth model disagrees at about 1e-7 no matter what, and a channel whose typical
+        // magnitude is at that level must not treat ordinary jitter as a finding.
+        assert_eq!(
+            c.scale_of(Channel::Numerical),
+            Channel::Numerical.noise_floor()
+        );
+        assert_eq!(
+            c.strength(Channel::Numerical, 1e-8),
+            0.0,
+            "round-off is not evidence"
+        );
         // The outlier still saturates to nearly one, which is the wanted behaviour.
         assert!(c.strength(Channel::Numerical, 1e6) > 0.999);
     }
