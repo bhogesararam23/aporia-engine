@@ -1,0 +1,13 @@
+model coupled_coils "reactance seen at the terminals of two identical mutually coupled coils" {
+  input turns_a : count in [1, 40]
+  input turns_b : count in [1, 40]
+  # The coupling term and the sum of the two self terms are symmetric in the two windings:
+  # exchanging them cannot change either one. The product is deliberately left un-parenthesised:
+  # (0.3*Na)*Nb and (0.3*Nb)*Na round differently at isolated points, and that is the artifact the
+  # swap probe has to survive without crying wolf.
+  let self_term = 0.5 * (turns_a * turns_a + turns_b * turns_b)
+  let mutual = 0.3 * turns_a * turns_b
+  let reactance = self_term + mutual
+  require reactance > 0
+  check symmetric(reactance wrt (turns_a, turns_b))
+}

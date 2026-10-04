@@ -29,8 +29,12 @@ boundary-precision metric is measured against.
 
 Three shapes are deliberately included because each breaks something:
 
-- **A control** (`aerospace/projectile_clean`, `control/symplectic_spring`) has no region at all.
-  Anything APORIA calls suspicious there is a false positive, and that is the only way to find out.
+- **A control** (`aerospace/projectile_clean`, `control/symplectic_spring`,
+  `electromagnetics/coupled_coils`) has no region at all. Anything APORIA calls suspicious there is a
+  false positive, and that is the only way to find out. `coupled_coils` controls a specific sensor: its
+  `check symmetric(reactance wrt (turns_a, turns_b))` holds mathematically everywhere, so it is the
+  entry that the swap probe runs on, and it is written left-associated on purpose — the probe has to
+  survive the one-in-160 last-ulp difference the evaluator produces without turning it into suspicion.
 - **A narrow band** (`analytic/reciprocal_bound` at 2e-6 wide, `electromagnetics/rlc_resonance`)
   tests whether the search spends evaluations where it matters. A coarse atlas should report
   UNKNOWN here, not TRUSTED.

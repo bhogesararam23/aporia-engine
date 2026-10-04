@@ -37,7 +37,7 @@
     {
       "name": "electromagnetics",
       "purpose": "a narrow interior band at a resonance, which is the shape boundary discovery is for",
-      "entries": ["rlc_resonance"]
+      "entries": ["rlc_resonance", "coupled_coils"]
     },
     {
       "name": "mutants",
