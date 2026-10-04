@@ -23,7 +23,7 @@
 //! report rather than hidden in a merged number.
 
 use crate::plan::{Acquisition, Family, Strategy, to_parameters};
-use aporia_boundary::{Atlas, Label, Policy};
+use aporia_boundary::{Atlas, FACE_EPS, Label, Policy};
 use aporia_evidence::{Calibrator, ChannelCorrelation, Evidence, EvidenceSet, fuse};
 use aporia_ir::Model;
 use aporia_numerics::Rng;
@@ -134,7 +134,14 @@ pub struct Decision {
 /// A region the atlas called suspicious.
 #[derive(Clone, Debug)]
 pub struct Finding {
+    /// The worst constituent cell, which is what the risk and the representative belong to.
     pub cell: u32,
+    /// Every leaf folded into this finding. A merged claim still names the cells it was built from,
+    /// so it can be checked against the evaluations that produced them.
+    pub cells: Vec<u32>,
+    /// The loud claims of this finding, used as the merge key (see `merge_findings`). Empty in a
+    /// finished report: it is a bookkeeping field, not something a reader should mistake for evidence.
+    pub signature: Vec<String>,
     pub bounds: Vec<[f64; 2]>,
     /// The worst evaluation actually inside the cell. A finding has to be reproducible from
     /// something that ran, not from the cell's geometry.
@@ -142,6 +149,7 @@ pub struct Finding {
     pub observation: u64,
     pub online_risk: f64,
     pub final_risk: f64,
+    /// Evaluations across every constituent cell.
     pub samples: u32,
     pub evidence: Vec<Evidence>,
 }
@@ -695,6 +703,87 @@ fn axis_width(model: &Model, axis: usize) -> f64 {
     })
 }
 
+/// The subject keys that say what a finding is *about*: the claims loud enough to have made the cell
+/// suspicious. Two findings that agree on the evaluation and disagree on this are different faults.
+fn signature(items: &[Evidence]) -> Vec<String> {
+    let mut keys: Vec<String> = items
+        .iter()
+        .filter(|e| e.strength >= 0.5)
+        .map(|e| format!("{}|{}", e.channel.code(), e.subject.key()))
+        .collect();
+    keys.sort();
+    keys.dedup();
+    keys
+}
+
+/// Merge findings that describe one region rather than one cell.
+///
+/// Leaves of a bisection tile the space, so a single fault covering a quarter of the domain produces
+/// hundreds of suspicious cells and — measured — 0.677 of all findings on a run re-described a region
+/// the report had already given. That is not a discovery rate, it is a tiling artifact, and it made
+/// the count of findings a cost rather than a conclusion.
+///
+/// Two findings merge when they carry the same signature (the same loud claims) and their boxes
+/// abut along exactly one axis while agreeing on every other, which is precisely the condition for
+/// the union to still be a box. A finding that covers an L-shape would be a bounds list describing a
+/// region nothing measured, so it is left as two findings.
+///
+/// The constituent cells are kept, because a merged report must still be checkable against the
+/// evaluations it came from: `cells` names every leaf folded in, `cell` and the risk fields stay the
+/// worst constituent's, and `samples` is the sum, so a reader can see how many executions a merged
+/// claim rests on.
+fn merge_findings(mut findings: Vec<Finding>) -> Vec<Finding> {
+    loop {
+        let mut merge = None;
+        'outer: for i in 0..findings.len() {
+            for j in (i + 1)..findings.len() {
+                if findings[i].signature != findings[j].signature {
+                    continue;
+                }
+                if let Some(union) = abutting_union(&findings[i].bounds, &findings[j].bounds) {
+                    merge = Some((i, j, union));
+                    break 'outer;
+                }
+            }
+        }
+        let Some((i, j, union)) = merge else { break };
+        let (a, b) = (findings.remove(i), findings.remove(j - 1));
+        let worst_first = a.final_risk >= b.final_risk;
+        let (mut keep, other) = if worst_first { (a, b) } else { (b, a) };
+        keep.bounds = union;
+        keep.samples += other.samples;
+        keep.cells.extend(other.cells);
+        keep.cells.push(other.cell);
+        keep.cells.sort_unstable();
+        keep.cells.dedup();
+        findings.push(keep);
+    }
+    findings
+}
+
+/// The box two cells form when they abut on one axis and coincide on all the others, if they do.
+fn abutting_union(a: &[[f64; 2]], b: &[[f64; 2]]) -> Option<Vec<[f64; 2]>> {
+    if a.len() != b.len() {
+        return None;
+    }
+    let mut touches = 0;
+    let mut out = Vec::with_capacity(a.len());
+    for k in 0..a.len() {
+        let ([lo0, hi0], [lo1, hi1]) = (a[k], b[k]);
+        let same = (lo0 - lo1).abs() <= FACE_EPS && (hi0 - hi1).abs() <= FACE_EPS;
+        let abuts = (hi0 - lo1).abs() <= FACE_EPS || (hi1 - lo0).abs() <= FACE_EPS;
+        if same {
+            out.push([lo0, hi0]);
+        } else if abuts {
+            out.push([lo0.min(lo1), hi0.max(hi1)]);
+            touches += 1;
+        } else {
+            return None;
+        }
+    }
+    (touches == 1).then_some(out)
+}
+
 fn collect_findings(
     atlas: &Atlas,
     records: &Records,
@@ -728,6 +817,8 @@ fn collect_findings(
         let online = online_risk.get(index).copied().unwrap_or(0.0);
         out.push(Finding {
             cell: *id,
+            cells: vec![*id],
+            signature: signature(&items),
             bounds: cell.bounds.clone(),
             representative: obs.x.clone(),
             observation: obs.id,
@@ -737,12 +828,13 @@ fn collect_findings(
             evidence: items,
         });
     }
-    out.sort_by(|a, b| {
+    let mut merged = merge_findings(out);
+    merged.sort_by(|a, b| {
         b.final_risk
             .partial_cmp(&a.final_risk)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    out
+    merged
 }
 
 #[cfg(test)]
@@ -755,6 +847,65 @@ mod tests {
         let c = compile("t.ap", text);
         assert!(!c.diagnostics.has_errors(), "{}\n{text}", c.diagnostics);
         c.model
+    }
+
+    fn finding(cell: u32, bounds: &[[f64; 2]], keys: &[&str], risk: f64) -> Finding {
+        Finding {
+            cell,
+            cells: vec![cell],
+            signature: keys.iter().map(|k| (*k).to_string()).collect(),
+            bounds: bounds.to_vec(),
+            representative: vec![bounds[0][0]],
+            observation: cell as u64,
+            online_risk: risk,
+            final_risk: risk,
+            samples: 1,
+            evidence: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn abutting_findings_about_the_same_claims_become_one_region() {
+        let four = vec![
+            finding(1, &[[0.0, 0.25]], &["P|require0"], 0.9),
+            finding(2, &[[0.25, 0.5]], &["P|require0"], 0.8),
+            finding(3, &[[0.5, 0.75]], &["P|require0"], 0.7),
+            // A different claim is a different fault, even next door.
+            finding(4, &[[0.75, 1.0]], &["S|o0~p0:slope"], 0.6),
+        ];
+        let merged = merge_findings(four);
+        assert_eq!(
+            merged.len(),
+            2,
+            "{:?}",
+            merged.iter().map(|f| &f.bounds).collect::<Vec<_>>()
+        );
+        let wide = merged
+            .iter()
+            .find(|f| f.bounds[0] == [0.0, 0.75])
+            .expect("the three halves of one claim");
+        assert_eq!(
+            wide.cells,
+            vec![1, 2, 3],
+            "every constituent is still named"
+        );
+        assert_eq!(
+            wide.samples, 3,
+            "the merged claim rests on three evaluations"
+        );
+        assert_eq!(wide.cell, 1, "the worst constituent keeps its identity");
+        assert_eq!(wide.final_risk, 0.9);
+    }
+
+    #[test]
+    fn an_l_shape_is_not_reported_as_one_box() {
+        // Two cells that touch on different axes in different places union to an L. Reporting that
+        // as a bounds list would describe a region nothing was measured in, so it stays two.
+        let two = vec![
+            finding(1, &[[0.0, 0.5], [0.0, 1.0]], &["P|require0"], 0.9),
+            finding(2, &[[0.5, 1.0], [1.0, 2.0]], &["P|require0"], 0.8),
+        ];
+        assert_eq!(merge_findings(two).len(), 2);
     }
 
     #[test]

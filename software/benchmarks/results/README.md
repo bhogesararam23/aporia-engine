@@ -4,14 +4,15 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Four files are committed.
+Four files are committed, plus the repeat that follows each step.
 
 | file | what it is |
 |---|---|
 | `results-1791114389.json` | the first measurement, from the pipeline as of `7b9e777` |
 | `results-1791123062.json` | after the evidence-semantics and atlas-labelling work in `8d188e6` |
-| `results-1791125825.json` | **current**, after the `suspicious_channels` corroboration rule |
-| `results-1791126020.json` | a single-budget repeat of the current build (`--budgets 640` only), kept because the timing note near the end of this file rests on it |
+| `results-1791125825.json` | after the `suspicious_channels` corroboration rule |
+| `results-1791126020.json` | a single-budget repeat of the corroboration build (`--budgets 640` only), kept because the timing note near the end of this file rests on it |
+| `results-1791127362.json` | **current**, after findings that describe one region are merged into one claim |
 
 The first three were produced by the same command:
 
@@ -199,18 +200,26 @@ Three distinct limits, and they are not the same problem.
   A-IR; outputs, traces, raised flags and instruction-step counts are compared as bit patterns. This
   is the one number in this file with no asterisk on it.
 - **Minimisation produced a verified smaller description for 16 of 20 entries** (14 in the first run,
-  15 in the second) on 342 of 385 individual findings. The four that never produced one still fail for
-  the reason recorded in decision 0012: the counterexample oracle asks whether a *declared rule*
-  fails, and a finding produced only by the measurement channels violates no rule, so ddmin has
-  nothing to preserve. Those findings need a risk-threshold oracle with a frozen calibrator, which the
-  harness does not wire up yet. That is open work, not a result.
-- **Duplicate discovery rate went up again: 0.447 → 0.625 → 0.677**, averaged over the runs at the top
-  of the ladder that have a declared region and at least one finding (162 rows in the first run, 149
-  and 148 in the two later ones). The metric counts a finding as a duplicate when it is assigned to a
-  region the report has already claimed (`metrics.rs::duplicate_rate`), so about two thirds of the
-  findings on a current run re-describe a fault already described. Mean findings 53.0 → 80.2 → 73.5.
-  The rise follows from the labelling fix — one region now produces many findings where it produced a
-  few narrow ones — and the merge rule that would reduce it is not written yet.
+  15 in the second) on 287 of 341 individual findings. The count of attempts fell when findings were
+  merged, because there are fewer claims to minimise, and the verified share held at 84.2% (88.8%
+  before merging). The four entries that never produce one still fail for the reason recorded in
+  decision 0012: the counterexample oracle asks whether a *declared rule* fails, and a finding
+  produced only by the measurement channels violates no rule, so ddmin has nothing to preserve. Those
+  findings need a risk-threshold oracle with a frozen calibrator, which the harness does not wire up
+  yet. That is open work, not a result.
+- **Duplicate discovery rate: 0.447 → 0.625 → 0.677 → 0.469**, averaged over the runs at the top of the
+  ladder that have a declared region and at least one finding (162 rows in the first run, 149, 148 and
+  148 in the later ones). The metric counts a finding as a duplicate when it is assigned to a region
+  the report has already claimed (`metrics.rs::duplicate_rate`). It rose with the labelling fixes —
+  one region now produces many findings where it produced a few narrow ones — and the rise was then
+  partly undone by `merge_findings`, which folds suspicious cells into one claim when they carry the
+  same loud claims and their boxes abut into a box. Mean findings at the top of the ladder went
+  53.0 → 80.2 → 73.5 → **15.4** for the same detections: nothing about the atlas changed (suspicious
+  volume, band coverage, detection and localisation counts are identical to the previous run), only
+  how many sentences the report writes about it. A merged finding still names every constituent cell
+  and sums their samples, so the claim can be checked against the evaluations it was built from.
+  The remaining 0.469 is region-level duplication across cells that do not abut, which a box merge
+  cannot reach; the honest next step is reporting per region rather than per connected component.
 - **Compute cost should be read from `instruction_steps`, not `wall_ms`.** `instruction_steps` is
   deterministic and identical across runs for a given entry, strategy, seed and budget (640 evaluations
   of `sqrt_domain` is 640 steps; of `naive_euler_spring`, 525,440). `wall_ms` is not: the same
