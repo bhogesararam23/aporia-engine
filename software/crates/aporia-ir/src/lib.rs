@@ -16,6 +16,7 @@
 
 mod dim;
 mod ir;
+mod verify;
 
 pub use dim::{AMOUNT, CURRENT, Dimension, LENGTH, LUMINOUS, MASS, NumType, TEMPERATURE, TIME, Ty};
 pub use ir::{
@@ -23,3 +24,4 @@ pub use ir::{
     Domain, Id, Instr, InstrKind, Lit, Model, Operand, Origin, Output, OutputId, Param, ParamId,
     Relation, RelationId, RelationKind, Slot, SlotId, Trace, TraceId, Unop,
 };
+pub use verify::{Report, VerError, verify};
