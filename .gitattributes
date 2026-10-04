@@ -1,0 +1,26 @@
+# Shell scripts must stay LF: bash reads them literally and CRLF breaks a reproducible run on
+# Windows checkouts. Everything else that is source follows the same rule so diffs stay clean.
+*.sh  text eol=lf
+*.rs  text eol=lf
+*.toml text eol=lf
+*.md  text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+*.ap  text eol=lf
+*.air text eol=lf
+*.cu  text eol=lf
+*.cuh text eol=lf
+*.ptx text eol=lf
+*.jl  text eol=lf
+*.asm text eol=lf
+*.s   text eol=lf
+*.h   text eol=lf
+*.schema.json text eol=lf
+
+*.png binary
+*.jpg binary
+*.bin binary
+*.exe binary
+*.lib binary
+*.dll binary
+*.obj binary
