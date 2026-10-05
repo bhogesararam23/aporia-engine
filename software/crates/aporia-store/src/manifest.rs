@@ -67,10 +67,22 @@ pub struct Environment {
     pub os: String,
     pub arch: String,
     pub pointer_width: u64,
+    /// Which toolchain produced the numbers. [`Environment::current`] leaves this empty because it
+    /// runs nothing; a caller writing provenance fills it with
+    /// [`Environment::with_toolchain`], and [`TOOLCHAIN_NOT_DETECTED`] is what lands in the artefact
+    /// when the compiler cannot be asked.
     pub rust_channel: String,
+    /// Instruction-set features, filled only by a caller that measured them. Nothing in this
+    /// repository detects them, because CPUID is exactly the kind of thing an instrument should not
+    /// guess at; an empty list means "nobody looked", and a run that needs it says so.
     pub cpu_features: Vec<String>,
     pub notes: Vec<(String, String)>,
 }
+
+/// What is recorded when the compiler cannot be asked. An empty string would read as a toolchain that
+/// reported nothing, which is not a thing a compiler does, and would let `compare` call two runs equal
+/// on a field that was never filled in.
+pub const TOOLCHAIN_NOT_DETECTED: &str = "not detected";
 
 impl Environment {
     /// What `std` knows without running anything. A caller may add the compiler channel and the CPU
@@ -85,6 +97,30 @@ impl Environment {
             cpu_features: Vec::new(),
             notes: Vec::new(),
         }
+    }
+
+    /// Ask the compiler which toolchain this is, and record it.
+    ///
+    /// `APORIA_TOOLCHAIN` wins, because the `rustc` on PATH is not necessarily the one that built the
+    /// binary now running — a copied `target/`, a cross-compiled check, a CI image. Otherwise this
+    /// reads `rustc -vV`, whose `release` and `commit-hash` together name the exact build, and records
+    /// [`TOOLCHAIN_NOT_DETECTED`] when there is no compiler to ask. A measurement taken on one
+    /// code generator is not the same measurement taken on another, which is why the field is
+    /// compared, not just stored.
+    #[must_use]
+    pub fn with_toolchain(mut self) -> Self {
+        if let Some(declared) = std::env::var_os("APORIA_TOOLCHAIN") {
+            self.rust_channel = declared.to_string_lossy().into_owned();
+            return self;
+        }
+        self.rust_channel = std::process::Command::new("rustc")
+            .arg("-vV")
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .and_then(|o| parse_toolchain(&String::from_utf8_lossy(&o.stdout)))
+            .unwrap_or_else(|| TOOLCHAIN_NOT_DETECTED.to_string());
+        self
     }
 
     fn to_json(&self) -> Json {
@@ -160,6 +196,30 @@ impl Environment {
                 .unwrap_or_default(),
         }
     }
+}
+
+/// The toolchain line from `rustc -vV`, as `release` plus the compiler's own commit.
+///
+/// Only these two fields are taken. `host` duplicates `arch`, `LLVM version` is a fact about a
+/// dependency rather than about the build anyone could reproduce, and the date is already implied by
+/// the hash.
+fn parse_toolchain(text: &str) -> Option<String> {
+    let mut release = None;
+    let mut commit = None;
+    for line in text.lines() {
+        if let Some(v) = line.strip_prefix("release: ") {
+            release = Some(v.trim().to_string());
+        } else if let Some(v) = line.strip_prefix("commit-hash: ") {
+            // A nightly or locally-built compiler reports an empty hash. That is no commit, not a
+            // commit whose name is a pair of parentheses.
+            let short: String = v.trim().chars().take(8).collect();
+            if !short.is_empty() {
+                commit = Some(short);
+            }
+        }
+    }
+    let release = release.filter(|v| !v.is_empty())?;
+    Some(commit.map_or(release.clone(), |c| format!("{release} ({c})")))
 }
 
 /// Everything a manifest says about one experiment.
@@ -341,6 +401,50 @@ impl Manifest {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_toolchain_is_its_version_and_its_compiler_commit() {
+        let text = "rustc 1.99.0 (b940084d7 2026-09-28)\n\
+                    binary: rustc\n\
+                    commit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\n\
+                    commit-date: 2026-09-28\n\
+                    host: x86_64-pc-windows-msvc\n\
+                    release: 1.99.0\n\
+                    LLVM version: 23.1.1\n";
+        assert_eq!(parse_toolchain(text).as_deref(), Some("1.99.0 (b940084d)"));
+        // A nightly or dev build reports an empty hash, and that is not a reason to lose the version.
+        assert_eq!(
+            parse_toolchain("release: 1.99.0\ncommit-hash: \n").as_deref(),
+            Some("1.99.0")
+        );
+    }
+
+    #[test]
+    fn an_unparsable_compiler_answer_is_not_a_toolchain() {
+        for text in [
+            "",
+            "rustc 1.99.0",
+            "release: \ncommit-hash: abc\n",
+            "not a rustc banner at all",
+        ] {
+            assert_eq!(parse_toolchain(text), None, "{text:?}");
+        }
+    }
+
+    #[test]
+    fn asking_for_the_toolchain_always_leaves_something_written() {
+        // The reason the field exists: `compare` reports a difference in it, and an empty string makes
+        // two runs agree about nothing. Whether a compiler was found is environment-dependent, so what
+        // is asserted here is that no path through the detection writes a blank.
+        let detected = Environment::current().with_toolchain();
+        assert!(!detected.rust_channel.is_empty());
+        assert!(
+            detected.rust_channel.chars().any(|c| c.is_ascii_digit())
+                || detected.rust_channel == TOOLCHAIN_NOT_DETECTED,
+            "{}",
+            detected.rust_channel
+        );
+    }
 
     fn manifest() -> Manifest {
         Manifest {

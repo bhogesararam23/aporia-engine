@@ -287,8 +287,7 @@ pub fn run_run(flags: &[String]) -> Result<i32, String> {
 /// What this build recorded about where the measurement happened. Provenance for the numbers, and
 /// deliberately not part of their identity: the same plan measured elsewhere is the same experiment.
 fn measurement_environment() -> Environment {
-    let mut environment = Environment::current();
-    environment.rust_channel = std::env::var("APORIA_TOOLCHAIN").unwrap_or_default();
+    let mut environment = Environment::current().with_toolchain();
     environment.notes.push((
         "gpu".to_string(),
         "no NVIDIA device on this machine, so no CUDA path was measured".to_string(),

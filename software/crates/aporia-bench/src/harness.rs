@@ -259,7 +259,7 @@ pub fn archive_and_replay(
         })
         .collect();
     let bands = campaign.atlas.bands();
-    let mut environment = Environment::current();
+    let mut environment = Environment::current().with_toolchain();
     environment.notes.push((
         "strategy".to_string(),
         crate::metrics::strategy_name(strategy).to_string(),

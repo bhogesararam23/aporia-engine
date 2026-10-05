@@ -34,6 +34,6 @@ pub use compare::{
     findings, identity, size,
 };
 pub use json::{Json, JsonError};
-pub use manifest::{Counts, Environment, Manifest};
+pub use manifest::{Counts, Environment, Manifest, TOOLCHAIN_NOT_DETECTED};
 pub use replay::{Mismatch, Replay, replay, replay_dir, replay_loaded};
 pub use store::{Loaded, Receipt, Run, Store, StoreError, StoredFinding, bands_csv, label_text};
