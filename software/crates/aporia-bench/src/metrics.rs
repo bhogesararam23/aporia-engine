@@ -72,6 +72,15 @@ pub struct CaseSize {
     /// `"risk"` — the report's own frozen evidence model still puts them at or above the bar that
     /// flagged the cell. Never both, and never silently the second one dressed as the first.
     pub oracle: &'static str,
+    /// Oracle *queries* spent reaching the description, summed over whichever attempts the row needed.
+    ///
+    /// Comparable between rows of the same `oracle` and not across them. A `FailureOracle` query runs
+    /// the model once, so for those rows this is also the execution count. A `RiskScorer` query rebuilds
+    /// the evidence the report used — the candidate point, one perturbed point per axis, a reduced
+    /// precision re-run and a double-double reference evaluation — so each of its queries costs
+    /// `arity + 3` executions and these rows understate their cost by that factor. Naming the unit here
+    /// is the honest stop before the oracle itself is made to report executions and the published column
+    /// is re-measured.
     pub evaluations: u64,
 }
 

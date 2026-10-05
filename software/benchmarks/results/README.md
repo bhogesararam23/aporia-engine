@@ -193,11 +193,19 @@ What was measured before trusting it:
   `x in [0.4181, 0.5818]` against a full-precision pinned start). None is the untouched starting case.
   `dimensions`, `digits` and `description` are in every row, so this can be re-checked rather than
   taken on faith.
-- **Cost is reported, not hidden.** A row that needed both predicates records
+- **Cost is reported, not hidden — but read it per oracle.** A row that needed both predicates records
   `minimisation_evaluations` for the rule attempt *and* the risk attempt together, and
   `oracle: "rule" | "risk"` says which question the row answers. The two answers are not the same
   claim: a rule failure says the model is wrong at those coordinates; a risk hit says the instrument
   would still flag them. On a control, that distinction is the entire content of the measurement.
+- **That summed number counts queries, not executions, and the two oracles differ per query.**
+  `FailureOracle` asks one question and runs the model once. `RiskScorer` rebuilds the evidence the
+  report used, so one query runs the model at the candidate point, once per axis with that axis
+  perturbed, once again at reduced precision, and once through the double-double reference —
+  `arity + 3` executions. So a `"risk"` row's `minimisation_evaluations` is a lower bound on what it
+  cost, by that factor, and a `"rule"` row's is exact. Stated rather than left to be assumed: the
+  numbers in this column are comparable within an oracle kind and not across kinds. Closing the gap
+  means having the oracle report its own executions and re-measuring the column, which is open.
 
 Everything else in the ladder is untouched: comparing the new run against the previous one sweep by
 sweep, all 189 sweeps and all 945 campaigns agree on every measured field except `counterexamples`
