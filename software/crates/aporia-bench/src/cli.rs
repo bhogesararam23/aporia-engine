@@ -353,19 +353,20 @@ fn parse_budgets(items: &[String]) -> Result<Vec<u64>, String> {
 
 fn parse_strategies(items: &[String]) -> Result<Vec<Strategy>, String> {
     if items.is_empty() {
-        return Ok(vec![
-            Strategy::Adaptive,
-            Strategy::Stratified,
-            Strategy::Random,
-        ]);
+        return Ok(Strategy::ALL.to_vec());
     }
     items
         .iter()
-        .map(|text| match text.as_str() {
-            "adaptive" => Ok(Strategy::Adaptive),
-            "stratified" => Ok(Strategy::Stratified),
-            "random" => Ok(Strategy::Random),
-            other => Err(format!("unknown strategy {other:?}")),
+        // The enum parses its own names, so the harness and `aporia bench` cannot drift into two
+        // vocabularies for one strategy — which is what `halton` was, accepted here in one reader of
+        // `Strategy` and refused in the other.
+        .map(|text| {
+            Strategy::parse(text).ok_or_else(|| {
+                format!(
+                    "unknown strategy {text:?}; this tool knows {}",
+                    Strategy::names().join(", ")
+                )
+            })
         })
         .collect()
 }

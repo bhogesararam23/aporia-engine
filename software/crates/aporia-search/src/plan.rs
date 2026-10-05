@@ -87,6 +87,20 @@ pub enum Strategy {
 }
 
 impl Strategy {
+    /// Every strategy the driver can be told to follow, in the order a sweep reports them.
+    pub const ALL: [Self; 3] = [Self::Adaptive, Self::Stratified, Self::Random];
+
+    /// The names a caller may use, derived from [`Strategy::name`] rather than written out again next
+    /// to it, so a refusal can never list a vocabulary the parser has stopped accepting.
+    #[must_use]
+    pub fn names() -> [&'static str; 3] {
+        [
+            Self::Adaptive.name(),
+            Self::Stratified.name(),
+            Self::Random.name(),
+        ]
+    }
+
     #[must_use]
     pub fn name(self) -> &'static str {
         match self {
@@ -97,10 +111,16 @@ impl Strategy {
     }
 
     /// Parse the name used on the command line and in experiment manifests.
+    ///
+    /// Exactly the names [`Strategy::name`] produces, in both directions. `halton` used to be accepted
+    /// here as an alias for `stratified` — the low-discrepancy sampler *is* a Halton sequence — while
+    /// the benchmark's own parser refused it, so one enum had two vocabularies and a run asked for by
+    /// the alias would have printed a row labelled with the other name. A strategy that is not
+    /// measured separately does not get a second name.
     pub fn parse(text: &str) -> Option<Self> {
         Some(match text {
             "random" => Self::Random,
-            "stratified" | "halton" => Self::Stratified,
+            "stratified" => Self::Stratified,
             "adaptive" => Self::Adaptive,
             _ => return None,
         })
@@ -316,8 +336,18 @@ mod tests {
             assert!(!f.name().is_empty());
             assert_eq!(Family::from_index(f.index()), Some(f));
         }
-        assert_eq!(Strategy::parse("halton"), Some(Strategy::Stratified));
         assert_eq!(Strategy::parse("bayesian"), None);
+        // One name per strategy, and it round-trips: the alias `halton` used to be accepted here and
+        // refused by the benchmark's own parser, which is the divergence this asserts against.
+        for s in Strategy::ALL {
+            assert_eq!(Strategy::parse(s.name()), Some(s));
+        }
+        assert_eq!(Strategy::names().to_vec(), strategy_names());
+        assert_eq!(Strategy::parse("halton"), None, "an alias is a second name");
+    }
+
+    fn strategy_names() -> Vec<&'static str> {
+        Strategy::ALL.iter().map(|s| s.name()).collect()
     }
 
     #[test]

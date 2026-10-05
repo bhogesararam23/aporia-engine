@@ -162,7 +162,7 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
                 "{}-{}-{strategy}-seed{seed}",
                 entry.family,
                 entry.name,
-                strategy = strategy_name(strategy)
+                strategy = strategy.name()
             ));
             match archive_and_replay(entry, &campaign, plan, strategy, seed, &dir) {
                 Ok(r) => {
@@ -189,7 +189,7 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
     let replay_error = outcomes.iter().find_map(|o| o.replay_error.clone());
     Some(Sweep {
         entry: entry.id(),
-        strategy: strategy_name(strategy),
+        strategy: strategy.name(),
         seed,
         outcomes,
         detected_at,
@@ -199,14 +199,6 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
         replay,
         replay_error,
     })
-}
-
-fn strategy_name(s: Strategy) -> &'static str {
-    match s {
-        Strategy::Random => "random",
-        Strategy::Stratified => "stratified",
-        Strategy::Adaptive => "adaptive",
-    }
 }
 
 /// Write the archive for one campaign and replay it, returning `(reproduced, matched, total)`.
@@ -260,10 +252,9 @@ pub fn archive_and_replay(
         .collect();
     let bands = campaign.atlas.bands();
     let mut environment = Environment::current().with_toolchain();
-    environment.notes.push((
-        "strategy".to_string(),
-        crate::metrics::strategy_name(strategy).to_string(),
-    ));
+    environment
+        .notes
+        .push(("strategy".to_string(), strategy.name().to_string()));
     environment
         .notes
         .push(("seed".to_string(), seed.to_string()));
@@ -447,7 +438,7 @@ fn plan_json(plan: &Plan) -> Json {
             Json::Arr(
                 plan.strategies
                     .iter()
-                    .map(|s| Json::text(strategy_name(*s)))
+                    .map(|s| Json::text(s.name()))
                     .collect(),
             ),
         ),

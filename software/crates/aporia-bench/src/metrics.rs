@@ -236,7 +236,7 @@ impl Outcome {
             family: entry.family.clone(),
             fault: truth.fault.clone(),
             control: truth.control,
-            strategy: strategy_name(strategy),
+            strategy: strategy.name(),
             seed: 0,
             budget,
             evaluations: campaign.evaluations,
@@ -393,15 +393,6 @@ pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<C
             }
         })
         .collect()
-}
-
-#[must_use]
-pub fn strategy_name(s: Strategy) -> &'static str {
-    match s {
-        Strategy::Random => "random",
-        Strategy::Stratified => "stratified",
-        Strategy::Adaptive => "adaptive",
-    }
 }
 
 /// Fraction of a cell that lies inside one declared region.

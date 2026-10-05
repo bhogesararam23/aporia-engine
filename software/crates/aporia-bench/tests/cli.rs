@@ -80,6 +80,16 @@ fn an_argument_that_cannot_be_a_value_is_refused_before_the_corpus_is_read() {
             vec!["--strategies".to_string(), "genetic".to_string()],
             "unknown strategy \"genetic\"",
         ),
+        // The name that used to be an alias inside `Strategy::parse` and a refusal here. One enum,
+        // one vocabulary: what the parser refuses, the command refuses, and the refusal says so.
+        (
+            vec!["--strategies".to_string(), "halton".to_string()],
+            "unknown strategy \"halton\"",
+        ),
+        (
+            vec!["--strategies".to_string(), "halton".to_string()],
+            "this tool knows adaptive, stratified, random",
+        ),
         (
             vec!["--seeds".to_string(), "one".to_string()],
             "--seeds needs numbers, got one",
