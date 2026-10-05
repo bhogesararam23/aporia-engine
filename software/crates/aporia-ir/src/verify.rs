@@ -152,6 +152,7 @@ fn describe(instr: &Instr) -> String {
         InstrKind::Write { slot, value } => {
             format!("write s{slot} {}", value.to_canonical())
         }
+        InstrKind::Opaque => "opaque".to_string(),
     }
 }
 
@@ -263,6 +264,10 @@ fn check_structure(model: &Model, scope: &Scope, report: &mut Report) {
                 }
                 InstrKind::Write { value, .. } => {
                     operand_visible(model, scope, block_id, id, value, report);
+                }
+                InstrKind::Opaque => {
+                    // Nothing to resolve: the value comes from outside the representation, which is
+                    // exactly why an interpreter is not allowed to invent one.
                 }
             }
         }
@@ -487,6 +492,11 @@ fn check_types(model: &Model, report: &mut Report) {
             InstrKind::Call { builtin, args } => ctx.call(id, *builtin, args, report),
             InstrKind::For { trip, body } => ctx.loop_instr(id, instr, trip, *body, report),
             InstrKind::Write { slot, value } => ctx.write(id, instr, *slot, value, report),
+            InstrKind::Opaque => {
+                // The declared type is the whole story: there is no operand arithmetic to check it
+                // against, and a rule over this value type-checks against the declaration just the
+                // same as one over a computed quantity.
+            }
         }
     }
 }
@@ -610,6 +620,59 @@ mod tests {
         });
         let _ = a;
         m
+    }
+
+    #[test]
+    fn an_outside_computed_value_verifies_and_types_its_rules() {
+        // A model adapted from a foreign program declares outputs and the rules they must satisfy. The
+        // verifier is the gate every backend trusts, so the declaration has to pass it: the output
+        // resolves, and a rule comparing it against a literal type-checks like any other.
+        let mut m = Model::new("external");
+        m.params.push(Param {
+            name: "load".into(),
+            ty: f64d(),
+            domain: Domain::interval(0.0, 10.0),
+            to_si: 1.0,
+            doc: String::new(),
+        });
+        let value = m.push_entry(Instr {
+            ty: f64d(),
+            kind: InstrKind::Opaque,
+        });
+        m.outputs.push(crate::Output {
+            name: "deflection".into(),
+            ty: f64d(),
+            value: Operand::Node(value),
+            doc: String::new(),
+        });
+        m.constraints.push(crate::Constraint {
+            id: 0,
+            name: "sag".into(),
+            kind: crate::ConstraintKind::Cmp {
+                lhs: Operand::Node(value),
+                cmp: crate::CmpOp::Ge,
+                rhs: Operand::Lit(crate::Lit::F64(0.5)),
+                tolerance: 0.0,
+            },
+            origin: crate::Origin::Declared,
+        });
+        let r = verify(&m);
+        assert!(r.is_ok(), "{:?}", r.errors);
+        // And a rule over a value that was never declared is still caught: the refusal is about
+        // computation, not about skipping the checks.
+        let mut broken = m.clone();
+        broken.constraints.push(crate::Constraint {
+            id: 1,
+            name: "phantom".into(),
+            kind: crate::ConstraintKind::Cmp {
+                lhs: Operand::Node(99),
+                cmp: crate::CmpOp::Ge,
+                rhs: Operand::Lit(crate::Lit::F64(0.5)),
+                tolerance: 0.0,
+            },
+            origin: crate::Origin::Declared,
+        });
+        assert!(!verify(&broken).is_ok());
     }
 
     #[test]

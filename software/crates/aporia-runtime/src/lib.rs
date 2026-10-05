@@ -23,7 +23,7 @@ pub mod ops;
 pub mod value;
 
 pub use batch::{BatchOutcome, run_batch};
-pub use exec::{Executor, Interp};
+pub use exec::{Executor, Interp, needs_adapter};
 pub use interp::{Outcome, run};
 pub use observe::{Observation, Records};
 pub use value::{ExecConfig, Flags, FpMode, Value};

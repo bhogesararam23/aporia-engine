@@ -405,6 +405,20 @@ pub enum InstrKind {
         slot: SlotId,
         value: Operand,
     },
+    /// A value this model does not define how to compute: an external program produces it.
+    ///
+    /// This exists so that "I cannot run this" is a fact about the representation rather than a
+    /// behaviour. A model adapted from a program APORIA did not parse declares its parameters, its
+    /// outputs, and the rules it expects those outputs to satisfy — and says nothing about how the
+    /// numbers arise. Every path that interprets A-IR has to stop at this instruction by the type, so
+    /// none of them can quietly return a plausible zero: the scalar interpreter, the batched
+    /// interpreter and the double-double reference all refuse, and only an executor that was actually
+    /// given the program can answer for it.
+    ///
+    /// It carries no operands on purpose. The values an external program needs are the model's
+    /// parameters, which the caller already passes to the execution path; repeating them here would
+    /// create a second, contradictable description of the same inputs.
+    Opaque,
 }
 
 /// One instruction plus the type inferred for its result.

@@ -52,8 +52,29 @@ pub trait Executor {
     }
 }
 
+/// True when the model declares a value no A-IR instruction computes.
+///
+/// A caller that is about to spend an evaluation budget on such a model should ask first and refuse
+/// loudly. The interpreters do return NaN when asked anyway — they cannot invent a number — but a
+/// campaign that discovers that halfway through reports a domain full of divergence instead of the
+/// one sentence "this model needs its program", which is a worse outcome for the reader and a wasted
+/// run for everyone.
+#[must_use]
+pub fn needs_adapter(model: &Model) -> bool {
+    model
+        .instrs
+        .iter()
+        .any(|i| matches!(i.kind, aporia_ir::InstrKind::Opaque))
+}
+
 /// The scalar interpreter, as an [`Executor`]. This is what `aporia-search::run` uses unless it is
 /// told otherwise.
+///
+/// Its capabilities are unconditional because they are properties of the *path*: the interpreter does
+/// change rounding with `FpMode`, and `aporia_numerics::reference` is an independent evaluator of the
+/// same A-IR. A model that the interpreter cannot execute at all — one containing `Opaque` — is caught
+/// by [`needs_adapter`] before a budget is spent on it, not by a capability flag that cannot see the
+/// model.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Interp;
 
@@ -158,5 +179,91 @@ mod tests {
             a.execute(&m, &[4.5], cfg).outputs,
             b.execute(&m, &[4.5], cfg).outputs
         );
+    }
+
+    /// A model as an adapter would declare it: one parameter, one output that no instruction
+    /// computes, and a rule over that output. Hand-built because the DSL cannot express it until the
+    /// next layer exists -- and tests are the one place the IR doc allows a `Model` to be assembled
+    /// directly.
+    fn external_model() -> Model {
+        use aporia_ir::{
+            CmpOp, Constraint, ConstraintKind, Domain, Instr, InstrKind, Lit, Operand, Origin,
+            Output, Param, Ty,
+        };
+        let mut m = Model::new("external");
+        m.params.push(Param {
+            name: "load".into(),
+            ty: Ty::dimensionless_f64(),
+            domain: Domain::interval(0.0, 10.0),
+            to_si: 1.0,
+            doc: String::new(),
+        });
+        let value = m.push_entry(Instr {
+            ty: Ty::dimensionless_f64(),
+            kind: InstrKind::Opaque,
+        });
+        m.outputs.push(Output {
+            name: "deflection".into(),
+            ty: Ty::dimensionless_f64(),
+            value: Operand::Node(value),
+            doc: String::new(),
+        });
+        m.constraints.push(Constraint {
+            id: 0,
+            name: "sag".into(),
+            kind: ConstraintKind::Cmp {
+                lhs: Operand::Node(value),
+                cmp: CmpOp::Ge,
+                rhs: Operand::Lit(Lit::F64(0.5)),
+                tolerance: 0.0,
+            },
+            origin: Origin::Declared,
+        });
+        m
+    }
+
+    #[test]
+    fn a_model_that_needs_an_adapter_says_so_before_any_budget_is_spent() {
+        assert!(needs_adapter(&external_model()));
+        assert!(
+            !needs_adapter(&model(
+                "model d \"\" {\n input x in [0, 10]\n let y = x * x + 1.0\n}\n"
+            )),
+            "an ordinary A-IR model must not be treated as external"
+        );
+    }
+
+    #[test]
+    fn the_interpreter_refuses_a_value_it_does_not_compute() {
+        let m = external_model();
+        let mut engine = Interp;
+        let out = engine.execute(&m, &[3.0], ExecConfig::default());
+        assert_eq!(out.outputs.len(), 1);
+        assert!(
+            out.outputs[0].is_nan(),
+            "the interpreter answered {} for a value it cannot compute",
+            out.outputs[0]
+        );
+        // The crux of the design: the failure mode `Opaque` exists to prevent is a plausible number.
+        assert_ne!(out.outputs[0], 0.0);
+        assert!(out.flags.nan, "{:?}", out.flags);
+    }
+
+    #[test]
+    fn the_batched_path_refuses_the_same_way_the_scalar_one_does() {
+        // Both paths failing identically is not decoration. The Differential channel between scalar
+        // and batch is only meaningful if a difference there means arithmetic; if one path returned
+        // zero where the other returned NaN, the channel would be reporting a difference in failure
+        // behaviour as a scientific disagreement.
+        let m = external_model();
+        let batch = crate::batch::run_batch(&m, &[1.0, 3.0, 7.0], 3, ExecConfig::default());
+        for (lane, flags) in batch.flags.iter().enumerate() {
+            assert!(
+                batch.outputs[0][lane].is_nan(),
+                "lane {lane} produced {}",
+                batch.outputs[0][lane]
+            );
+            assert!(flags.nan, "lane {lane} raised no flag: {flags:?}");
+        }
     }
 }

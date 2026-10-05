@@ -118,6 +118,12 @@ impl Evaluator<'_> {
                 }
                 Dd::zero()
             }
+            InstrKind::Opaque => {
+                // Refuses like the runtime does. This evaluator is an independent implementation of
+                // *A-IR instructions*; there are no instructions behind this value, so there is no
+                // second opinion to compare against and the honest answer is not-a-number.
+                Dd::from_f64(f64::NAN)
+            }
             InstrKind::Bin { op, a, b } => {
                 let x = self.operand(a);
                 let y = self.operand(b);
@@ -378,5 +384,35 @@ mod tests {
     fn sqrt_of_a_square_returns_the_magnitude() {
         let m = model("model t \"\" {\n input x in [0, 9]\n let y = sqrt(x)\n}\n");
         assert_eq!(evaluate(&m, &[9.0], 10_000).values()[0], 3.0);
+    }
+
+    #[test]
+    fn the_reference_refuses_a_value_it_has_no_instructions_for() {
+        // The Differential channel's whole claim is that this evaluator repeats the *same* arithmetic
+        // independently. For a value the model does not describe there is no arithmetic to repeat, and
+        // answering with a double-double zero would manufacture a disagreement out of nothing and file
+        // it as evidence about a program APORIA cannot see.
+        let mut m = aporia_ir::Model::new("external");
+        m.params.push(aporia_ir::Param {
+            name: "load".into(),
+            ty: aporia_ir::Ty::dimensionless_f64(),
+            domain: aporia_ir::Domain::interval(0.0, 10.0),
+            to_si: 1.0,
+            doc: String::new(),
+        });
+        let value = m.push_entry(aporia_ir::Instr {
+            ty: aporia_ir::Ty::dimensionless_f64(),
+            kind: aporia_ir::InstrKind::Opaque,
+        });
+        m.outputs.push(aporia_ir::Output {
+            name: "deflection".into(),
+            ty: aporia_ir::Ty::dimensionless_f64(),
+            value: aporia_ir::Operand::Node(value),
+            doc: String::new(),
+        });
+        let out = evaluate(&m, &[3.0], 1000);
+        let values = out.values();
+        assert_eq!(values.len(), 1);
+        assert!(values[0].is_nan(), "the reference answered {}", values[0]);
     }
 }

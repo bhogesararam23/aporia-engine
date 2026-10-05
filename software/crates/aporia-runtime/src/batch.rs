@@ -298,6 +298,20 @@ impl Batch<'_> {
                 }
                 self.env[id as usize] = row;
             }
+            InstrKind::Opaque => {
+                // The same refusal as the scalar path, per lane: an external program's value is not
+                // computable from the representation, and both paths must fail the same way or the
+                // scalar/batch invariant that the differential channel relies on becomes a difference
+                // in failure behaviour rather than in arithmetic.
+                let mut row = std::mem::take(&mut self.env[id as usize]);
+                for lane in 0..self.count {
+                    if self.active[lane] {
+                        row[lane] = f64::NAN;
+                        self.flags[lane].nan = true;
+                    }
+                }
+                self.env[id as usize] = row;
+            }
             InstrKind::Call { builtin, args } => {
                 let builtin = *builtin;
                 let mut row = std::mem::take(&mut self.env[id as usize]);

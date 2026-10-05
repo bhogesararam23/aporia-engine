@@ -164,6 +164,16 @@ impl Machine<'_> {
                 }
                 Value::Unit
             }
+            InstrKind::Opaque => {
+                // The model does not say how this value arises, so the interpreter cannot produce it.
+                // NaN rather than zero, and the flag raised alongside it, because the failure mode
+                // this instruction exists to prevent is a plausible answer: a silently-zero output
+                // would flow through the rules, the atlas and the report and come out looking like a
+                // measurement. NaN cannot be mistaken for one — it reaches the divergence channel, so
+                // a campaign run this way by mistake reports rather than agrees.
+                self.flags.nan = true;
+                Value::F64(f64::NAN)
+            }
             InstrKind::Bin { op, a, b } => {
                 let (x, y) = (self.operand(a), self.operand(b));
                 self.apply_bin(*op, x, y, instr)

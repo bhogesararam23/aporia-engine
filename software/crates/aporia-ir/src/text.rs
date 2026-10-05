@@ -288,6 +288,9 @@ pub fn to_text(model: &Model) -> String {
                 InstrKind::Write { slot, value } => {
                     let _ = writeln!(s, "write s{slot} {}", value.to_canonical());
                 }
+                InstrKind::Opaque => {
+                    let _ = writeln!(s, "opaque");
+                }
             }
         }
     }
@@ -542,6 +545,12 @@ pub fn from_text(text: &str) -> Result<Model, TextError> {
                             value: parse_operand(&fs[6])
                                 .map_err(|_| err(line, "bad write value"))?,
                         }
+                    }
+                    "opaque" => {
+                        if fs.len() != 5 {
+                            return Err(err(line, "opaque takes no operands"));
+                        }
+                        InstrKind::Opaque
                     }
                     other => return Err(err(line, format!("unknown instruction `{other}`"))),
                 };
@@ -891,6 +900,42 @@ mod tests {
             origin: Origin::Declared,
         });
         m
+    }
+
+    #[test]
+    fn an_external_value_survives_the_round_trip() {
+        // The canonical text is what an archive stores and what replay re-executes, so a model that
+        // declares an outside-computed value has to be writable and readable without losing that
+        // fact. If `opaque` were dropped, a replayed archive would silently become a model the
+        // interpreter is allowed to answer for.
+        let mut m = Model::new("external");
+        m.params.push(Param {
+            name: "load".into(),
+            ty: Ty::dimensionless_f64(),
+            domain: Domain::interval(0.0, 10.0),
+            to_si: 1.0,
+            doc: String::new(),
+        });
+        let value = m.push_entry(Instr {
+            ty: Ty::dimensionless_f64(),
+            kind: InstrKind::Opaque,
+        });
+        m.outputs.push(Output {
+            name: "deflection".into(),
+            ty: Ty::dimensionless_f64(),
+            value: Operand::Node(value),
+            doc: "computed by the solver".into(),
+        });
+        let text = to_text(&m);
+        assert!(
+            text.lines()
+                .any(|l| l.starts_with("instr 0 f64 ") && l.ends_with(" opaque")),
+            "{text}"
+        );
+        let back = from_text(&text).unwrap_or_else(|e| panic!("{e}\n{text}"));
+        assert_eq!(m, back);
+        // A truncated form is refused rather than guessed at.
+        assert!(from_text("aporia-ir 1\nmodel m \"\"\ninstr 0 f64 0 opaque extra\n").is_err());
     }
 
     #[test]
