@@ -235,6 +235,16 @@ fn report(model: &Model, campaign: &Campaign, execution: &str) -> String {
         coverage.unknown,
         coverage.resolved()
     );
+    if coverage.unplaced > 0 {
+        // A measurement the partition cannot place is a defect in the run, not a rounding detail: it
+        // contributes to no label, no volume and no finding. Printed only when it happens, because a
+        // line that is always `0` teaches a reader to skip it.
+        let _ = writeln!(
+            out,
+            "atlas    {} evaluation(s) fell outside every leaf and are not in any label above",
+            coverage.unplaced
+        );
+    }
     let _ = writeln!(out, "calibration {}", campaign.calibrator.describe());
     let _ = writeln!(out, "findings {}", campaign.findings.len());
     for (i, f) in campaign.findings.iter().take(3).enumerate() {

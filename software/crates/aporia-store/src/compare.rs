@@ -454,6 +454,7 @@ pub fn atlas(a: &Loaded, b: &Loaded) -> Vec<Field> {
         "unknown_fraction",
         "cells",
         "resolved_fraction",
+        "unplaced",
     ] {
         out.push(nested(s, &format!("coverage.{key}"), &ca, &cb, key));
     }

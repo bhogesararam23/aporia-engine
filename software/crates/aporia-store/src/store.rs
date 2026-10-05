@@ -683,6 +683,10 @@ fn summary_json(run: &Run<'_>, counts: &Counts, finding_bytes: u64) -> Json {
                 ("unknown_fraction", Json::number(run.coverage.unknown)),
                 ("cells", Json::count(run.coverage.cells as u64)),
                 ("resolved_fraction", Json::number(run.coverage.resolved())),
+                // Recorded so an archive can say whether its own partition held every measurement it
+                // was given. An unplaced evaluation reaches no label and no finding, and a reader who
+                // cannot see that from the archive is reading a map with holes in it.
+                ("unplaced", Json::count(u64::from(run.coverage.unplaced))),
             ]),
         ),
         (

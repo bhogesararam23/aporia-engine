@@ -272,6 +272,11 @@ pub struct Atlas {
     pub leaves: Vec<u32>,
     policy: Policy,
     observations: u64,
+    /// Measurements that fell inside no leaf, and so live on the root rather than in the partition.
+    /// Counted because a point that cannot be placed is a fact about the run a reader is entitled to,
+    /// and silent because until it was counted it was exactly how a third of a model's evaluations
+    /// vanished from its own atlas. See [`Atlas::leaf_of`].
+    unplaced: u32,
 }
 
 impl Atlas {
@@ -317,6 +322,7 @@ impl Atlas {
             leaves: vec![0],
             policy,
             observations: 0,
+            unplaced: 0,
         }
     }
 
@@ -342,13 +348,37 @@ impl Atlas {
 
     /// The leaf cell containing a point, creating the partition lazily is not needed: points are
     /// always assigned to whatever leaf exists.
+    /// The leaf that contains `x`, or `None` when no leaf does.
+    ///
+    /// `None` is the honest answer, and the one that used to be silently swallowed: a point that
+    /// belongs to no leaf was folded into cell 0, which stopped being a leaf at the first split, so its
+    /// measurement left the labels, the coverage and the findings without saying so. [`Atlas::locate`]
+    /// still needs a cell for callers that only route, so it keeps the root as its fallback and counts
+    /// the event instead.
     #[must_use]
-    pub fn locate(&self, x: &[f64]) -> u32 {
+    pub fn leaf_of(&self, x: &[f64]) -> Option<u32> {
         self.leaves
             .iter()
             .copied()
             .find(|id| self.cells[*id as usize].contains(x))
-            .unwrap_or(0)
+    }
+
+    /// The cell `x` falls in, defaulting to the root when it falls in nothing. Prefer
+    /// [`Atlas::leaf_of`], which reports the failure rather than absorbing it; every use of this one
+    /// is a place that has to name a cell anyway.
+    #[must_use]
+    pub fn locate(&self, x: &[f64]) -> u32 {
+        self.leaf_of(x).unwrap_or_default()
+    }
+
+    /// The cell a measurement is filed under, counting the case where no leaf claims it. Used by the
+    /// two places that attach a point to the partition; `locate` is for routing that does not record.
+    fn place(&mut self, x: &[f64]) -> u32 {
+        let leaf = self.leaf_of(x);
+        if leaf.is_none() {
+            self.unplaced += 1;
+        }
+        leaf.unwrap_or_default()
     }
 
     /// Record one evaluation.
@@ -378,7 +408,7 @@ impl Atlas {
         let observation = self.observations;
         self.observations += 1;
         p.observation = observation;
-        let id = self.locate(&p.x) as usize;
+        let id = self.place(&p.x) as usize;
         let cell = &mut self.cells[id];
         cell.measured |= p.measured;
         cell.channels |= p.channels;
@@ -408,7 +438,7 @@ impl Atlas {
             cell.points.clear();
         }
         for p in points {
-            let id = self.locate(&p.x) as usize;
+            let id = self.place(&p.x) as usize;
             self.cells[id].points.push(p.clone());
         }
         for cell in &mut self.cells {
@@ -625,6 +655,7 @@ impl Atlas {
             unknown,
             cells: self.leaves.len(),
             samples,
+            unplaced: self.unplaced,
         }
     }
 
@@ -733,6 +764,8 @@ pub struct Coverage {
     pub unknown: f64,
     pub cells: usize,
     pub samples: u32,
+    /// Measurements the partition could not place. See [`Atlas::leaf_of`].
+    pub unplaced: u32,
 }
 
 impl Coverage {
@@ -1143,6 +1176,50 @@ mod tests {
             .map(|id| a.cell(*id).unwrap().relative_size(a.root()))
             .sum();
         assert!((sum - 1.0).abs() < 1e-12, "{sum}");
+    }
+
+    #[test]
+    fn a_measurement_outside_every_leaf_is_counted_rather_than_absorbed() {
+        // The failure this guards against was silent: before the count existed, a point that no leaf
+        // contained was filed under cell 0, which after the first split is not a leaf at all, so the
+        // measurement disappeared from `coverage().samples`, from the labels and from the findings while
+        // the run went on reporting an atlas as if it had used every evaluation it had paid for.
+        let mut a = Atlas::new(
+            &model1d(0.0, 1.0),
+            Policy {
+                min_samples: 1,
+                ..Policy::default()
+            },
+        );
+        for x in [0.1, 0.3, 0.7, 0.9] {
+            a.record(&[x], 0.9, 0b1);
+        }
+        a.relabel();
+        a.refine();
+        a.relabel();
+        assert!(
+            a.leaves.len() > 1,
+            "this test needs a partition with more than one leaf"
+        );
+        assert_eq!(a.coverage().unplaced, 0, "every point above is inside");
+
+        // A point outside the declared domain, and a coordinate that is not a number at all: both fall
+        // in no leaf, and `contains` is false for NaN by comparison rather than by special case.
+        a.record(&[1.5], 0.9, 0b1);
+        a.record(&[f64::NAN], 0.9, 0b1);
+        assert_eq!(a.coverage().unplaced, 2);
+        // Counted, and still not part of any leaf's evidence: that is the whole point of the number.
+        let placed: u32 = a
+            .leaf_ids()
+            .iter()
+            .map(|id| a.cell(*id).map_or(0, |c| c.samples))
+            .sum();
+        assert_eq!(a.coverage().samples, placed);
+        assert_eq!(
+            a.coverage().samples,
+            4,
+            "the two stray points are not in it"
+        );
     }
 
     #[test]
