@@ -213,8 +213,9 @@ fn a_measurement_can_be_made_through_the_front_door_and_is_named_for_its_plan() 
 #[test]
 fn reading_a_published_measurement_back_names_the_experiment_it_was() {
     // A committed results file, written before measurement identities existed, read through the front
-    // door. The identity it prints comes from the plan and entries recorded inside it, which is the
-    // only way an old number stays addressable.
+    // door. The identity it prints comes from the schema, plan and entries recorded inside it, which
+    // is the only way an old number stays addressable — and the schema is in that digest, so a v1 file
+    // names the v1 experiment rather than borrowing the name a v2 run of the same plan would get.
     let out = aporia()
         .arg("bench")
         .arg("verdict")
@@ -223,12 +224,39 @@ fn reading_a_published_measurement_back_names_the_experiment_it_was() {
         .expect("aporia runs");
     let body = text(&out.stdout);
     assert_eq!(out.status.code(), Some(0), "stdout was:\n{body}");
-    assert!(body.contains("identity  "), "{body}");
+    let line = body
+        .lines()
+        .find(|l| l.starts_with("identity  "))
+        .unwrap_or_default();
     assert!(
-        body.contains("derived from the plan and entries it records"),
+        line.contains("derived from the schema, plan and entries it records"),
         "{body}"
     );
+    let named = line.split_whitespace().nth(1).unwrap_or_default();
+    assert!(
+        named.len() == 12 && named.chars().all(|c| c.is_ascii_hexdigit()),
+        "the derived name is not the digest this tool writes: {line}"
+    );
     assert!(body.contains("analytic/sqrt_domain"), "{body}");
+}
+
+#[test]
+fn a_measurement_that_recorded_its_own_identity_is_not_asked_to_guess_it() {
+    // The other half of the same promise: when the writer put the field in, `verdict` says so instead
+    // of printing a derived name that happens to agree. Written by the build that charges a
+    // counterexample row in executions, so it is the first `aporia.results/2` file in the repository.
+    let out = aporia()
+        .arg("bench")
+        .arg("verdict")
+        .arg(results("results-bb424c168dd4.json"))
+        .output()
+        .expect("aporia runs");
+    let body = text(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "stdout was:\n{body}");
+    assert!(
+        body.contains("identity  bb424c168dd4  (as written)"),
+        "{body}"
+    );
 }
 
 #[test]
