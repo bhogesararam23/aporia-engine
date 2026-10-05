@@ -4,7 +4,8 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Twelve files are committed. Each one is the record of what a change did, and only the last is current.
+Thirteen files are committed. Each one is the record of what a change did, and only the last is
+current.
 
 | file | what it is |
 |---|---|
@@ -18,16 +19,18 @@ Twelve files are committed. Each one is the record of what a change did, and onl
 | `results-1791145006.json` | as above with the floor at `1e-9` — again byte-identical, so the floor is not what moved the controls |
 | `results-1791146048.json` | differential wired and floored, ladder run at `differential_every = 0` |
 | `results-1791150251.json` | declared symmetry wired as swap probes, plus a new symmetry control. Every one of the previous run's 180 sweeps reproduced outcome-for-outcome (see "Wiring declared symmetry") |
-| `results-1791153844.json` | the risk-threshold counterexample oracle wired — the run whose figures are quoted throughout. Across all 189 sweeps the only measured field that differs from the previous run is `counterexamples` (see "The risk-threshold oracle") |
-| `results-1791158752.json` | **current**: the campaign rewired onto an `Executor` seam. Every measured field of all 945 campaigns is identical to the row above, `wall_ms` except — kept because "this refactor changed no measurement" is a claim that needs its own run rather than an assertion |
+| `results-1791153844.json` | the risk-threshold counterexample oracle wired. Across all 189 sweeps the only measured field that differs from the previous run is `counterexamples` (see "The risk-threshold oracle") |
+| `results-1791158752.json` | the campaign rewired onto an `Executor` seam. Every measured field of all 945 campaigns is identical to the row above, `wall_ms` except — kept because "this refactor changed no measurement" is a claim that needs its own run rather than an assertion |
+| `results-bb424c168dd4.json` | **current**, and the first `aporia.results/2` document: the oracle now reports its own executions, so a counterexample row carries its call count *and* its model-execution count. Identical to `results-1791158752.json` in every field of every sweep and every outcome except `wall_ms`, and identical in all 341 counterexample rows except their cost columns (see "What a minimisation actually costs") |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
 `differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
 sampling costs are not recorded cannot be compared against one that ran under different ones. The
-figures quoted throughout this file are from `results-1791153844.json`, the current run; it differs
-from `results-1791150251.json` in the counterexample rows and nothing else, and from
-`results-1791146048.json` in those rows plus the one corpus entry the symmetry control added. The
-older rows are evidence about what each change did, not separate citable results.
+figures quoted throughout this file are from `results-bb424c168dd4.json`, the current run. It is
+field-for-field identical to `results-1791153844.json`, the run those figures were quoted from
+before, apart from `wall_ms` and the counterexample cost columns — so every detection, localisation,
+boundary and replay number below is the same number in both files. The older rows are evidence about
+what each change did, not separate citable results.
 
 ### The differential channel, and a sampling lesson
 
@@ -193,25 +196,49 @@ What was measured before trusting it:
   `x in [0.4181, 0.5818]` against a full-precision pinned start). None is the untouched starting case.
   `dimensions`, `digits` and `description` are in every row, so this can be re-checked rather than
   taken on faith.
-- **Cost is reported, not hidden — but read it per oracle.** A row that needed both predicates records
-  `minimisation_evaluations` for the rule attempt *and* the risk attempt together, and
-  `oracle: "rule" | "risk"` says which question the row answers. The two answers are not the same
-  claim: a rule failure says the model is wrong at those coordinates; a risk hit says the instrument
-  would still flag them. On a control, that distinction is the entire content of the measurement.
-- **That summed number counts queries, not executions, and the two oracles differ per query.**
-  `FailureOracle` asks one question and runs the model once. `RiskScorer` rebuilds the evidence the
-  report used, so one query runs the model at the candidate point, once per axis with that axis
-  perturbed, once again at reduced precision, and once through the double-double reference —
-  `arity + 3` executions. So a `"risk"` row's `minimisation_evaluations` is a lower bound on what it
-  cost, by that factor, and a `"rule"` row's is exact. Stated rather than left to be assumed: the
-  numbers in this column are comparable within an oracle kind and not across kinds. Closing the gap
-  means having the oracle report its own executions and re-measuring the column, which is open.
+- **Cost is reported, not hidden, and it is reported in the unit it is.** A row that needed both
+  predicates records the two attempts summed, and `oracle: "rule" | "risk"` says which question the
+  row answers. The two answers are not the same claim: a rule failure says the model is wrong at those
+  coordinates; a risk hit says the instrument would still flag them. On a control, that distinction is
+  the entire content of the measurement.
 
-Everything else in the ladder is untouched: comparing the new run against the previous one sweep by
-sweep, all 189 sweeps and all 945 campaigns agree on every measured field except `counterexamples`
-(and `wall_ms`, which is not comparable). Detections 134, localisations 97, control cleanliness 118 of
-135, boundary rows 1125 with 813 banded and 238 inside tolerance, 63 of 63 archives replaying 37,506
-executions — identical.
+### What a minimisation actually costs, in executions
+
+Earlier versions of this file recorded one number per row and called it `minimisation_evaluations`. It
+was a count of oracle *answers*, and the two oracles do not cost the same per answer — so the 287
+`"rule"` rows and the 54 `"risk"` rows sat in one column on two different scales, and the note here
+promised a fix ("having the oracle report its own executions and re-measuring the column") that had
+not happened. It has now. `aporia-minimize`'s `Oracle::query` returns the executions its answer
+performed, `aporia-bench::risk` counts its own probe star, and a row carries
+`minimisation_queries` and `minimisation_executions`.
+
+Re-measured over the whole ladder — 341 rows, 189 sweeps, the same plan and corpus as
+`results-1791158752.json`:
+
+| kind | rows | queries | executions | executions per query |
+|---|---|---|---|---|
+| `rule` | 287 | 72,591 | 72,591 | 1.00 |
+| `risk` | 54 | 14,156 | 54,415 | 3.84 |
+| all | 341 | 86,747 | 127,006 | 1.46 |
+
+The column understated the ladder's minimisation work by 40,259 model executions, and the
+understatement is not spread evenly: `aerospace/projectile_zero_gravity` spent 7,392 answers that were
+36,390 executions, while `ode/euler_decay` spent 484 that were 1,084.
+
+The `arity + 3` this file previously guessed is not the rule. A risk answer runs the candidate point,
+one perturbed run per axis, a reduced-precision re-run and a double-double reference evaluation —
+*whichever of those the finding being minimised was actually made of*, because a scorer is built per
+finding and restricted to that finding's channels. A Physical-only answer therefore costs 1, a
+Physical+Sensitivity answer on a three-parameter model costs 4, and the one measured directly in
+`aporia-bench/tests/risk.rs` (Physical, Sensitivity and Numerical on `projectile_zero_gravity`) costs
+5. Nothing short of the oracle's own count says which, which is why the oracle now reports it.
+
+Everything else in the ladder is untouched. Comparing `results-1791153844.json` against
+`results-1791150251.json` sweep by sweep — the risk oracle against its absence — all 189 sweeps and
+all 945 campaigns agree on every measured field except `counterexamples` (and `wall_ms`, which is not
+comparable). Detections 134, localisations 97, control cleanliness 118 of 135, boundary rows 1125 with
+813 banded and 238 inside tolerance, 63 of 63 archives replaying 37,506 executions — identical, and
+identical again in the current run.
 
 Definitions live in `crates/aporia-bench/src/metrics.rs`, next to the code that computes them. The
 two that carry the weight here:
