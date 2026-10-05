@@ -1708,9 +1708,6 @@ mod tests {
 
     #[test]
     fn the_same_seed_and_executor_answer_the_same_twice() {
-        // Determinism is what makes an external run reproducible, and the adapter is where it can
-        // break: a driver that was fine with a pure interpreter could meet a program whose outputs
-        // drift. Two identical campaigns over one identical executor have to agree exactly.
         let m = square_model();
         let mut first = Linear {
             calls: 0,
@@ -1732,5 +1729,93 @@ mod tests {
         assert_eq!(a.decisions.len(), b.decisions.len());
         assert_eq!(a.findings.len(), b.findings.len());
         assert_eq!(first.calls, second.calls);
+    }
+
+    #[test]
+    fn a_model_declared_external_is_analysed_through_the_program_it_names() {
+        // The claim of the whole input boundary in one test: a `.ap` file that declares `output`
+        // instead of equations, lowered by the real front end, sampled by the real campaign driver and
+        // executed by an in-process program. Nothing about the analysis is special-cased for foreign
+        // models -- same acquisition, same rules, same budget accounting -- because if the adapter
+        // path got its own weaker analysis, the instrument would stop being one instrument.
+        //
+        // The program is a beam whose deflection goes negative beyond 60 N of load. The model's own
+        // rule says that is not allowed, so the atlas has to find the region, and the region is the
+        // program's behaviour, not anything the A-IR computes.
+        let m = model(
+            "model beam \"\" {\n input load : N in [0, 100]\n output deflection : mm\n require deflection >= 0\n}\n",
+        );
+        assert!(
+            aporia_runtime::needs_adapter(&m),
+            "a declared-external model must not be interpretable"
+        );
+
+        struct Solver;
+        impl Executor for Solver {
+            fn execute(&mut self, _model: &Model, x: &[f64], _cfg: ExecConfig) -> Outcome {
+                let load = x.first().copied().unwrap_or(0.0);
+                let deflection = if load > 60.0 { -1.4 } else { 2.1 };
+                Outcome {
+                    outputs: vec![deflection],
+                    traces: Vec::new(),
+                    flags: aporia_runtime::value::Flags::default(),
+                    steps: 0,
+                    rule_values: Vec::new(),
+                }
+            }
+
+            fn varies_with_precision(&self) -> bool {
+                false
+            }
+
+            fn has_reference_path(&self) -> bool {
+                false
+            }
+        }
+
+        let adapted = run_with(
+            &m,
+            Config {
+                budget: 240,
+                probe_every: 0,
+                symmetric_every: 0,
+                ..Config::default()
+            },
+            &mut Solver,
+        );
+        assert!(
+            !adapted.findings.is_empty(),
+            "the campaign found nothing wrong with a beam that deflects backwards"
+        );
+        assert!(
+            adapted
+                .evidence
+                .iter()
+                .any(|e| e.channel == Channel::Physical && e.detail.contains("deflection")),
+            "{:?}",
+            adapted
+                .evidence
+                .iter()
+                .map(|e| e.detail.clone())
+                .collect::<Vec<_>>()
+        );
+        // Part of the space is flagged and part is not: an external model is analysed, not simply
+        // refused. The suspicious share should sit near the share of the domain past 60 N.
+        let suspicious = adapted.atlas.coverage().suspicious;
+        assert!(
+            suspicious > 0.0 && suspicious < 0.95,
+            "suspicious volume {suspicious} does not look like a region"
+        );
+        assert!(
+            adapted.atlas.coverage().trusted > 0.0,
+            "nothing was trusted, so the map says only 'external program'"
+        );
+        // And the rule oracle still works on it, because a violated rule is violated wherever it
+        // fires -- which is what the counterexample minimiser needs from an adapter run.
+        let violated = adapted
+            .findings
+            .iter()
+            .any(|f| f.evidence.iter().any(|e| e.channel == Channel::Physical));
+        assert!(violated, "no finding was attributed to the model's rule");
     }
 }
