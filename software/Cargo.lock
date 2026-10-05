@@ -42,6 +42,7 @@ name = "aporia-cli"
 version = "0.1.0"
 dependencies = [
  "aporia-adapter",
+ "aporia-bench",
  "aporia-dsl",
  "aporia-ir",
  "aporia-runtime",

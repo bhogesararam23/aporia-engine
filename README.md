@@ -64,7 +64,7 @@ software/crates/
   aporia-adapter    the external-computation boundary: a child program, its line protocol, its
                     failure modes, and an example solver to copy
   aporia-cli        the command line: `aporia run <model.ap>` (optionally `--program`, `--archive`),
-                    `aporia replay`, `aporia report` and `aporia compare`
+                    `aporia replay`, `aporia report`, `aporia compare`, `aporia bench`
 software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
 software/scripts/     dev-env, test runner, lint gate, and the gate that build-verifies every
                       committed tree
@@ -77,7 +77,7 @@ Rust 1.88 or newer (`stable-msvc` on Windows; the workspace builds with MSVC 14.
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 491 tests
+cargo test --release                  # 516 tests
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
 cargo run --release -p aporia-bench -- verify    # ground truth against direct evaluation
@@ -151,6 +151,24 @@ comparison at `5` rather than producing a diff out of bytes that may have been e
 evaluation of the model's own rules, archives every top-of-ladder run, and replays each archive before
 reporting. A benchmark that cannot be replayed is not a measurement.
 
+The same commands are reachable from the instrument's own front door as `aporia bench <command>`, and
+they are the same code: `aporia-bench` is a thin binary over `aporia_bench::cli::dispatch`, and so is
+`aporia bench`. There is no second argument parser, corpus reader, sweep or results writer, which is the
+only reason the two cannot drift into reporting different numbers for one plan.
+
+```sh
+aporia bench list                             what the corpus holds and what each entry claims
+aporia bench verify --grid 40                 check every declaration against direct evaluation
+aporia bench run --budgets 40,80 --seeds 1    sweep, archive, and write results-<identity>.json
+aporia bench verdict benchmarks/results/results-1791153844.json
+```
+
+For `bench` the statuses are the harness's own, so a caller can check them from either name: `0` the
+command did what was asked, `1` nothing was measured because a declared region did not hold, `2` the
+command was refused. `1` is not `aporia run`'s status `1` — a corpus whose ground truth has drifted is a
+different problem from a model that flagged a region, and the README says so rather than letting the
+number carry both meanings.
+
 On Windows with Smart App Control enabled, freshly linked test binaries can be refused by policy
 (`os error 4551`) until Microsoft's cloud verdict arrives. `scripts/test.sh` runs the release profile,
 forces a genuine re-link on retry, and prints why it is waiting. That is a machine policy, not a
@@ -194,8 +212,13 @@ experiment-calibrated strengths and fusion that refuses to double count; the ada
 counterexample minimisation with verified claims; replayable archives; the benchmark corpus and the
 strategy comparison.
 
-Not done: the command-line front end and the adapter interface for programs APORIA does not compile
-(in-process DSL today); hand-written x86-64 kernels, which are only admissible with a measured
+Working and tested end to end, but not measured as a research result: the command line (`run`, `replay`,
+`report`, `compare`, `bench`) and the adapter for programs APORIA does not compile, which is a real child
+process over pipes — its five failure modes are exercised by spawning it, not by simulating them. A model
+that declares `output` values is analysed through that program by the same campaign as any interpreted
+model.
+
+Not done: hand-written x86-64 kernels, which are only admissible with a measured
 advantage over compiler output and are not yet written; a CUDA backend, which cannot be compiled or
 measured on the machine this was built on because it has no NVIDIA device — stated rather than hidden,
 and the design is deferred with its trigger recorded; Julia reference implementations; a literature

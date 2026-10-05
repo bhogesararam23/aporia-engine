@@ -17,7 +17,7 @@
 //! answering and the map is incomplete.
 
 use aporia_cli::run::Exit;
-use aporia_cli::{compare, replay, report, run};
+use aporia_cli::{bench, compare, replay, report, run};
 use aporia_search::Config;
 use std::path::PathBuf;
 
@@ -38,6 +38,8 @@ fn usage() -> &'static str {
      \x20 replay <archive-dir>        check an archive's integrity and reproduce its run\n\
      \x20 report <archive-dir>        print a stored run without executing anything\n\
      \x20 compare <dir-a> <dir-b>     say what differs between two stored runs\n\
+     \x20 bench <command> [flags]    the measurement harness: list, verify, run, verdict, scan,\n\
+     \x20                            explain (bare `bench` shows its own usage)\n\
      \x20 help                        show this text\n\
      exit: 0 clean, 1 suspicious regions reported, 2 usage, 3 model not usable,\n\
      \x20     4 the program stopped answering (the map above is incomplete),\n\
@@ -57,6 +59,11 @@ fn main() {
         Some("replay") => one_directory("replay", &args[1..], replay::command),
         Some("report") => one_directory("report", &args[1..], report::command),
         Some("compare") => two_directories("compare", &args[1..], compare::command),
+        Some("bench") => {
+            let stdout = std::io::stdout();
+            let mut out = stdout.lock();
+            bench::command(&args[1..], &mut out)
+        }
         Some("help" | "--help" | "-h") => {
             print!("{}", usage());
             Exit::Clean

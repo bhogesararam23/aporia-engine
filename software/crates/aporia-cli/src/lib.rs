@@ -11,11 +11,17 @@
 //! declares `output` values through `aporia_adapter::Program` and into the same campaign, with the
 //! same report — so a new execution path is an argument to one function rather than a second driver.
 //!
-//! Benchmark internals are not re-exported and not reachable from here: no corpus, no ground truth,
-//! no results files. A user with a model and no benchmark gets an answer, which is what `aporia-bench`
-//! could not offer.
+//! Benchmark commands are reachable from here as `aporia bench`, through `aporia_bench::cli` and
+//! nowhere else in this crate: `bench.rs` maps a status and forwards, owning no argument parsing, no
+//! corpus selection, no sweep and no results writer. That is a deliberate revision of an earlier rule
+//! in this file, which kept the harness unreachable to avoid a dependency. The rule it replaced was
+//! right about the danger and wrong about the remedy -- the way to avoid a second measurement tool is
+//! not two binaries, it is one implementation with two names for it. A user with a model and no corpus
+//! still gets an answer here that `aporia-bench` could not offer, because nothing in `run`, `replay`,
+//! `report` or `compare` requires a corpus to exist.
 
 pub mod archive;
+pub mod bench;
 pub mod compare;
 pub mod replay;
 pub mod report;

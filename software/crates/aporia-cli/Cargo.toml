@@ -20,6 +20,7 @@ path = "src/bin/test_program.rs"
 
 [dependencies]
 aporia-adapter = { path = "../aporia-adapter" }
+aporia-bench = { path = "../aporia-bench" }
 aporia-dsl = { path = "../aporia-dsl" }
 aporia-ir = { path = "../aporia-ir" }
 aporia-runtime = { path = "../aporia-runtime" }
