@@ -1731,6 +1731,32 @@ mod tests {
         assert_eq!(first.calls, second.calls);
     }
 
+    /// An in-process stand-in for a program: a beam that deflects backwards beyond 60 N. Declared at
+    /// module level because a type defined in the middle of a test body reads as an accident.
+    struct Solver;
+
+    impl Executor for Solver {
+        fn execute(&mut self, _model: &Model, x: &[f64], _cfg: ExecConfig) -> Outcome {
+            let load = x.first().copied().unwrap_or(0.0);
+            let deflection = if load > 60.0 { -1.4 } else { 2.1 };
+            Outcome {
+                outputs: vec![deflection],
+                traces: Vec::new(),
+                flags: aporia_runtime::value::Flags::default(),
+                steps: 0,
+                rule_values: Vec::new(),
+            }
+        }
+
+        fn varies_with_precision(&self) -> bool {
+            false
+        }
+
+        fn has_reference_path(&self) -> bool {
+            false
+        }
+    }
+
     #[test]
     fn a_model_declared_external_is_analysed_through_the_program_it_names() {
         // The claim of the whole input boundary in one test: a `.ap` file that declares `output`
@@ -1749,29 +1775,6 @@ mod tests {
             aporia_runtime::needs_adapter(&m),
             "a declared-external model must not be interpretable"
         );
-
-        struct Solver;
-        impl Executor for Solver {
-            fn execute(&mut self, _model: &Model, x: &[f64], _cfg: ExecConfig) -> Outcome {
-                let load = x.first().copied().unwrap_or(0.0);
-                let deflection = if load > 60.0 { -1.4 } else { 2.1 };
-                Outcome {
-                    outputs: vec![deflection],
-                    traces: Vec::new(),
-                    flags: aporia_runtime::value::Flags::default(),
-                    steps: 0,
-                    rule_values: Vec::new(),
-                }
-            }
-
-            fn varies_with_precision(&self) -> bool {
-                false
-            }
-
-            fn has_reference_path(&self) -> bool {
-                false
-            }
-        }
 
         let adapted = run_with(
             &m,
