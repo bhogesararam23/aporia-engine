@@ -1,0 +1,38 @@
+{
+  "schema": "aporia.finding/1",
+  "index": 0,
+  "cell": 20,
+  "bounds": [
+    {
+      "lo": [
+        -1.25
+      ],
+      "hi": [
+        0.0
+      ]
+    }
+  ],
+  "representative": [
+    0.0
+  ],
+  "observation": 0,
+  "online_risk": 0.0,
+  "final_risk": 1.0,
+  "samples": 3,
+  "label": "SUSPICIOUS",
+  "case": null,
+  "evidence": [
+    {
+      "channel": "sensitivity",
+      "subject": "o0~p0:slope",
+      "magnitude": 88.46982168479313,
+      "strength": 1.0,
+      "fixed": false,
+      "observations": [
+        0,
+        1
+      ],
+      "detail": "o0 moved 89.5x further than usual along p0"
+    }
+  ]
+}

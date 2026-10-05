@@ -57,13 +57,14 @@ software/crates/
   aporia-minimize   counterexample minimisation: ddmin over parameters, per-axis interval bisection,
                     significant-digit reduction — each accepted only after re-verification
   aporia-store      run archives: manifest, SHA-256 digests, fixed-record observations, findings,
-                    atlas CSV, and bit-exact replay against the archive's own A-IR
+                    atlas CSV, bit-exact replay against the archive's own A-IR, and the comparison
+                    of two stored runs
   aporia-bench      the measurement harness: corpus registry, ground truth, metrics, strategy
                     comparison, verdict, explanation
   aporia-adapter    the external-computation boundary: a child program, its line protocol, its
                     failure modes, and an example solver to copy
-  aporia-cli        the command line: `aporia run <model.ap>` (optionally `--program`,
-                    `--archive`) and `aporia replay <archive-dir>`
+  aporia-cli        the command line: `aporia run <model.ap>` (optionally `--program`, `--archive`),
+                    `aporia replay`, `aporia report` and `aporia compare`
 software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
 software/scripts/     dev-env, test runner, lint gate, and the gate that build-verifies every
                       committed tree
@@ -76,7 +77,7 @@ Rust 1.88 or newer (`stable-msvc` on Windows; the workspace builds with MSVC 14.
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 448 tests
+cargo test --release                  # 491 tests
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
 cargo run --release -p aporia-bench -- verify    # ground truth against direct evaluation
@@ -124,6 +125,27 @@ moved. Collapsing the two into "something is wrong with the archive" is the mist
 to prevent. A run that was executed by an external program is checked for integrity and reported as
 *not replayed* — re-running a program this command does not have is not the same experiment, and
 printing "0 mismatches" over nothing would be a pass earned by not trying.
+
+Two more commands read an archive, and neither executes anything:
+
+```sh
+aporia report run-0001                     # what the stored run says
+aporia compare run-0001 run-0002           # what differs between two stored runs
+```
+
+`report` prints the archived configuration, counts, calibration, bands, decisions and finding blocks —
+every number read from the files, none recomputed. `compare` puts two archives side by side and reports
+each field as the same, changed with both values (`config.budget 40 -> 80`), or held by only one of
+them. Findings are paired by the region they describe rather than by atlas cell id, because a cell id is
+an index into one run's own partition and means nothing in the other's; a region one run did not find is
+reported as missing there, not as a disagreement. Two archives whose models have different parameter
+counts are not paired at all — those regions are coordinates in different spaces — and the command says
+which sections it refused.
+
+The three endings are three exit statuses: `0` identical, `8` the archives differ, `9` nothing disagreed
+but a section could not be compared. `8` is deliberately not `1`: a difference between two runs is not a
+claim that either found a region worth trusting less. A corrupt archive on either side stops the
+comparison at `5` rather than producing a diff out of bytes that may have been edited.
 
 `aporia-bench run` refuses to produce numbers when a declared region does not hold against direct
 evaluation of the model's own rules, archives every top-of-ladder run, and replays each archive before

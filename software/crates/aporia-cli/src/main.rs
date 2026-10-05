@@ -17,7 +17,7 @@
 //! answering and the map is incomplete.
 
 use aporia_cli::run::Exit;
-use aporia_cli::{replay, report, run};
+use aporia_cli::{compare, replay, report, run};
 use aporia_search::Config;
 use std::path::PathBuf;
 
@@ -37,11 +37,13 @@ fn usage() -> &'static str {
      \x20     values is executed by the named program, one JSON request and response per line.\n\
      \x20 replay <archive-dir>        check an archive's integrity and reproduce its run\n\
      \x20 report <archive-dir>        print a stored run without executing anything\n\
+     \x20 compare <dir-a> <dir-b>     say what differs between two stored runs\n\
      \x20 help                        show this text\n\
      exit: 0 clean, 1 suspicious regions reported, 2 usage, 3 model not usable,\n\
      \x20     4 the program stopped answering (the map above is incomplete),\n\
      \x20     5 archive integrity failure, 6 archive intact but the run did not reproduce,\n\
-     \x20     7 the run finished and the archive could not be written\n"
+     \x20     7 the run finished and the archive could not be written,\n\
+     \x20     8 the two archives differ, 9 the two archives agree on what could be compared\n"
 }
 
 fn main() {
@@ -54,6 +56,7 @@ fn main() {
         Some("run") => run_command(&args[1..]),
         Some("replay") => one_directory("replay", &args[1..], replay::command),
         Some("report") => one_directory("report", &args[1..], report::command),
+        Some("compare") => two_directories("compare", &args[1..], compare::command),
         Some("help" | "--help" | "-h") => {
             print!("{}", usage());
             Exit::Clean
@@ -175,6 +178,33 @@ where
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
     read_it(&std::path::PathBuf::from(first), &mut out)
+}
+
+/// The two-archive shape of `aporia compare <a> <b>`. Separate from [`one_directory`] because the
+/// arity is the command's meaning: a comparison of one archive with nothing is not a comparison.
+fn two_directories<F>(name: &str, flags: &[String], read_it: F) -> Exit
+where
+    F: Fn(&std::path::Path, &std::path::Path, &mut dyn std::io::Write) -> Result<Exit, String>,
+{
+    let [first, second] = flags else {
+        eprintln!(
+            "aporia: {name} needs exactly two archive directories, e.g. aporia {name} run-0001 \
+             run-0002"
+        );
+        eprint!("{}", usage());
+        return Exit::Usage;
+    };
+    let a = std::path::PathBuf::from(first);
+    let b = std::path::PathBuf::from(second);
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    match read_it(&a, &b, &mut out) {
+        Ok(exit) => exit,
+        Err(message) => {
+            eprintln!("aporia: {message}");
+            Exit::Input
+        }
+    }
 }
 
 fn run_command(flags: &[String]) -> Exit {

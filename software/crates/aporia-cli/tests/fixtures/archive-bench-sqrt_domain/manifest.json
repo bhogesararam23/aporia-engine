@@ -1,0 +1,67 @@
+{
+  "schema": "aporia.experiment/1",
+  "tool_version": "0.1.0",
+  "created_unix_ms": 0,
+  "model_name": "sqrt_domain",
+  "model_sha256": "0760c391219c5734045a756d4fae5ce7f096bbf131cc4f7e6ee1d7f3e2b7ddb9",
+  "air_sha256": "72b0997a064817a769ab6c2960d79028a89d3099d3750b8d4da9e84a01af330c",
+  "config": {
+    "budget": 160,
+    "strategy": "adaptive",
+    "seed": 1,
+    "probe_every": 7,
+    "calibrate_every": 25,
+    "refine_every": 40,
+    "numerical_every": 11,
+    "differential_every": 0,
+    "symmetric_every": 1
+  },
+  "counts": {
+    "evaluations": 160,
+    "instruction_steps": 160,
+    "params": 1,
+    "outputs": 1,
+    "constraints": 1,
+    "relations": 0,
+    "cells": 40,
+    "samples": 147,
+    "findings": 3
+  },
+  "exec": {
+    "fp": "f64",
+    "max_steps": 50000000
+  },
+  "environment": {
+    "os": "windows",
+    "arch": "x86_64",
+    "pointer_width": 64,
+    "rust_channel": "",
+    "cpu_features": [],
+    "notes": {
+      "strategy": "adaptive",
+      "seed": "1",
+      "entry": "analytic/sqrt_domain"
+    }
+  },
+  "calibration": {
+    "behavioral": 1.0,
+    "physical": 1.0,
+    "numerical": 0.000001,
+    "differential": 1.0,
+    "sensitivity": 1.119599284213911
+  },
+  "channel_correlation": [],
+  "correlation_samples": 66,
+  "files": {
+    "model.ap": "0760c391219c5734045a756d4fae5ce7f096bbf131cc4f7e6ee1d7f3e2b7ddb9",
+    "model.air": "72b0997a064817a769ab6c2960d79028a89d3099d3750b8d4da9e84a01af330c",
+    "observations.bin": "321c7e498add533b7dd889dac654aaf8e8dd8a8e6a57acc4bc5dc64620520a71",
+    "atlas.csv": "ee9e7c50e4af1663ce5fb7d104559b04d6e4f787ab1ab360451e09d062fedaf1",
+    "bands.csv": "203dfc8663aa084c00af1e9cd343337a19a480af5c26f3df16a2ff763bc21662",
+    "decisions.jsonl": "e8148b400963b453eefea646d287cc3b51abfde94d50630fc287581997256d62",
+    "findings/000000.apx": "6a180d5d17d4e3ab52e540e38207d9699bd322ba431353b0d60bc530730550ed",
+    "findings/000001.apx": "0907cfd3cfefe2ffdbe9deed91c31d6b39654012479b836a246d5d0138bf8051",
+    "findings/000002.apx": "df1134e01366a3b9eaaee8e35166589015e974b15eca5479610bc3c1426dadd1",
+    "summary.json": "02cf376466d59af274b27b3b78d7b4da766dee27244ffaad29d5642fe79b156b"
+  }
+}

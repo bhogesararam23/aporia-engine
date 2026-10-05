@@ -1,0 +1,5 @@
+model sqrt_domain "the real square root, asked for a negative input" {
+  input x in [-10, 10]
+  let y = sqrt(x)
+  require finite(y)
+}

@@ -16,6 +16,7 @@
 //! could not offer.
 
 pub mod archive;
+pub mod compare;
 pub mod replay;
 pub mod report;
 pub mod run;

@@ -1,0 +1,8 @@
+aporia-ir 1
+model "sqrt_domain" "the real square root, asked for a negative input"
+param 0 "x" f64 1 0x3ff0000000000000 interval 0xc024000000000000 0x4024000000000000 ""
+block 0
+instr 0 f64 1 un sqrt p0
+output 0 "y" f64 1 n0
+doc output 0 ""
+constraint 0 "finite(y)" declared finite n0

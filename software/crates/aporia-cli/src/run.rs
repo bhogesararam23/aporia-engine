@@ -43,6 +43,14 @@ pub enum Exit {
     /// caller who asked for the artefact and did not get it needs to know, and a report on stdout
     /// that looks complete must not talk them out of it.
     Archive,
+    /// Two archives were compared and at least one field disagreed. Separate from `Suspicious`
+    /// because it is not a claim about a model: a difference between two runs says nothing about
+    /// whether either of them found a region worth trusting less.
+    Differing,
+    /// Two archives were compared and their comparable fields agreed, but a section could not be
+    /// asked at all -- regions from different parameter spaces, for instance. Not `Clean`, because a
+    /// comparison that was not completed has not found the pair to be the same.
+    Incomplete,
 }
 
 impl Exit {
@@ -57,6 +65,8 @@ impl Exit {
             Self::Integrity => 5,
             Self::Mismatch => 6,
             Self::Archive => 7,
+            Self::Differing => 8,
+            Self::Incomplete => 9,
         }
     }
 }

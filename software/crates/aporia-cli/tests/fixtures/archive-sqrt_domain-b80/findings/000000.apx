@@ -1,0 +1,70 @@
+{
+  "schema": "aporia.finding/1",
+  "index": 0,
+  "cell": 23,
+  "bounds": [
+    {
+      "lo": [
+        -10.0
+      ],
+      "hi": [
+        -0.625
+      ]
+    }
+  ],
+  "representative": [
+    -9.375
+  ],
+  "observation": 20,
+  "online_risk": 1.0,
+  "final_risk": 1.0,
+  "samples": 48,
+  "label": "SUSPICIOUS",
+  "case": null,
+  "evidence": [
+    {
+      "channel": "physical",
+      "subject": "require0",
+      "magnitude": 1.0,
+      "strength": 1.0,
+      "fixed": true,
+      "observations": [
+        20
+      ],
+      "detail": "finite(y) left the real numbers: NaN"
+    },
+    {
+      "channel": "physical",
+      "subject": "o0:divergent",
+      "magnitude": 1.0,
+      "strength": 1.0,
+      "fixed": true,
+      "observations": [
+        20
+      ],
+      "detail": "y is NaN"
+    },
+    {
+      "channel": "physical",
+      "subject": "require0",
+      "magnitude": 1.0,
+      "strength": 1.0,
+      "fixed": true,
+      "observations": [
+        20
+      ],
+      "detail": "finite(y) left the real numbers: NaN"
+    },
+    {
+      "channel": "physical",
+      "subject": "o0:divergent",
+      "magnitude": 1.0,
+      "strength": 1.0,
+      "fixed": true,
+      "observations": [
+        20
+      ],
+      "detail": "y is NaN"
+    }
+  ]
+}
