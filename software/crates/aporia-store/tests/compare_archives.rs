@@ -124,7 +124,19 @@ fn archive(label: &str, v: &Variation) -> (PathBuf, Loaded) {
         .collect();
     let calibrator = Calibrator::fit(calibration_source.iter());
     let correlation = ChannelCorrelation::none();
-    let decisions = vec![Json::object(vec![("evaluation", Json::count(v.budget))])];
+    // Deliberately independent of the variation: a test that changes the budget must not also change
+    // the decision log, or the difference it is checking for arrives twice, once as a field and once
+    // as a digest.
+    let decisions = vec![
+        Json::object(vec![
+            ("evaluation", Json::count(0)),
+            ("family", Json::text("novelty")),
+        ]),
+        Json::object(vec![
+            ("evaluation", Json::count(1)),
+            ("family", Json::text("boundary")),
+        ]),
+    ];
     let mut environment = Environment::current();
     environment
         .notes
@@ -320,7 +332,23 @@ fn a_verified_case_on_one_side_is_absence_rather_than_a_different_case() {
         "no verified case is not the same as an empty one"
     );
     assert_eq!(case.b.as_deref(), Some("x in [-10, -0.5]"));
-    assert_eq!(c.tally(), (0, 0, 1), "{:?}", reported(&c.fields));
+    // Within the findings, `case` is the only thing that moved: the region, its label, its risks and
+    // its evidence all agree.
+    let moved: Vec<String> = c
+        .fields
+        .iter()
+        .filter(|f| f.section == Section::Findings && f.change != Change::Same)
+        .map(|f| f.path.clone())
+        .collect();
+    assert_eq!(moved.len(), 1, "{moved:?}");
+    // The bytes still disagree, and the comparison says so rather than implying the two archives are
+    // interchangeable: an extra claim changes the finding file, and its digest with it.
+    let digest = c
+        .fields
+        .iter()
+        .find(|f| f.path == "digest[findings/000000.apx]")
+        .expect("the finding file's digest is compared");
+    assert_eq!(digest.change, Change::Changed);
     let _ = std::fs::remove_dir_all(a_root);
     let _ = std::fs::remove_dir_all(b_root);
 }
@@ -375,7 +403,84 @@ fn a_denser_sweep_moves_the_map_and_the_comparison_says_so() {
         moved.iter().any(|p| p == "samples"),
         "the sweep size did not register: {moved:?}"
     );
+    assert!(
+        moved
+            .iter()
+            .any(|p| p == "digest[atlas.csv]" || p == "digest[observations.bin]"),
+        "a different partition left the atlas table unexamined: {moved:?}"
+    );
     assert!(!c.identical());
+    let _ = std::fs::remove_dir_all(a_root);
+    let _ = std::fs::remove_dir_all(b_root);
+}
+
+#[test]
+fn the_map_two_runs_drew_is_compared_from_the_totals_themselves_recorded() {
+    // Same model, same sweep, one run scoring every point harder. What the two archives actually
+    // recorded is measured rather than assumed, and it is not what a first guess says: the harder run
+    // resolves *less* of the space, because one channel's opinion holds a cell at UNKNOWN rather than
+    // calling it suspicious -- suspicion needs corroboration -- and refining the map to chase it leaves
+    // volume nobody has settled. The comparison reports those totals as written.
+    let mut a = Variation::new(40);
+    a.risk = 0.1;
+    let mut b = Variation::new(40);
+    b.risk = 0.9;
+    let (a_root, la) = archive("map-a", &a);
+    let (b_root, lb) = archive("map-b", &b);
+    let c = Comparison::new(&la, &lb);
+    let field = |path: &str| {
+        c.fields
+            .iter()
+            .find(|f| f.path == path)
+            .unwrap_or_else(|| panic!("no compared field {path}"))
+    };
+    assert_eq!(field("coverage.trusted_fraction").change, Change::Changed);
+    assert_eq!(field("coverage.trusted_fraction").a.as_deref(), Some("1.0"));
+    assert_eq!(field("coverage.trusted_fraction").b.as_deref(), Some("0.0"));
+    assert_eq!(field("coverage.unknown_fraction").change, Change::Changed);
+    assert_eq!(field("coverage.resolved_fraction").change, Change::Changed);
+    assert_eq!(field("coverage.cells").change, Change::Changed);
+    assert_eq!(
+        field("coverage.suspicious_fraction").change,
+        Change::Same,
+        "neither run corroborated a region, so neither could call one suspicious"
+    );
+    assert_eq!(
+        field("coverage.suspicious_fraction").a.as_deref(),
+        Some("0.0")
+    );
+    assert_eq!(field("bands").change, Change::Same);
+    let _ = std::fs::remove_dir_all(a_root);
+    let _ = std::fs::remove_dir_all(b_root);
+}
+
+#[test]
+fn a_file_one_archive_never_wrote_is_named_as_that_file() {
+    // A run with no findings writes no finding files at all, so the two directories hold different
+    // sets of artefacts. Reporting that as a changed field would be wrong: the second archive does
+    // not have a value to compare, it has a file the first one does not.
+    let a = Variation::new(40);
+    let mut b = Variation::new(40);
+    b.findings = vec![finding(1, &[[-10.0, 0.0]], -8.75, 0.9)];
+    let (a_root, la) = archive("files-a", &a);
+    let (b_root, lb) = archive("files-b", &b);
+    let c = Comparison::new(&la, &lb);
+    let digest = c
+        .fields
+        .iter()
+        .find(|f| f.path == "digest[findings/000000.apx]")
+        .expect("a file only the second archive holds");
+    assert_eq!(digest.change, Change::OnlyB);
+    assert_eq!(digest.a, None);
+    let held = c
+        .fields
+        .iter()
+        .find(|f| f.path == "findings[*.apx]")
+        .expect("the number of finding files is compared");
+    assert_eq!(held.a.as_deref(), Some("0"));
+    assert_eq!(held.b.as_deref(), Some("1"));
+    // The region it describes is reported once, as a region only one run found.
+    assert_eq!(findings_of(&c, Change::OnlyB).len(), 1);
     let _ = std::fs::remove_dir_all(a_root);
     let _ = std::fs::remove_dir_all(b_root);
 }

@@ -427,11 +427,123 @@ fn summary(f: &StoredFinding) -> String {
     )
 }
 
+/// The map each run drew, read from the totals the run itself wrote down.
+///
+/// Coverage comes from `summary.json` rather than from re-counting rows of `atlas.csv` here, because
+/// the fractions in the summary are what the campaign measured over the space it was given. The table
+/// and the band file are compared by digest in [`artefacts`]: the partition belongs to
+/// `aporia-boundary`, and this crate is not going to grow a second parser for it.
+#[must_use]
+pub fn atlas(a: &Loaded, b: &Loaded) -> Vec<Field> {
+    let s = Section::Atlas;
+    let coverage = |l: &Loaded| l.summary.get("coverage").cloned().unwrap_or(Json::Null);
+    let (ca, cb) = (coverage(a), coverage(b));
+    let mut out = Vec::new();
+    for key in [
+        "trusted_fraction",
+        "suspicious_fraction",
+        "unknown_fraction",
+        "cells",
+        "resolved_fraction",
+    ] {
+        out.push(nested(s, &format!("coverage.{key}"), &ca, &cb, key));
+    }
+    let summary_leaf = |l: &Loaded, key: &str| {
+        l.summary.get(key).map(|v| match v {
+            Json::Arr(items) => items.len().to_string(),
+            other => leaf(other),
+        })
+    };
+    out.push(Field::optional(
+        s,
+        "bands",
+        summary_leaf(a, "bands"),
+        summary_leaf(b, "bands"),
+    ));
+    out.push(Field::optional(
+        s,
+        "finding_bytes",
+        summary_leaf(a, "finding_bytes"),
+        summary_leaf(b, "finding_bytes"),
+    ));
+    out
+}
+
+/// One value out of two JSON objects, with `null` read as "not recorded". An archive writes `null`
+/// for a field the run did not have -- a first finding, when there were none -- and printing the word
+/// `null` as though it were a value would make two such archives look like they had something to
+/// compare.
+fn nested(section: Section, path: &str, a: &Json, b: &Json, key: &str) -> Field {
+    let held = |j: &Json| match j.get(key) {
+        None | Some(Json::Null) => None,
+        Some(v) => Some(leaf(v)),
+    };
+    Field::optional(section, path, held(a), held(b))
+}
+
+/// The artefacts themselves: every file each manifest digests, by the hash that manifest recorded,
+/// plus the sizes of what the two directories actually hold.
+///
+/// A digest difference names the file without saying what moved inside it, which is the right order
+/// of trust: the sections above say what changed in fields a reader can interpret, and this says
+/// whether anything that no field covers -- the record bytes, the atlas table, the decision log --
+/// also disagrees.
+#[must_use]
+pub fn artefacts(a: &Loaded, b: &Loaded) -> Vec<Field> {
+    let mut out = Vec::new();
+    let names = union(
+        &a.manifest
+            .files
+            .iter()
+            .map(|(p, _)| p.clone())
+            .collect::<Vec<_>>(),
+        &b.manifest
+            .files
+            .iter()
+            .map(|(p, _)| p.clone())
+            .collect::<Vec<_>>(),
+    );
+    for name in names {
+        let held = |l: &Loaded| {
+            l.manifest
+                .files
+                .iter()
+                .find(|(p, _)| *p == name)
+                .map(|(_, d)| d.clone())
+        };
+        out.push(Field::optional(
+            Section::Artefacts,
+            &format!("digest[{name}]"),
+            held(a),
+            held(b),
+        ));
+    }
+    out.push(Field::scalar(
+        Section::Artefacts,
+        "records[observations.bin]",
+        a.records.items.len().to_string(),
+        b.records.items.len().to_string(),
+    ));
+    out.push(Field::scalar(
+        Section::Artefacts,
+        "decisions[decisions.jsonl]",
+        a.decisions.len().to_string(),
+        b.decisions.len().to_string(),
+    ));
+    out.push(Field::scalar(
+        Section::Artefacts,
+        "findings[*.apx]",
+        a.findings.len().to_string(),
+        b.findings.len().to_string(),
+    ));
+    out
+}
+
 /// Two archives read against each other.
 ///
-/// The assembly is here rather than in whoever renders it because the order of the sections and the
-/// rule about what may be compared at all are part of what a comparison *means*. A command line that
-/// decided those would be a second definition of the operation.
+/// The assembly lives here rather than in whoever renders it because the section order, and the rule
+/// about what may be compared at all, are part of what a comparison *means*. A command line that
+/// decided those would be a second definition of the same operation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Comparison {
     pub fields: Vec<Field>,
@@ -440,7 +552,6 @@ pub struct Comparison {
     /// ones beats reporting the resulting noise as a result.
     pub skipped: Vec<String>,
 }
-
 impl Comparison {
     #[must_use]
     pub fn new(a: &Loaded, b: &Loaded) -> Self {
@@ -455,13 +566,16 @@ impl Comparison {
         // structural difference into a list of claims about regions one of the runs never had.
         if a.manifest.counts.params == b.manifest.counts.params {
             fields.extend(findings(&a.findings, &b.findings));
+            fields.extend(atlas(a, b));
         } else {
-            skipped.push(format!(
-                "findings: {} parameters versus {}, so the two runs name coordinates in different \
-                 spaces",
+            let because = format!(
+                "{} parameters versus {}, so the two runs name coordinates in different spaces",
                 a.manifest.counts.params, b.manifest.counts.params
-            ));
+            );
+            skipped.push(format!("findings: {because}"));
+            skipped.push(format!("atlas: {because}"));
         }
+        fields.extend(artefacts(a, b));
         Self { fields, skipped }
     }
 

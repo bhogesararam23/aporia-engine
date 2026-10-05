@@ -31,7 +31,8 @@ pub mod replay;
 pub mod store;
 
 pub use compare::{
-    Change, Comparison, Field, Section, calibration, configuration, findings, identity, size,
+    Change, Comparison, Field, Section, artefacts, atlas, calibration, configuration, findings,
+    identity, size,
 };
 pub use json::{Json, JsonError};
 pub use manifest::{Counts, Environment, Manifest};
