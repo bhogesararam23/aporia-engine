@@ -28,9 +28,9 @@ use aporia_evidence::{Calibrator, ChannelCorrelation, Evidence, EvidenceSet, fus
 use aporia_ir::{Model, RelationKind};
 use aporia_numerics::Rng;
 use aporia_properties::{Pair, Probes, constraints, divergence, numerical, sensitivity};
-use aporia_runtime::interp::run as evaluate;
 use aporia_runtime::observe::{Observation, Records};
 use aporia_runtime::value::{ExecConfig, FpMode};
+use aporia_runtime::{Executor, Interp};
 
 /// Everything a campaign needs to be told before it starts.
 #[derive(Clone, Debug)]
@@ -211,14 +211,25 @@ pub struct Campaign {
     pub evidence: Vec<Evidence>,
 }
 
-/// Run a campaign to the configured budget.
+/// Run a campaign to the configured budget, evaluating the model with the scalar interpreter.
+///
+/// This is [`run_with`] with the default execution path. A campaign over a program APORIA did not
+/// parse calls `run_with` with its own [`Executor`] instead; nothing else about the driver differs,
+/// which is the point — an external program has to earn the same sampling, the same evidence
+/// channels and the same budget accounting or its results are not comparable with anyone else's.
+#[must_use]
+pub fn run(model: &Model, config: Config) -> Campaign {
+    run_with(model, config, &mut Interp)
+}
+
+/// Run a campaign to the configured budget against an arbitrary execution path.
 #[expect(
     clippy::too_many_lines,
     reason = "the driver is one straight pipeline: sample, evaluate, gather evidence, calibrate, \
               fuse, record, refine. Splitting it would spread one loop's state over six functions"
 )]
 #[must_use]
-pub fn run(model: &Model, config: Config) -> Campaign {
+pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Campaign {
     let mut rng = Rng::seeded(config.seed);
     let mut acquisition = Acquisition::default();
     let mut atlas = Atlas::new(model, config.policy);
@@ -238,11 +249,11 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         Strategy::Stratified => vec![Family::Coverage],
         Strategy::Adaptive => Family::ADAPTIVE.to_vec(),
     };
-    let exec = ExecConfig {
+    let at_f64 = ExecConfig {
         fp: FpMode::F64,
         max_steps: config.max_steps_per_evaluation,
     };
-    let exec_reduced = ExecConfig {
+    let at_f32 = ExecConfig {
         fp: FpMode::F32,
         max_steps: config.max_steps_per_evaluation,
     };
@@ -262,7 +273,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
         let round = evaluations;
         let family = acquisition.choose(&allowed, &mut rng);
         let x = choose_point(model, &atlas, family, &mut acquisition, &mut rng);
-        let (obs, cost) = eval(model, &x, exec, evaluations);
+        let (obs, cost) = eval(engine, model, &x, at_f64, evaluations);
         evaluations += 1;
         steps += cost;
         let id = records.push(obs);
@@ -277,7 +288,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
                 let Some((moved, step)) = perturb(model, &x, axis) else {
                     continue;
                 };
-                let (o, c) = eval(model, &moved, exec, evaluations);
+                let (o, c) = eval(engine, model, &moved, at_f64, evaluations);
                 evaluations += 1;
                 steps += c;
                 let point_risk = {
@@ -330,7 +341,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
                 }
                 swapped[a as usize] = vb;
                 swapped[b as usize] = va;
-                let (o, c) = eval(model, &swapped, exec, evaluations);
+                let (o, c) = eval(engine, model, &swapped, at_f64, evaluations);
                 evaluations += 1;
                 steps += c;
                 let sid = records.push(o);
@@ -343,10 +354,14 @@ pub fn run(model: &Model, config: Config) -> Campaign {
             }
         }
 
-        let probed_precision =
-            config.numerical_every > 0 && round.is_multiple_of(config.numerical_every);
+        // Only worth buying if a second precision is a second path. An executor that ignores the
+        // mode would return the same numbers, and recording that as agreement would be reporting the
+        // repeatability of one implementation under the name of a conditioning signal.
+        let probed_precision = config.numerical_every > 0
+            && engine.varies_with_precision()
+            && round.is_multiple_of(config.numerical_every);
         if probed_precision && evaluations < config.budget {
-            let (o, c) = eval(model, &x, exec_reduced, evaluations);
+            let (o, c) = eval(engine, model, &x, at_f32, evaluations);
             evaluations += 1;
             steps += c;
             numerical_pairs.push((id, o.y.clone()));
@@ -363,6 +378,7 @@ pub fn run(model: &Model, config: Config) -> Campaign {
             // model rather than evidence about shared code. Charged as the evaluation it costs: a
             // channel that gets something for free makes every later cost comparison dishonest.
             if config.differential_every > 0
+                && engine.has_reference_path()
                 && round.is_multiple_of(config.differential_every)
                 && evaluations < config.budget
             {
@@ -548,8 +564,14 @@ pub fn run(model: &Model, config: Config) -> Campaign {
 
 // --------------------------------------------------------------------------- parts
 
-fn eval(model: &Model, x: &[f64], cfg: ExecConfig, id: u64) -> (Observation, u64) {
-    let outcome = evaluate(model, x, cfg);
+fn eval(
+    engine: &mut dyn Executor,
+    model: &Model,
+    x: &[f64],
+    cfg: ExecConfig,
+    id: u64,
+) -> (Observation, u64) {
+    let outcome = engine.execute(model, x, cfg);
     let cost = outcome.steps;
     (Observation::new(id, x.to_vec(), &outcome), cost)
 }
@@ -950,6 +972,7 @@ mod tests {
     use super::*;
     use aporia_dsl::lower::compile;
     use aporia_evidence::Channel;
+    use aporia_runtime::interp::Outcome;
 
     fn model(text: &str) -> Model {
         let c = compile("t.ap", text);
@@ -1499,5 +1522,215 @@ mod tests {
         let text = c.calibrator.describe();
         assert!(text.contains('B') && text.contains('P'), "{text}");
         assert!(c.correlation.samples() >= 3 || c.evidence.is_empty());
+    }
+
+    /// An execution path that answers a different question than the model's A-IR does. `y = x - 7`
+    /// is what this "program" computes; the model text says `x * x`, which is why the pair of tests
+    /// below is informative rather than decorative.
+    struct Linear {
+        calls: usize,
+        varies: bool,
+        reference: bool,
+    }
+
+    impl Executor for Linear {
+        fn execute(&mut self, model: &Model, x: &[f64], _cfg: ExecConfig) -> Outcome {
+            self.calls += 1;
+            Outcome {
+                outputs: x
+                    .iter()
+                    .map(|v| v - 7.0)
+                    .take(model.outputs.len())
+                    .collect::<Vec<_>>(),
+                traces: vec![Vec::new(); model.traces.len()],
+                flags: aporia_runtime::value::Flags::default(),
+                steps: 0,
+                rule_values: Vec::new(),
+            }
+        }
+
+        fn varies_with_precision(&self) -> bool {
+            self.varies
+        }
+
+        fn has_reference_path(&self) -> bool {
+            self.reference
+        }
+    }
+
+    fn square_model() -> Model {
+        model("model s \"\" {\n input x in [0, 10]\n let y = x * x\n require y >= 0\n}\n")
+    }
+
+    #[test]
+    fn the_default_path_is_bit_for_bit_the_interpreter() {
+        // Every published number was produced by `run`. If delegating to `run_with` changed the
+        // sampling or the accounting by one evaluation, the ladder would silently describe a
+        // different driver, so this is checked as equality of the report's own quantities.
+        let m = square_model();
+        let cfg = Config {
+            budget: 240,
+            numerical_every: 7,
+            differential_every: 11,
+            ..Config::default()
+        };
+        let a = run(&m, cfg.clone());
+        let b = run_with(&m, cfg, &mut Interp);
+        assert_eq!(a.evaluations, b.evaluations);
+        assert_eq!(a.instruction_steps, b.instruction_steps);
+        assert_eq!(a.records.len(), b.records.len());
+        assert_eq!(a.decisions.len(), b.decisions.len());
+        assert_eq!(a.final_risk, b.final_risk);
+        assert_eq!(a.findings.len(), b.findings.len());
+    }
+
+    #[test]
+    fn a_foreign_execution_path_changes_what_the_atlas_says() {
+        // The seam is real only if the driver follows it. The same model text, the same seed and the
+        // same budget: interpreted, `y = x*x` is never negative and the campaign reports nothing;
+        // executed by a program that computes `x - 7`, seven tenths of the domain violates the
+        // author's own rule and the campaign has to say so. If the driver had slipped back to the
+        // interpreter, this test would fail by reporting a clean map.
+        let m = square_model();
+        let interpreted = run(
+            &m,
+            Config {
+                budget: 240,
+                ..Config::default()
+            },
+        );
+        assert!(
+            interpreted.findings.is_empty(),
+            "the interpreter path changed"
+        );
+        let mut engine = Linear {
+            calls: 0,
+            varies: false,
+            reference: false,
+        };
+        let adapted = run_with(
+            &m,
+            Config {
+                budget: 240,
+                ..Config::default()
+            },
+            &mut engine,
+        );
+        assert!(
+            !adapted.findings.is_empty(),
+            "the campaign ignored the executor it was given"
+        );
+        assert!(
+            adapted
+                .evidence
+                .iter()
+                .any(|e| e.channel == Channel::Physical && e.detail.contains("violated")),
+            "{:?}",
+            adapted
+                .evidence
+                .iter()
+                .map(|e| &e.detail)
+                .collect::<Vec<_>>()
+        );
+        // Every charged evaluation went through the adapter, and only through it: the interpreter was
+        // never asked, which is what makes the reported cost honest.
+        assert_eq!(engine.calls as u64, adapted.evaluations);
+        assert_eq!(adapted.records.len() as u64, adapted.evaluations);
+        // A program that counts its work in APORIA's units is the only source of `steps`, and this
+        // one does not have any, so the campaign must report 0 rather than borrow the interpreter's.
+        assert_eq!(adapted.instruction_steps, 0);
+    }
+
+    #[test]
+    fn probes_that_cannot_answer_are_not_bought() {
+        // Numerical and Differential cost evaluations, and an executor that cannot vary its precision
+        // or produce an independent implementation has nothing to say through them. With the rates
+        // turned up, an A-IR path spends budget on the extra runs and a foreign path does not: the
+        // difference is exactly the probes, and the campaign's decision log shows it.
+        let m = square_model();
+        let mut quiet = Linear {
+            calls: 0,
+            varies: false,
+            reference: false,
+        };
+        let foreign = run_with(
+            &m,
+            Config {
+                budget: 200,
+                numerical_every: 1,
+                differential_every: 1,
+                probe_every: 0,
+                symmetric_every: 0,
+                ..Config::default()
+            },
+            &mut quiet,
+        );
+        let interpreted = run(
+            &m,
+            Config {
+                budget: 200,
+                numerical_every: 1,
+                differential_every: 1,
+                probe_every: 0,
+                symmetric_every: 0,
+                ..Config::default()
+            },
+        );
+        // The foreign path used its whole budget on points of the model, so nothing was spent
+        // re-running the same path at another precision.
+        assert_eq!(foreign.records.len() as u64, foreign.evaluations);
+        assert_eq!(foreign.evaluations, 200);
+        assert!(
+            !foreign
+                .evidence
+                .iter()
+                .any(|e| e.channel == Channel::Numerical || e.channel == Channel::Differential),
+            "a channel that cannot answer was still reported"
+        );
+        // The interpreted path, with the same budget and rates, spends part of it on probes: fewer
+        // placed points, and both channels present.
+        assert!(
+            interpreted.evaluations == 200,
+            "the budget is a cap on both paths"
+        );
+        assert!(
+            (interpreted.records.len() as u64) < interpreted.evaluations,
+            "the interpreter should have paid for precision and reference runs"
+        );
+        assert!(
+            interpreted
+                .evidence
+                .iter()
+                .any(|e| e.channel == Channel::Numerical),
+            "the capability that exists should still be used"
+        );
+    }
+
+    #[test]
+    fn the_same_seed_and_executor_answer_the_same_twice() {
+        // Determinism is what makes an external run reproducible, and the adapter is where it can
+        // break: a driver that was fine with a pure interpreter could meet a program whose outputs
+        // drift. Two identical campaigns over one identical executor have to agree exactly.
+        let m = square_model();
+        let mut first = Linear {
+            calls: 0,
+            varies: false,
+            reference: false,
+        };
+        let mut second = Linear {
+            calls: 0,
+            varies: false,
+            reference: false,
+        };
+        let cfg = || Config {
+            budget: 160,
+            ..Config::default()
+        };
+        let a = run_with(&m, cfg(), &mut first);
+        let b = run_with(&m, cfg(), &mut second);
+        assert_eq!(a.final_risk, b.final_risk);
+        assert_eq!(a.decisions.len(), b.decisions.len());
+        assert_eq!(a.findings.len(), b.findings.len());
+        assert_eq!(first.calls, second.calls);
     }
 }

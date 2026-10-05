@@ -16,5 +16,5 @@
 pub mod campaign;
 pub mod plan;
 
-pub use campaign::{Campaign, Config, Decision, Finding, run};
+pub use campaign::{Campaign, Config, Decision, Finding, run, run_with};
 pub use plan::{Acquisition, Family, Strategy, halton, radical_inverse, to_parameters, to_unit};
