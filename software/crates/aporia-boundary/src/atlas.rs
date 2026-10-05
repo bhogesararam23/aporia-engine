@@ -275,8 +275,14 @@ pub struct Atlas {
 }
 
 impl Atlas {
-    /// Build the root cell from a model's declared domains. A parameter with a discrete choice set
-    /// is treated as a unit interval over its indices, so every axis can be bisected.
+    /// Build the root cell from a model's declared domains.
+    ///
+    /// Every axis is bounded in the coordinates the points actually use, because the atlas is a
+    /// partition of the parameter space and those coordinates are what the model is evaluated at, what
+    /// the records store, what a finding's bounds report, and what a `truth.json` region declares. A
+    /// discrete choice set is bounded by the extent of its values for the same reason: the sampler
+    /// hands back an option, not an index, and bisecting a numeric interval that happens to be sampled
+    /// discretely is still meaningful.
     #[must_use]
     pub fn new(model: &Model, policy: Policy) -> Self {
         let bounds = model
@@ -284,8 +290,13 @@ impl Atlas {
             .iter()
             .map(|p| match &p.domain {
                 Domain::Interval { lo, hi } => [*lo, *hi],
-                Domain::Choices(v) if v.len() > 1 => [0.0, (v.len() - 1) as f64],
-                Domain::Choices(_) => [0.0, 1.0],
+                Domain::Choices(v) => {
+                    let first = v.first().copied().unwrap_or(0.0);
+                    [
+                        v.iter().fold(first, |acc, x| acc.min(*x)),
+                        v.iter().fold(first, |acc, x| acc.max(*x)),
+                    ]
+                }
             })
             .collect();
         let root = Cell {
@@ -1135,7 +1146,13 @@ mod tests {
     }
 
     #[test]
-    fn a_discrete_axis_still_bisects() {
+    fn a_discrete_axis_is_bounded_in_the_values_its_points_carry() {
+        // This asserted the opposite until the two spaces were found to disagree: the sampler hands
+        // back an option value (`to_parameters` returns 8.0 for this domain), so a root bounded in
+        // indices claimed `[0, 3]` while every point carried 1, 2, 4 or 8 -- and the points above 3
+        // belonged to no leaf at all. Measured on a model with a four-way choice axis, 38 of 120
+        // recorded evaluations were sitting in the root cell that had stopped being a leaf, so they
+        // appeared in neither the labels nor the coverage nor a finding.
         let mut m = Model::new("choice");
         m.params.push(Param {
             name: "method".into(),
@@ -1150,8 +1167,46 @@ mod tests {
         let a = Atlas::new(&m, Policy::default());
         assert_eq!(
             a.root().bounds[0],
-            [0.0, 3.0],
-            "index space, not value space"
+            [1.0, 8.0],
+            "the axis is bounded where its points are"
+        );
+        // Every option is inside the partition, including the extremes, and a value between options --
+        // what an axis probe produces -- is inside too rather than orphaned.
+        for value in [1.0, 2.0, 4.0, 8.0, 3.5, 7.999_7] {
+            assert!(
+                a.root().contains(&[value]),
+                "{value} falls outside the root cell"
+            );
+        }
+        // And bisecting still terminates, which was the reason index space was chosen in the first
+        // place. Value space keeps it: a numeric interval over discrete samples splits like any other.
+        let mut a = Atlas::new(
+            &m,
+            Policy {
+                min_samples: 1,
+                ..Policy::default()
+            },
+        );
+        for value in [1.0, 2.0, 4.0, 8.0] {
+            a.record(&[value], if value > 3.0 { 0.9 } else { 0.05 }, 0b1);
+        }
+        a.relabel();
+        a.refine();
+        a.relabel();
+        assert!(
+            a.leaves.len() > 1,
+            "refinement could not split a discrete axis"
+        );
+        let placed = a
+            .leaf_ids()
+            .iter()
+            .filter(|id| a.cell(**id).is_some_and(|c| c.samples > 0))
+            .count();
+        assert!(placed > 0, "no leaf holds a measurement");
+        assert_eq!(
+            a.coverage().samples,
+            4,
+            "a recorded point fell out of the partition"
         );
     }
 
