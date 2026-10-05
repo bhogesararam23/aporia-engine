@@ -77,7 +77,7 @@ Rust 1.88 or newer (`stable-msvc` on Windows; the workspace builds with MSVC 14.
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 516 tests
+cargo test --release                  # 526 tests
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
 cargo run --release -p aporia-bench -- verify    # ground truth against direct evaluation
