@@ -383,6 +383,14 @@ impl Sweep {
     }
 }
 
+/// What a results document from this build means, and when that meaning changed.
+///
+/// Bumped when a field's *definition* changes, not when a field is added: `/2` splits a
+/// counterexample's cost into oracle calls and model executions, because a row from `/1` counted only
+/// calls and called them evaluations. Two documents that answer different questions must not share a
+/// measurement identity, so the schema is part of the digest — see [`identity_of`].
+pub const RESULTS_SCHEMA: &str = "aporia.results/2";
+
 /// Everything a report needs, in one document, with the environment it was measured on.
 #[must_use]
 pub fn results_json(
@@ -394,10 +402,10 @@ pub fn results_json(
     let plan_value = plan_json(plan);
     let entries_value = entries_json(entries);
     Json::object(vec![
-        ("schema", Json::text("aporia.results/1")),
+        ("schema", Json::text(RESULTS_SCHEMA)),
         (
             "identity",
-            Json::text(identity_of(&plan_value, &entries_value)),
+            Json::text(identity_of(RESULTS_SCHEMA, &plan_value, &entries_value)),
         ),
         (
             "question",
@@ -483,13 +491,19 @@ fn entries_json(entries: &[Entry]) -> Json {
     )
 }
 
-/// The identity of one measurement: a short digest of the plan it ran and the entries it covered.
+/// The identity of one measurement: a short digest of what its fields mean, the plan it ran, and the
+/// entries it covered.
 ///
 /// This exists because a measurement needs an address. Under the old name -- the second the run
 /// finished -- two runs of one plan were two unnameable experiments, and "is this the same measurement
 /// I published last month, or a different one?" had no answer that did not involve reading both files
-/// and diffing them by hand. Derived from the document's own `plan` and `entries` sections, so the
-/// bytes of a results file decide its name and a reader can recompute it.
+/// and diffing them by hand. Derived from the document's own `schema`, `plan` and `entries` sections,
+/// so the bytes of a results file decide its name and a reader can recompute it.
+///
+/// The schema is in the digest for the same reason the sampling rates are: a run whose cost column
+/// counts a different quantity is a different experiment, even when its plan and its corpus are
+/// byte-identical. Without it, re-measuring after a definition change would either collide with the
+/// published file's name or need a hand-written second name.
 ///
 /// Two things are deliberately *not* in it. The clock, because when a machine ran is not part of the
 /// question being asked. And the environment, because the same experiment run on another OS, or read
@@ -500,8 +514,11 @@ fn entries_json(entries: &[Entry]) -> Json {
 /// and `--strategies random,adaptive` measure one comparison, so the name must not depend on the order
 /// the flags were typed in.
 #[must_use]
-pub fn identity_of(plan: &Json, entries: &Json) -> String {
+pub fn identity_of(schema: &str, plan: &Json, entries: &Json) -> String {
     let mut key = String::new();
+    key.push_str("schema=");
+    key.push_str(schema);
+    key.push('\n');
     if let Json::Obj(fields) = plan {
         for (name, value) in fields {
             let text = match value {
@@ -531,16 +548,17 @@ pub fn identity_of(plan: &Json, entries: &Json) -> String {
 }
 
 /// The identity a results document carries: the recorded one when the writer computed it, and the one
-/// the document's own plan and entries imply when it predates the field. Both paths read the file, so
-/// a published measurement can be named without knowing what build wrote it.
+/// the document's own schema, plan and entries imply when it predates the field. Both paths read the
+/// file, so a published measurement can be named without knowing what build wrote it.
 #[must_use]
 pub fn results_identity(results: &Json) -> Option<String> {
     if let Some(recorded) = results.get("identity").and_then(Json::as_str) {
         return Some(recorded.to_string());
     }
+    let schema = results.get("schema").and_then(Json::as_str)?;
     let plan = results.get("plan")?;
     let entries = results.get("entries")?;
-    Some(identity_of(plan, entries))
+    Some(identity_of(schema, plan, entries))
 }
 
 fn environment_json(environment: &Environment) -> Json {

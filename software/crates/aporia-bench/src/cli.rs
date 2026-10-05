@@ -402,8 +402,8 @@ pub fn run_verdict(flags: &[String]) -> Result<i32, String> {
         return Err(format!("{path} has no sweeps section"));
     };
     // The file's own name is the measurement's identity, so a results file written before the field
-    // existed can still be asked "which experiment are you" -- the answer comes from the plan and
-    // entries recorded inside it, not from the filename it happens to have.
+    // existed can still be asked "which experiment are you" -- the answer comes from the schema, plan
+    // and entries recorded inside it, not from the filename it happens to have.
     if let Some(identity) = harness::results_identity(&value) {
         let recorded = value.get("identity").is_some();
         println!(
@@ -411,7 +411,7 @@ pub fn run_verdict(flags: &[String]) -> Result<i32, String> {
             if recorded {
                 "(as written)"
             } else {
-                "(derived from the plan and entries it records)"
+                "(derived from the schema, plan and entries it records)"
             }
         );
     }

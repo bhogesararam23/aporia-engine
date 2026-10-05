@@ -4,8 +4,9 @@
 //! experiment a fact about the clock rather than about the experiment, so re-running one plan produces
 //! a second artefact that cannot be recognised as the same question, and "have I already measured
 //! this?" has no answer short of diffing two files by hand. These tests hold the replacement to its
-//! promises: derived from the document's own plan and entries, insensitive to the order the flags were
-//! typed and to where the run happened, sensitive to every part of the question actually changing.
+//! promises: derived from the document's own schema, plan and entries, insensitive to the order the
+//! flags were typed and to where the run happened, sensitive to every part of the question actually
+//! changing — including what its columns mean.
 
 use aporia_bench::corpus::Entry;
 use aporia_bench::harness::{Plan, identity_of, results_identity, results_json};
@@ -297,14 +298,14 @@ fn a_document_written_before_the_field_existed_is_still_nameable() {
     assert_eq!(
         results_identity(&derived).as_deref(),
         Some(named(&fresh).as_str()),
-        "deriving from plan+entries must reproduce what the writer recorded"
+        "deriving from the schema, plan and entries must reproduce what the writer recorded"
     );
     // And a document that is not a measurement at all yields no name rather than inventing one.
     assert_eq!(results_identity(&Json::object(vec![])), None);
 }
 
 #[test]
-fn the_identity_is_a_digest_of_the_two_sections_it_claims_to_read() {
+fn the_identity_is_a_digest_of_the_sections_it_claims_to_read() {
     let entries = vec![entry(
         "analytic",
         "sqrt_domain",
@@ -314,7 +315,60 @@ fn the_identity_is_a_digest_of_the_two_sections_it_claims_to_read() {
     let doc = document(&plan(&[40], &["adaptive"], &[1]), &entries);
     assert_eq!(
         doc.get("identity").and_then(Json::as_str),
-        Some(identity_of(doc.get("plan").unwrap(), doc.get("entries").unwrap()).as_str()),
-        "the recorded identity is the digest of the plan and entries in the same file"
+        Some(
+            identity_of(
+                doc.get("schema").and_then(Json::as_str).unwrap(),
+                doc.get("plan").unwrap(),
+                doc.get("entries").unwrap(),
+            )
+            .as_str()
+        ),
+        "the recorded identity is the digest of the schema, plan and entries in the same file"
+    );
+}
+
+#[test]
+fn a_field_that_changed_what_it_means_is_a_different_measurement() {
+    // The reason the schema is in the digest. `aporia.results/1` recorded one number per
+    // counterexample row and called it evaluations while it was a call count; `/2` records calls and
+    // executions. Re-measuring the same plan over the same corpus after that change has to produce a
+    // document with its own name, or the refusal that protects a published file would refuse the
+    // corrected run as "already measured" — and the old file keeps its own identity either way.
+    let entries = vec![entry(
+        "analytic",
+        "sqrt_domain",
+        "sqrt of a negative input",
+        1,
+    )];
+    let p = plan(&[40], &["adaptive"], &[1]);
+    let current = document(&p, &entries);
+    let historical = match &current {
+        Json::Obj(fields) => Json::object(
+            fields
+                .iter()
+                .filter(|(k, _)| k != "identity")
+                .map(|(k, v)| {
+                    (
+                        k.as_str(),
+                        if k == "schema" {
+                            Json::text("aporia.results/1")
+                        } else {
+                            v.clone()
+                        },
+                    )
+                })
+                .collect(),
+        ),
+        _ => panic!("the document is an object"),
+    };
+    assert_eq!(aporia_bench::harness::RESULTS_SCHEMA, "aporia.results/2");
+    assert_ne!(
+        results_identity(&historical),
+        Some(named(&current)),
+        "a run of the corrected definition must not answer to the old measurement's name"
+    );
+    assert!(
+        results_identity(&historical).is_some(),
+        "a published file must still be nameable from what it records"
     );
 }
