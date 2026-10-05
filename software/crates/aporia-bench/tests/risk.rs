@@ -301,6 +301,98 @@ fn a_risk_verified_reduction_is_rechecked_at_every_witness_it_claims() {
 }
 
 #[test]
+fn a_risk_query_is_charged_for_every_execution_it_performs() {
+    // The unit price, measured rather than derived from a formula in a doc comment. A scorer told to
+    // consult nothing but the Physical channel runs the model once per answer, exactly like the rule
+    // oracle; everything above one is a channel that costs evaluations, and the ladder's rates decide
+    // how many there are. `projectile_zero_gravity` runs probes every seventh round and a precision
+    // pair every eleventh, and the finding taken here is made of Physical, Sensitivity and Numerical
+    // evidence, so its query is: the point, one perturbed run per axis (three), and the f32 re-run.
+    let (m, c) = campaign("aerospace/projectile_zero_gravity", 640);
+    let finding = c
+        .findings
+        .iter()
+        .find(|f| {
+            let s = RiskScorer::for_finding(&c, f);
+            s.agrees_with(&m, f)
+        })
+        .expect("a finding the frozen scorer reproduces");
+    let scorer = RiskScorer::for_finding(&c, finding);
+    let oracle = RiskOracle::new(&m, &scorer);
+    let answer = oracle.query(&finding.representative);
+    assert!(
+        answer.violating,
+        "the scorer stopped reproducing its own finding"
+    );
+    assert_eq!(
+        answer.executions,
+        1 + m.params.len() as u64 + 1,
+        "base point, one probe per axis, one reduced-precision re-run"
+    );
+    // A rule question about the same point costs exactly one, which is the asymmetry the two
+    // published columns exist to stop hiding.
+    let rule = aporia_minimize::FailureOracle::new(&m).query(&finding.representative);
+    assert_eq!(rule.executions, 1);
+    assert!(
+        !rule.violating,
+        "this entry's findings violate no declared rule; that is why the fallback exists"
+    );
+
+    // And the price follows the channels, not the oracle's name: with nothing but the model's own
+    // rules to consult, a risk query is one execution, starless.
+    let quiet = run(
+        &m,
+        Config {
+            probe_every: 0,
+            numerical_every: 0,
+            differential_every: 0,
+            symmetric_every: 0,
+            ..ladder(640)
+        },
+    );
+    let physical_only = RiskScorer::from_campaign(&quiet);
+    assert_eq!(
+        RiskOracle::new(&m, &physical_only)
+            .query(&finding.representative)
+            .executions,
+        1,
+        "a scorer with no measurement channel was charged for evaluations it did not run"
+    );
+}
+
+#[test]
+fn the_counterexample_column_carries_both_units_and_never_undersells_the_work() {
+    // What the published rows assert: an answer cannot cost fewer executions than calls, and a row
+    // whose description came from the risk oracle paid for its probe star in the difference.
+    let entries = corpus::load(&benchmarks()).expect("corpus loads");
+    let entry = entries
+        .iter()
+        .find(|e| e.id() == "aerospace/projectile_zero_gravity")
+        .expect("entry present");
+    let model = entry.model.clone().expect("entry compiles");
+    let c = run(&model, ladder(640));
+    let rows = aporia_bench::metrics::counterexamples(entry, &c, 4000);
+    assert!(!rows.is_empty(), "the campaign produced no findings");
+    for r in &rows {
+        assert!(
+            r.executions >= r.queries,
+            "a row was charged fewer executions than answers: {r:?}"
+        );
+    }
+    let paid = rows
+        .iter()
+        .filter(|r| r.oracle == "risk" && r.executions > r.queries)
+        .count();
+    assert!(
+        paid > 0,
+        "every risk row was priced as one execution per answer: {:?}",
+        rows.iter()
+            .map(|r| (r.oracle, r.verified, r.queries, r.executions))
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn a_finding_made_only_of_declared_relations_is_not_claimed_to_be_minimisable() {
     // The coverage limit, tested rather than footnoted. A relation claim is judged over the whole
     // record set, so a candidate's three-point neighbourhood cannot reproduce it, and the scorer must

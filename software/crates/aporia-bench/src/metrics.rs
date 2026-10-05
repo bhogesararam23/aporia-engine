@@ -19,7 +19,8 @@
 //! - `boundary_error` — distance from a declared boundary to the nearest band edge, in units of the
 //!   axis width, plus whether it fell inside the declared tolerance.
 //! - `counterexample` — dimensions and significant digits left after minimisation, which is the
-//!   usefulness half of the same finding.
+//!   usefulness half of the same finding, and the oracle calls and model executions it took, which
+//!   are two numbers because the two oracles do not cost the same per answer.
 
 use crate::corpus::Entry;
 use crate::truth::Boundary;
@@ -61,7 +62,7 @@ impl BoundaryHit {
     }
 }
 
-/// The size of a minimised counterexample.
+/// The size of a minimised counterexample, and what making it smaller cost in both units.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CaseSize {
     pub dimensions: u64,
@@ -72,16 +73,17 @@ pub struct CaseSize {
     /// `"risk"` — the report's own frozen evidence model still puts them at or above the bar that
     /// flagged the cell. Never both, and never silently the second one dressed as the first.
     pub oracle: &'static str,
-    /// Oracle *queries* spent reaching the description, summed over whichever attempts the row needed.
+    /// Oracle calls made, summed over whichever attempts the row needed. This is the unit the
+    /// minimisation budget is spent in; it is not a measure of work.
+    pub queries: u64,
+    /// Model executions those calls performed, on the same sum.
     ///
-    /// Comparable between rows of the same `oracle` and not across them. A `FailureOracle` query runs
-    /// the model once, so for those rows this is also the execution count. A `RiskScorer` query rebuilds
-    /// the evidence the report used — the candidate point, one perturbed point per axis, a reduced
-    /// precision re-run and a double-double reference evaluation — so each of its queries costs
-    /// `arity + 3` executions and these rows understate their cost by that factor. Naming the unit here
-    /// is the honest stop before the oracle itself is made to report executions and the published column
-    /// is re-measured.
-    pub evaluations: u64,
+    /// Equal to [`Self::queries`] for a `"rule"` row, because asking whether a declared rule fails
+    /// runs the model once. A `"risk"` row rebuilds the evidence the report used — the candidate, one
+    /// perturbed point per axis the probe star could build, a reduced-precision re-run and a
+    /// double-double reference evaluation — so its executions exceed its calls by that many, and the
+    /// two columns are read together rather than one of them being called "the cost".
+    pub executions: u64,
 }
 
 impl CaseSize {
@@ -92,7 +94,8 @@ impl CaseSize {
             ("description", Json::text(self.description.clone())),
             ("verified", Json::Bool(self.verified)),
             ("oracle", Json::text(self.oracle.to_string())),
-            ("minimisation_evaluations", Json::count(self.evaluations)),
+            ("minimisation_queries", Json::count(self.queries)),
+            ("minimisation_executions", Json::count(self.executions)),
         ])
     }
 }
@@ -324,6 +327,12 @@ impl Outcome {
 /// Which oracle produced a row is recorded, because the two answers are not the same claim: a rule
 /// failure says the model is wrong at these coordinates, a risk hit says the instrument would still
 /// flag them. On a control that distinction is the entire content of the measurement.
+///
+/// Cost is the two attempts summed, in both units — calls and model executions — so a row's total is
+/// what the finding actually cost even when only the second oracle could answer it. The split between
+/// the attempts is not recorded, because no reader asked for it; what the pair does give is the
+/// surplus, since a rule call costs exactly one execution and the difference between the columns is
+/// therefore the probe star the risk calls paid for.
 #[must_use]
 pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<CaseSize> {
     let Some(model) = entry.model.as_ref() else {
@@ -344,36 +353,43 @@ pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<C
                 &f.representative,
                 config,
             );
-            let rule_cost = rule.queries;
+            let rule_executions = rule.executions;
+            let rule_queries = rule.queries;
             // Built per finding, and only trusted if it reproduces the finding first: the scorer is
             // the campaign's frozen evidence model, and the agreement check is what stops a reduction
             // from being graded by a question the report never asked.
             let scorer = crate::risk::RiskScorer::for_finding(campaign, f);
-            let (minimal, oracle, evaluations) = if rule.verified || !scorer.agrees_with(model, f) {
-                (rule, "rule", rule_cost)
-            } else {
-                let risk_oracle = crate::risk::RiskOracle::new(model, &scorer);
-                // The budget is the shared one: the fallback is not a second helping of search, it is
-                // the same finding asked of a different oracle, and the cost of both attempts is
-                // reported together so a reader can see what the second question added.
-                let risk =
-                    aporia_minimize::minimize(&risk_oracle, model, &f.representative, config);
-                let risk_cost = risk.queries;
-                if risk.verified {
-                    (risk, "risk", rule_cost + risk_cost)
+            let (minimal, oracle, queries, executions) =
+                if rule.verified || !scorer.agrees_with(model, f) {
+                    (rule, "rule", rule_queries, rule_executions)
                 } else {
-                    // Neither verified: report the rule attempt, which is the claim the reader would
-                    // have expected, and let `verified: false` say that nothing was established.
-                    (rule, "rule", rule_cost + risk_cost)
-                }
-            };
+                    let risk_oracle = crate::risk::RiskOracle::new(model, &scorer);
+                    // The budget is the shared one: the fallback is not a second helping of search, it
+                    // is the same finding asked of a different oracle, and the cost of both attempts is
+                    // reported together so a reader can see what the second question added.
+                    let risk =
+                        aporia_minimize::minimize(&risk_oracle, model, &f.representative, config);
+                    let pair = (
+                        rule_queries + risk.queries,
+                        rule_executions + risk.executions,
+                    );
+                    if risk.verified {
+                        (risk, "risk", pair.0, pair.1)
+                    } else {
+                        // Neither verified: report the rule attempt, which is the claim the reader
+                        // would have expected, and let `verified: false` say that nothing was
+                        // established.
+                        (rule, "rule", pair.0, pair.1)
+                    }
+                };
             CaseSize {
                 dimensions: minimal.case.dimensions() as u64,
                 digits: minimal.case.digits() as u64,
                 description: minimal.case.describe(),
                 verified: minimal.verified,
                 oracle,
-                evaluations,
+                queries,
+                executions,
             }
         })
         .collect()
