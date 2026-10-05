@@ -1,10 +1,10 @@
-//! The one command that exists so far: `aporia run <model.ap>`.
+//! The commands that turn a model into a Trust Atlas, and one that turns an archive back into one.
 //!
 //! Two steps, kept apart on purpose. [`load_model`] turns a file into a verified A-IR model, and
-//! [`analyse`] spends an evaluation budget on that model with the campaign driver from
-//! `aporia-search` and writes a report. An adapter that runs a foreign program replaces the first
-//! step and calls the second unchanged — which is why nothing in `analyse` knows the word `.ap`,
-//! a path, or the DSL.
+//! [`run_and_report`] spends an evaluation budget on that model through whatever `Executor` the caller
+//! brings and writes a report. An adapter that runs a foreign program replaces only the engine
+//! argument — which is why nothing in `run_and_report` knows the word `.ap`, a path, or the DSL, and
+//! why the scalar run and the `--program` run are one function with a different first argument.
 //!
 //! Nothing here analyses anything. The sampling, the five channels, the calibration, the fusion and
 //! the atlas all live in the crates this crate calls; duplicating any of it would produce a second
@@ -135,18 +135,6 @@ pub fn load_model(path: &Path) -> Result<Loaded, String> {
         model,
         notices,
     })
-}
-
-/// Spend a budget on a model with the scalar interpreter and write what the campaign concluded.
-pub fn analyse(loaded: &Loaded, config: Config, out: &mut impl Write) -> Exit {
-    run_and_report(
-        loaded,
-        config,
-        &mut aporia_runtime::Interp,
-        "scalar interpreter (the model's own A-IR instructions)",
-        None,
-        out,
-    )
 }
 
 /// Spend a budget on a model with an arbitrary execution path and write the same report.
