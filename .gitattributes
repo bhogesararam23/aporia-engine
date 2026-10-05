@@ -17,6 +17,13 @@
 *.h   text eol=lf
 *.schema.json text eol=lf
 
+# Archive artefacts, whose exact bytes a manifest digests. Without a rule here, a Windows checkout with
+# core.autocrlf=true rewrites their line endings and every committed archive fails its own integrity
+# check on a fresh clone: `decisions.jsonl` and the `.apx` findings were doing exactly that, which no
+# test in the working tree could see because the working tree is where they were written.
+*.jsonl text eol=lf
+*.apx text eol=lf
+
 *.png binary
 *.jpg binary
 *.bin binary

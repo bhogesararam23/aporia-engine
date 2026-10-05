@@ -310,6 +310,65 @@ fn the_archive_holds_exactly_what_the_campaign_offered_to_store() {
 }
 
 #[test]
+fn every_archive_artefact_kind_survives_a_checkout_byte_for_byte() {
+    // A manifest digests bytes, so an archive is reproducible only if a reader is handed the same
+    // bytes git was handed. On Windows, `core.autocrlf` rewrites line endings for any text file
+    // `.gitattributes` has no rule for -- and the two kinds this store writes that had no rule,
+    // `decisions.jsonl` and the `.apx` findings, came out of a fresh worktree with CRLF and failed
+    // their own recorded digests. No test running in the working tree can see that, because the
+    // working tree is where the files were written, so the guard has to be on the configuration.
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let repo = manifest_dir
+        .ancestors()
+        .find(|p| p.join(".gitattributes").is_file())
+        .expect("the repository root, holding .gitattributes");
+    let attributes = std::fs::read_to_string(repo.join(".gitattributes")).expect(".gitattributes");
+    let declared = |ext: &str| {
+        attributes
+            .lines()
+            .any(|line| line.starts_with(&format!("*.{ext} ")))
+    };
+
+    // Every archive this repository publishes: the command line's committed fixtures. The benchmark
+    // harness's own archives under `software/benchmarks/archives` are gitignored and regenerated per
+    // run, so they are included when present and are not what the assertion rests on.
+    let mut roots = vec![manifest_dir.join("tests").join("fixtures")];
+    let bench_archives = manifest_dir.join("../../benchmarks/archives");
+    if bench_archives.is_dir() {
+        roots.push(bench_archives);
+    }
+    let mut kinds = std::collections::BTreeSet::new();
+    for root in &roots {
+        collect_extensions(root, &mut kinds);
+    }
+    assert!(
+        kinds.contains("apx") && kinds.contains("jsonl"),
+        "this test stopped finding archives: {kinds:?}"
+    );
+    let undeclared: Vec<&String> = kinds.iter().filter(|k| !declared(k)).collect();
+    assert!(
+        undeclared.is_empty(),
+        "archive artefacts of kind(s) {undeclared:?} have no .gitattributes rule, so a checkout \
+         may rewrite their bytes and break every digest: {attributes}"
+    );
+}
+
+/// The file extensions under a directory, lowercased, recursing into archive subdirectories.
+fn collect_extensions(dir: &Path, into: &mut std::collections::BTreeSet<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_extensions(&path, into);
+        } else if let Some(ext) = path.extension() {
+            into.insert(ext.to_string_lossy().to_lowercase());
+        }
+    }
+}
+
+#[test]
 fn an_archive_directory_that_does_not_exist_is_input_error() {
     let out = aporia()
         .arg("replay")
