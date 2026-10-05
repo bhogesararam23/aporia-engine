@@ -194,8 +194,8 @@ pub fn needs_adapter(model: &Model) -> bool {
 
 /// The report: what ran, how the map came out, and one block per finding up to three.
 ///
-/// Deliberately not the `.apx` finding block from `aporia-store`, whose renderer ends with
-/// `Replay: aporia replay findings/000000.apx`. That sentence is true of an archived run and a lie
+/// Deliberately not the `.apx` finding block from `aporia-store`, whose renderer ends with a
+/// `Replay: aporia replay <archive dir>` line. That sentence is true of an archived run and a lie
 /// about this one, which writes no archive — so the command prints the same facts in fewer lines and
 /// says nothing it cannot stand behind.
 fn report(model: &Model, campaign: &Campaign, execution: &str) -> String {

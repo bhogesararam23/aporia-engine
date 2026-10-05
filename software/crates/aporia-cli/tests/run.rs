@@ -176,7 +176,7 @@ fn a_missing_argument_names_the_command_instead_of_guessing() {
 
 #[test]
 fn the_report_never_points_at_an_archive_it_did_not_write() {
-    // `.apx` findings carry a `Replay: aporia replay findings/…` line, which is true of an archived
+    // `.apx` findings carry a `Replay: aporia replay <archive dir>` line, which is true of an archived
     // run and false of this command. The report deliberately prints fewer lines rather than inviting
     // the reader to replay a file that was never written.
     let out = aporia()

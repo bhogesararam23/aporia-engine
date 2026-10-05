@@ -90,7 +90,7 @@ pub fn command(dir: &std::path::Path, out: &mut dyn std::io::Write) -> Exit {
         loaded.manifest.files.len()
     );
     for finding in loaded.findings.iter().take(5) {
-        let _ = write!(out, "{}", finding.render());
+        let _ = write!(out, "{}", finding.render(&loaded.root));
     }
     if loaded.findings.len() > 5 {
         let _ = writeln!(

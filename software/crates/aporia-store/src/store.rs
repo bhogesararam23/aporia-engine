@@ -223,8 +223,14 @@ impl StoredFinding {
     }
 
     /// The report block the spec asks for (§21), as text.
+    ///
+    /// `archive` is the directory the finding belongs to. The replay line has to name it rather than
+    /// the `.apx` file because replaying one finding is not the experiment: reproduction re-executes
+    /// the archived A-IR at *every* archived point and compares, and the finding's own evidence cites
+    /// observations from that whole set. A command naming a single finding file would be a command
+    /// that runs nothing.
     #[must_use]
-    pub fn render(&self) -> String {
+    pub fn render(&self, archive: &Path) -> String {
         use std::fmt::Write as _;
         let mut out = String::new();
         let _ = writeln!(
@@ -283,7 +289,12 @@ impl StoredFinding {
         for (channel, subject, strength, detail) in rows {
             let _ = writeln!(out, "  {channel:<12} {subject:<16} {strength:>8}  {detail}");
         }
-        let _ = writeln!(out, "Replay: aporia replay findings/{:06}.apx", self.index);
+        let _ = writeln!(
+            out,
+            "Replay: aporia replay {}   (this finding: findings/{:06}.apx)",
+            archive.display(),
+            self.index
+        );
         out
     }
 

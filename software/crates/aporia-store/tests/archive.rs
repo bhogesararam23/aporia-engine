@@ -293,8 +293,9 @@ fn a_finding_reads_like_the_report_the_spec_asks_for() {
             .and_then(Json::as_str),
         Some("physical")
     );
-    // The rendered form is what a person sees, so the replay command has to name a real file.
-    let text = finding.render();
+    // The rendered form is what a person sees, so the replay command has to name a real file *and*
+    // a real archive; see the test below for the second half.
+    let text = finding.render(&root);
     for needle in [
         "APORIA FINDING #000027",
         "SUSPICIOUS",
@@ -305,7 +306,44 @@ fn a_finding_reads_like_the_report_the_spec_asks_for() {
         assert!(text.contains(needle), "missing {needle:?} in:\n{text}");
     }
     let file = root.join("findings").join("000027.apx");
-    assert!(file.exists(), "the replay command must point at something");
+    assert!(
+        file.exists(),
+        "the finding file named in the block must exist"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The command the rendered block prints, with its decoration removed.
+fn replay_target(text: &str) -> String {
+    let line = text
+        .lines()
+        .find(|l| l.starts_with("Replay: aporia replay "))
+        .unwrap_or_else(|| panic!("no runnable replay line in:\n{text}"));
+    let after = line.trim_start_matches("Replay: aporia replay ");
+    // The finding's own file is named after the command, in parentheses, so the path is what
+    // comes before it.
+    after.split("   (").next().unwrap_or(after).to_string()
+}
+
+#[test]
+fn the_replay_line_names_a_command_that_actually_replays_this_archive() {
+    let cfg = ExecConfig::default();
+    let (root, _, _) = write_dir("replay-hint", cfg);
+    let loaded = Loaded::open(&root).unwrap();
+    let text = loaded.findings[0].render(&root);
+    let target = replay_target(&text);
+    // An earlier renderer printed the finding's own `.apx` path here. `aporia replay` takes an
+    // archive directory, so every published finding block ended in a command that runs nothing —
+    // provenance that has to be corrected by hand is not provenance.
+    assert_ne!(target, "findings/000027.apx");
+    assert_eq!(Path::new(&target), root.as_path());
+    assert!(
+        Path::new(&target).join("manifest.json").is_file(),
+        "{target} is not an archive directory"
+    );
+    // The strongest form of the claim: follow the instruction the report printed.
+    let again = replay_dir(Path::new(&target)).unwrap();
+    assert!(again.reproduced, "{}", again.summary());
     let _ = std::fs::remove_dir_all(&root);
 }
 
