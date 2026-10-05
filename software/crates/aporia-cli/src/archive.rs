@@ -7,7 +7,8 @@
 //!
 //! `case` is always empty. The `.apx` finding block has a field for a minimised counterexample, and
 //! minimisation is a separate claim with its own oracle question (decisions 0012 and 0020). A command
-//! that ran a campaign does not get to fill it, so the archive says plainly what the campaign
+//! that ran a campaign does not get to fill it: `Campaign::stored_findings` asks every caller for a
+//! case per finding and this one answers `None`, so the archive says plainly what the campaign
 //! established and nothing more.
 //!
 //! `created_unix_ms` is 0, the same choice the benchmark harness makes, so that writing the same run
@@ -16,8 +17,8 @@
 
 use aporia_ir::Model;
 use aporia_runtime::value::{ExecConfig, FpMode};
-use aporia_search::{Campaign, Finding};
-use aporia_store::{Environment, Json, Receipt, Run, Store, StoredFinding, label_text};
+use aporia_search::Campaign;
+use aporia_store::{Environment, Json, Receipt, Run, Store};
 use std::path::Path;
 
 /// Archive a finished campaign into `dir`.
@@ -32,12 +33,7 @@ pub fn write(
     dir: &Path,
 ) -> Result<Receipt, String> {
     let air = aporia_ir::to_text(model);
-    let findings: Vec<StoredFinding> = campaign
-        .findings
-        .iter()
-        .enumerate()
-        .map(|(i, f)| stored(i as u64, f, campaign))
-        .collect();
+    let findings = campaign.stored_findings(|_| None);
     let decisions: Vec<Json> = campaign
         .decisions
         .iter()
@@ -87,28 +83,4 @@ pub fn write(
     store
         .write(&run)
         .map_err(|e| format!("{}: {e}", dir.display()))
-}
-
-/// One finding, in the shape the archive stores. Shared with nothing on purpose: the bench harness
-/// builds its own because it also minimises each finding and records ground-truth notes, and a third
-/// caller should make that choice explicitly rather than inherit one.
-fn stored(index: u64, f: &Finding, campaign: &Campaign) -> StoredFinding {
-    StoredFinding {
-        index,
-        cell: f.cell,
-        bounds: f.bounds.clone(),
-        representative: f.representative.clone(),
-        observation: f.observation,
-        online_risk: f.online_risk,
-        final_risk: f.final_risk,
-        samples: f.samples as u64,
-        label: campaign
-            .atlas
-            .cell(f.cell)
-            .map_or("UNKNOWN", |c| label_text(c.label))
-            .to_string(),
-        case: None,
-        evidence: f.evidence.clone(),
-        raw_evidence: Vec::new(),
-    }
 }

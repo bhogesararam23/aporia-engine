@@ -255,6 +255,61 @@ fn an_external_archive_is_intact_but_not_replayed() {
 }
 
 #[test]
+fn the_archive_holds_exactly_what_the_campaign_offered_to_store() {
+    // One canonical construction, checked at the command line's own boundary. The CLI used to assemble
+    // `StoredFinding` records itself while `aporia-bench` assembled them again and differently; both
+    // now call `Campaign::stored_findings`, and the only field a caller decides is `case`. Running a
+    // campaign here and archiving it through the library seam checks that the records a reader opens
+    // are the ones the campaign produced, rather than something the CLI meant by them.
+    let source = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../benchmarks/analytic/sqrt_domain/model.ap"),
+    )
+    .expect("the corpus model is there");
+    let compiled = aporia_dsl::lower::compile("model.ap", &source);
+    assert!(
+        !compiled.diagnostics.has_errors(),
+        "{}",
+        compiled.diagnostics
+    );
+    let model = compiled.model;
+    let campaign = aporia_search::run(
+        &model,
+        aporia_search::Config {
+            budget: 160,
+            ..aporia_search::Config::default()
+        },
+    );
+    let offered = campaign.stored_findings(|_| None);
+    assert!(
+        !offered.is_empty(),
+        "a square root asked for a negative input should flag something at 160 evaluations"
+    );
+
+    let dir = scratch("canonical");
+    aporia_cli::archive::write(&model, &source, &campaign, "interpreter", &dir)
+        .expect("the archive is written");
+    let loaded = aporia_store::Loaded::open(&dir).expect("the archive reads back");
+
+    assert_eq!(loaded.findings.len(), offered.len());
+    for (stored, expected) in loaded.findings.iter().zip(&offered) {
+        // Compared as the archive stores them: a loaded finding holds its evidence as the JSON objects
+        // it was read from, so the stored form is the only one both sides have.
+        assert_eq!(
+            stored.to_json(),
+            expected.to_json(),
+            "finding {} is not what the campaign offered",
+            stored.index
+        );
+        assert!(
+            stored.case.is_none(),
+            "the command line ran no minimiser, so it may not claim a reduced case"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn an_archive_directory_that_does_not_exist_is_input_error() {
     let out = aporia()
         .arg("replay")

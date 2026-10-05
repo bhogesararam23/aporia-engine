@@ -15,6 +15,7 @@ aporia-numerics = { path = "../aporia-numerics" }
 aporia-evidence = { path = "../aporia-evidence" }
 aporia-properties = { path = "../aporia-properties" }
 aporia-boundary = { path = "../aporia-boundary" }
+aporia-store = { path = "../aporia-store" }
 
 [dev-dependencies]
 aporia-dsl = { path = "../aporia-dsl" }

@@ -222,49 +222,25 @@ pub fn archive_and_replay(
     seed: u64,
     dir: &std::path::Path,
 ) -> Result<(bool, u64, u64), String> {
-    use aporia_boundary::Label;
-    use aporia_store::{Environment, Json, Store, StoredFinding};
+    use aporia_store::{Environment, Json, Store};
 
     let model = entry.model.as_ref().ok_or("entry has no compiled model")?;
     let air = aporia_ir::to_text(model);
-    let findings: Vec<StoredFinding> = campaign
-        .findings
-        .iter()
-        .enumerate()
-        .map(|(i, f)| {
-            let label = campaign
-                .atlas
-                .cell(f.cell)
-                .map_or("UNKNOWN", |c| match c.label {
-                    Label::Suspicious => "SUSPICIOUS",
-                    Label::Trusted => "TRUSTED",
-                    Label::Unknown => "UNKNOWN",
-                });
-            let minimal = aporia_minimize::minimize(
-                &aporia_minimize::FailureOracle::new(model),
-                model,
-                &f.representative,
-                aporia_minimize::Config {
-                    budget: plan.minimise_budget,
-                    ..aporia_minimize::Config::default()
-                },
-            );
-            StoredFinding {
-                index: i as u64,
-                cell: f.cell,
-                bounds: f.bounds.clone(),
-                representative: f.representative.clone(),
-                observation: f.observation,
-                online_risk: f.online_risk,
-                final_risk: f.final_risk,
-                samples: f.samples as u64,
-                label: label.to_string(),
-                case: minimal.verified.then(|| minimal.case.describe()),
-                evidence: f.evidence.clone(),
-                raw_evidence: Vec::new(),
-            }
-        })
-        .collect();
+    // The campaign owns the mapping from a finding to its stored record; the only thing this harness
+    // decides for itself is `case`, and it decides it by running the minimiser and keeping the
+    // description only when the reduced case still violates the model.
+    let findings = campaign.stored_findings(|f| {
+        let minimal = aporia_minimize::minimize(
+            &aporia_minimize::FailureOracle::new(model),
+            model,
+            &f.representative,
+            aporia_minimize::Config {
+                budget: plan.minimise_budget,
+                ..aporia_minimize::Config::default()
+            },
+        );
+        minimal.verified.then(|| minimal.case.describe())
+    });
     let decisions: Vec<Json> = campaign
         .decisions
         .iter()

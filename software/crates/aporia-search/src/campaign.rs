@@ -31,6 +31,7 @@ use aporia_properties::{Pair, Probes, constraints, divergence, numerical, sensit
 use aporia_runtime::observe::{Observation, Records};
 use aporia_runtime::value::{ExecConfig, FpMode};
 use aporia_runtime::{Executor, Interp};
+use aporia_store::{StoredFinding, label_text};
 
 /// Everything a campaign needs to be told before it starts.
 #[derive(Clone, Debug)]
@@ -209,6 +210,50 @@ pub struct Campaign {
     /// `aporia-bench`, is the quantity the research question asks for.
     pub first_flagged: Option<usize>,
     pub evidence: Vec<Evidence>,
+}
+
+impl Campaign {
+    /// The campaign's findings in the shape `aporia-store` writes to an archive.
+    ///
+    /// This is the one place that knows how a `Finding` becomes a stored record, because two callers
+    /// used to assemble the same eleven fields themselves and only the benchmark's version could be
+    /// trusted to agree with the command line's. Everything except `case` is a fact the campaign
+    /// already holds: the label is the atlas's own verdict on the worst constituent cell, and a cell
+    /// the atlas no longer has is reported as `UNKNOWN` rather than dropped, because a finding that
+    /// cannot say what region it came from is not replayable.
+    ///
+    /// `case` is a closure because that field is the one thing a caller has to decide for itself. A
+    /// minimised counterexample is a separate claim with its own oracle question (decisions 0012 and
+    /// 0020), so a command that merely ran a campaign answers `None`, and a harness that verified a
+    /// reduced case passes the description it verified.
+    #[must_use]
+    pub fn stored_findings(
+        &self,
+        mut case: impl FnMut(&Finding) -> Option<String>,
+    ) -> Vec<StoredFinding> {
+        self.findings
+            .iter()
+            .enumerate()
+            .map(|(i, f)| StoredFinding {
+                index: i as u64,
+                cell: f.cell,
+                bounds: f.bounds.clone(),
+                representative: f.representative.clone(),
+                observation: f.observation,
+                online_risk: f.online_risk,
+                final_risk: f.final_risk,
+                samples: f.samples as u64,
+                label: self
+                    .atlas
+                    .cell(f.cell)
+                    .map_or("UNKNOWN", |c| label_text(c.label))
+                    .to_string(),
+                case: case(f),
+                evidence: f.evidence.clone(),
+                raw_evidence: Vec::new(),
+            })
+            .collect()
+    }
 }
 
 /// Run a campaign to the configured budget, evaluating the model with the scalar interpreter.
@@ -1522,6 +1567,87 @@ mod tests {
         let text = c.calibrator.describe();
         assert!(text.contains('B') && text.contains('P'), "{text}");
         assert!(c.correlation.samples() >= 3 || c.evidence.is_empty());
+    }
+
+    /// A campaign that flags something, at a budget small enough for three tests to share.
+    fn flagged() -> Campaign {
+        let m = model(
+            "model s \"\" {\n input x in [0, 1]\n let y = sqrt(x - 0.5)\n require finite(y)\n}\n",
+        );
+        let c = run(
+            &m,
+            Config {
+                budget: 400,
+                strategy: Strategy::Stratified,
+                ..Config::default()
+            },
+        );
+        assert!(
+            !c.findings.is_empty(),
+            "the model the storage tests rely on stopped producing findings"
+        );
+        c
+    }
+
+    #[test]
+    fn stored_findings_carry_what_the_campaign_knows_and_nothing_else() {
+        let c = flagged();
+        let stored = c.stored_findings(|_| None);
+        assert_eq!(stored.len(), c.findings.len());
+        for (i, (s, f)) in stored.iter().zip(&c.findings).enumerate() {
+            assert_eq!(s.index, i as u64, "the index is the report position");
+            assert_eq!(s.cell, f.cell);
+            assert_eq!(s.bounds, f.bounds);
+            assert_eq!(s.representative, f.representative);
+            assert_eq!(s.observation, f.observation);
+            assert_eq!(s.online_risk, f.online_risk);
+            assert_eq!(s.final_risk, f.final_risk);
+            assert_eq!(s.samples, f.samples as u64);
+            assert!(
+                s.case.is_none(),
+                "a caller that ran no minimiser stores no case"
+            );
+            // The label is read back out of the atlas rather than re-derived, which is what keeps the
+            // archive's claim about a region in step with the map that region was drawn on.
+            let label = c
+                .atlas
+                .cell(f.cell)
+                .map_or("UNKNOWN", |cell| label_text(cell.label));
+            assert_eq!(s.label, label);
+        }
+    }
+
+    #[test]
+    fn a_finding_whose_cell_the_atlas_lost_is_stored_as_unknown_not_dropped() {
+        let mut c = flagged();
+        c.findings
+            .push(finding(u32::MAX, &[[0.0, 1.0]], &["phantom"], 0.8));
+        let stored = c.stored_findings(|_| None);
+        let last = stored.last().expect("the fabricated finding is stored");
+        assert_eq!(last.label, "UNKNOWN");
+        assert_eq!(last.cell, u32::MAX);
+    }
+
+    #[test]
+    fn two_callers_of_the_construction_differ_only_in_the_case_they_verified() {
+        // The shape of this test is the point: a report and a benchmark harness used to write these
+        // fields separately, and the only difference that is supposed to exist between them is the
+        // counterexample each was entitled to claim.
+        let c = flagged();
+        let plain = c.stored_findings(|_| None);
+        let reduced = c.stored_findings(|f| Some(format!("x = {}", f.representative[0])));
+        assert_eq!(plain.len(), reduced.len());
+        for (a, b) in plain.iter().zip(&reduced) {
+            assert_eq!(a.case, None);
+            assert!(b.case.is_some(), "the caller asked for a case per finding");
+            let mut agreed = b.clone();
+            agreed.case = None;
+            assert_eq!(
+                *a, agreed,
+                "one campaign produced two different stored findings for cell c{}",
+                a.cell
+            );
+        }
     }
 
     /// An execution path that answers a different question than the model's A-IR does. `y = x - 7`

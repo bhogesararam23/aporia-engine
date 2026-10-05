@@ -116,6 +116,7 @@ dependencies = [
  "aporia-numerics",
  "aporia-properties",
  "aporia-runtime",
+ "aporia-store",
 ]
 
 [[package]]
