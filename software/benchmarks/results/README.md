@@ -4,7 +4,7 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Eleven files are committed. Each one is the record of what a change did, and only the last is current.
+Twelve files are committed. Each one is the record of what a change did, and only the last is current.
 
 | file | what it is |
 |---|---|
@@ -18,7 +18,8 @@ Eleven files are committed. Each one is the record of what a change did, and onl
 | `results-1791145006.json` | as above with the floor at `1e-9` — again byte-identical, so the floor is not what moved the controls |
 | `results-1791146048.json` | differential wired and floored, ladder run at `differential_every = 0` |
 | `results-1791150251.json` | declared symmetry wired as swap probes, plus a new symmetry control. Every one of the previous run's 180 sweeps reproduced outcome-for-outcome (see "Wiring declared symmetry") |
-| `results-1791153844.json` | **current**: the risk-threshold counterexample oracle wired. Across all 189 sweeps the only measured field that differs from the previous run is `counterexamples` (see "The risk-threshold oracle") |
+| `results-1791153844.json` | the risk-threshold counterexample oracle wired — the run whose figures are quoted throughout. Across all 189 sweeps the only measured field that differs from the previous run is `counterexamples` (see "The risk-threshold oracle") |
+| `results-1791158752.json` | **current**: the campaign rewired onto an `Executor` seam. Every measured field of all 945 campaigns is identical to the row above, `wall_ms` except — kept because "this refactor changed no measurement" is a claim that needs its own run rather than an assertion |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
 `differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
