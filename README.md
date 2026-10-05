@@ -62,7 +62,8 @@ software/crates/
                     comparison, verdict, explanation
   aporia-adapter    the external-computation boundary: a child program, its line protocol, its
                     failure modes, and an example solver to copy
-  aporia-cli        the command line: `aporia run <model.ap>`, optionally `--program <solver>`
+  aporia-cli        the command line: `aporia run <model.ap>` (optionally `--program`,
+                    `--archive`) and `aporia replay <archive-dir>`
 software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
 software/scripts/     dev-env, test runner, and the gate that build-verifies every committed tree
 ```
@@ -74,7 +75,7 @@ Rust 1.88 or newer (`stable-msvc` on Windows; the workspace builds with MSVC 14.
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 393 tests
+cargo test --release                  # 448 tests
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
 cargo run --release -p aporia-bench -- verify    # ground truth against direct evaluation
@@ -88,8 +89,8 @@ prints the atlas summary, the calibration it measured against, and up to three f
 loudest piece of evidence behind each. Exit status is `0` when nothing was flagged, `1` when
 SUSPICIOUS regions were reported, `2` for bad usage, `3` when the model could not be read, compiled or
 verified, and `4` when an external program stopped answering — so a CI job can fail on the difference
-between those. It writes no archive and reports no minimised case; `--budget N` sets the evaluation
-budget (default 640).
+between those. `--budget N` sets the evaluation budget (default 640); no minimised case is reported,
+because that is a separate oracle question (see `software/benchmarks/results/README.md`).
 
 A model whose arithmetic lives elsewhere is named with `--program`:
 
@@ -104,6 +105,24 @@ arithmetic. `aporia-adapter` ships `aporia-example-solver`, a worked example in 
 program that exits, prints a banner, answers the wrong number of values, refuses a point or hangs is
 reported as what it is (exit status `4`, and the map labelled incomplete) rather than filled in with
 plausible numbers. `--timeout MS` bounds one answer, default 5000.
+
+`--archive DIR` writes the run out as an archive — model text, A-IR, every execution, the atlas
+table, the boundary bands, the search decisions, the fitted calibration and a manifest that digests
+each file — and `aporia replay <archive-dir>` reads it back. Those are two different questions and they
+get two different exit statuses:
+
+```sh
+aporia run model.ap --archive run-0001     # 14 files, digested
+aporia replay run-0001                     # integrity, then reproduction
+```
+
+If a byte no longer matches the manifest, that is an integrity failure (status 5): the archive is not
+the one that was written. If every digest matches and re-executing the archived A-IR at the archived
+points disagrees, that is a reproduction failure (status 6): the archive is fine and the arithmetic
+moved. Collapsing the two into "something is wrong with the archive" is the mistake this split exists
+to prevent. A run that was executed by an external program is checked for integrity and reported as
+*not replayed* — re-running a program this command does not have is not the same experiment, and
+printing "0 mismatches" over nothing would be a pass earned by not trying.
 
 `aporia-bench run` refuses to produce numbers when a declared region does not hold against direct
 evaluation of the model's own rules, archives every top-of-ladder run, and replays each archive before

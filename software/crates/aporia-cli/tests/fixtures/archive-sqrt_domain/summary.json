@@ -1,0 +1,37 @@
+{
+  "schema": "aporia.summary/1",
+  "model": "sqrt_domain",
+  "counts": {
+    "evaluations": 40,
+    "instruction_steps": 40,
+    "params": 1,
+    "outputs": 1,
+    "constraints": 1,
+    "relations": 0,
+    "cells": 12,
+    "samples": 40,
+    "findings": 1
+  },
+  "coverage": {
+    "trusted_fraction": 0.375,
+    "suspicious_fraction": 0.5,
+    "unknown_fraction": 0.125,
+    "cells": 12,
+    "resolved_fraction": 0.875
+  },
+  "bands": [
+    {
+      "axis": 0,
+      "lo": -10.0,
+      "hi": 10.0,
+      "width": 20.0,
+      "transitions": 16
+    }
+  ],
+  "findings": 1,
+  "finding_bytes": 1248,
+  "first_finding": {
+    "observation": 10,
+    "evaluation": 0
+  }
+}

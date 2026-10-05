@@ -33,6 +33,16 @@ pub enum Exit {
     /// still written, because where a run broke is information, but the map is not a result: after
     /// this point every unanswered point is a non-answer, and the atlas is describing a broken pipe.
     Program,
+    /// An archive file no longer matches the digest the manifest recorded for it. This is not a
+    /// scientific failure — it means the bytes are not the ones that were written.
+    Integrity,
+    /// The archive is intact and re-executing it does not agree. Different status on purpose: this
+    /// one says the arithmetic moved, which is a result about the build.
+    Mismatch,
+    /// The analysis succeeded and the archive could not be written. Kept separate from both because a
+    /// caller who asked for the artefact and did not get it needs to know, and a report on stdout
+    /// that looks complete must not talk them out of it.
+    Archive,
 }
 
 impl Exit {
@@ -44,6 +54,9 @@ impl Exit {
             Self::Usage => 2,
             Self::Input => 3,
             Self::Program => 4,
+            Self::Integrity => 5,
+            Self::Mismatch => 6,
+            Self::Archive => 7,
         }
     }
 }
@@ -54,6 +67,9 @@ pub struct Loaded {
     pub model: Model,
     /// The model's own name, as the author wrote it.
     pub name: String,
+    /// The source text, kept because an archive stores it and a reader of the archive has to be able
+    /// to see the file that produced the numbers, not only the A-IR it lowered to.
+    pub text: String,
     /// Warnings from the front end and the verifier. Kept separate from errors because they did not
     /// stop the model from existing, and a run that hides them is a run whose numbers a reader cannot
     /// audit.
@@ -69,6 +85,7 @@ pub fn load_model(path: &Path) -> Result<Loaded, String> {
         .file_name()
         .map_or_else(|| "model.ap".to_string(), |n| n.display().to_string());
     let source = aporia_dsl::span::Source::new(&named, text);
+    let text_for_archive = source.text().to_string();
     let compiled = aporia_dsl::lower::compile(&named, source.text());
     if compiled.diagnostics.has_errors() {
         return Err(format!(
@@ -103,6 +120,7 @@ pub fn load_model(path: &Path) -> Result<Loaded, String> {
         notices.push(format!("warning: {w}"));
     }
     Ok(Loaded {
+        text: text_for_archive,
         name: model.name.clone(),
         model,
         notices,
@@ -116,6 +134,7 @@ pub fn analyse(loaded: &Loaded, config: Config, out: &mut impl Write) -> Exit {
         config,
         &mut aporia_runtime::Interp,
         "scalar interpreter (the model's own A-IR instructions)",
+        None,
         out,
     )
 }
@@ -132,6 +151,7 @@ pub fn run_and_report(
     config: Config,
     engine: &mut dyn aporia_runtime::Executor,
     execution: &str,
+    archive: Option<&std::path::Path>,
     out: &mut impl Write,
 ) -> Exit {
     let campaign = run_with(&loaded.model, config, engine);
@@ -139,10 +159,30 @@ pub fn run_and_report(
         let _ = writeln!(out, "{notice}");
     }
     let _ = write!(out, "{}", report(&loaded.model, &campaign, execution));
-    if campaign.findings.is_empty() {
+    let verdict = if campaign.findings.is_empty() {
         Exit::Clean
     } else {
         Exit::Suspicious
+    };
+    let Some(dir) = archive else {
+        return verdict;
+    };
+    match crate::archive::write(&loaded.model, &loaded.text, &campaign, execution, dir) {
+        Ok(receipt) => {
+            let _ = writeln!(
+                out,
+                "archive  {}  {} files, {} bytes  (manifest digests every one)",
+                receipt.root.display(),
+                receipt.files.len(),
+                receipt.total_bytes()
+            );
+            verdict
+        }
+        Err(e) => {
+            // The report above is still true. What is not true is that the artefact exists.
+            eprintln!("aporia: the run finished but the archive was not written: {e}");
+            Exit::Archive
+        }
     }
 }
 

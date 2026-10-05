@@ -15,6 +15,8 @@
 //! no results files. A user with a model and no benchmark gets an answer, which is what `aporia-bench`
 //! could not offer.
 
+pub mod archive;
+pub mod replay;
 pub mod run;
 
 pub use run::Exit;

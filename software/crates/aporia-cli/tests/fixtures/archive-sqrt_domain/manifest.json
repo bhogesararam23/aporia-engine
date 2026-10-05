@@ -1,0 +1,71 @@
+{
+  "schema": "aporia.experiment/1",
+  "tool_version": "0.1.0",
+  "created_unix_ms": 0,
+  "model_name": "sqrt_domain",
+  "model_sha256": "0760c391219c5734045a756d4fae5ce7f096bbf131cc4f7e6ee1d7f3e2b7ddb9",
+  "air_sha256": "72b0997a064817a769ab6c2960d79028a89d3099d3750b8d4da9e84a01af330c",
+  "config": {
+    "budget": 40,
+    "strategy": "adaptive",
+    "seed": 7021234356255522817,
+    "probe_every": 4,
+    "calibrate_every": 250,
+    "numerical_every": 0,
+    "differential_every": 0,
+    "symmetric_every": 1,
+    "refine_every": 64,
+    "atlas": {
+      "suspicious_mean": 0.45,
+      "suspicious_peak": 0.7,
+      "min_samples": 4,
+      "min_channels": 1,
+      "suspicious_channels": 2,
+      "max_depth": 12
+    }
+  },
+  "counts": {
+    "evaluations": 40,
+    "instruction_steps": 40,
+    "params": 1,
+    "outputs": 1,
+    "constraints": 1,
+    "relations": 0,
+    "cells": 12,
+    "samples": 40,
+    "findings": 1
+  },
+  "exec": {
+    "fp": "f64",
+    "max_steps": 20000000
+  },
+  "environment": {
+    "os": "windows",
+    "arch": "x86_64",
+    "pointer_width": 64,
+    "rust_channel": "",
+    "cpu_features": [],
+    "notes": {
+      "execution": "scalar interpreter (the model's own A-IR instructions)"
+    }
+  },
+  "calibration": {
+    "behavioral": 1.0,
+    "physical": 1.0,
+    "numerical": 1.0,
+    "differential": 1.0,
+    "sensitivity": 85.6140858446573
+  },
+  "channel_correlation": [],
+  "correlation_samples": 17,
+  "files": {
+    "model.ap": "0760c391219c5734045a756d4fae5ce7f096bbf131cc4f7e6ee1d7f3e2b7ddb9",
+    "model.air": "72b0997a064817a769ab6c2960d79028a89d3099d3750b8d4da9e84a01af330c",
+    "observations.bin": "b178bdb6f3e59fd43784afec0fbc36583a7248eecf2c7f3e54674fdb040bd665",
+    "atlas.csv": "4e4f4d6775b2613da6db19372eef8259b220d0fcae68a48e892ef62038857533",
+    "bands.csv": "811a87e566d237dcd0627b0ad688cbfbcad07f27a30a9a218217f742845a4cc4",
+    "decisions.jsonl": "9d67f9581f48644f490fc1aed4a91ffa4f71fa2ca08acad11ec0d35a3b663cac",
+    "findings/000000.apx": "ab9765ffdd16b47446e13ec19131284dc96e67fda5a5beb1ebcda83c96e0dda4",
+    "summary.json": "9515dd5e77d2acd58e397f888f25f74bd0c5cf92bbb63b9caa5f40cf5c088d14"
+  }
+}

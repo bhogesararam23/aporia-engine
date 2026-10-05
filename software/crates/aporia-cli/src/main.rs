@@ -16,7 +16,8 @@
 //! bad usage, `3` the model could not be read, compiled or verified, `4` the program stopped
 //! answering and the map is incomplete.
 
-use aporia_cli::run::{self, Exit};
+use aporia_cli::run::Exit;
+use aporia_cli::{replay, run};
 use aporia_search::Config;
 use std::path::PathBuf;
 
@@ -46,6 +47,7 @@ fn main() {
             Exit::Usage
         }
         Some("run") => run_command(&args[1..]),
+        Some("replay") => replay_command(&args[1..]),
         Some("help" | "--help" | "-h") => {
             print!("{}", usage());
             Exit::Clean
@@ -63,6 +65,8 @@ fn main() {
 struct Args {
     path: PathBuf,
     budget: u64,
+    /// Where to write the run's archive, if anywhere.
+    archive: Option<PathBuf>,
     /// A program to execute the model with. `None` means the scalar interpreter, which is the
     /// default the way it should be: invisible, not assumed by the analysis.
     program: Option<String>,
@@ -75,6 +79,7 @@ struct Args {
 fn parse_args(flags: &[String]) -> Result<Args, Exit> {
     let mut budget: Option<u64> = None;
     let mut program: Option<String> = None;
+    let mut archive: Option<PathBuf> = None;
     let mut timeout_ms = DEFAULT_TIMEOUT_MS;
     let mut path: Option<PathBuf> = None;
     let mut i = 0;
@@ -84,6 +89,7 @@ fn parse_args(flags: &[String]) -> Result<Args, Exit> {
             "--budget" => Some("a number"),
             "--program" => Some("a command line"),
             "--timeout" => Some("a number of milliseconds"),
+            "--archive" => Some("a directory"),
             _ => None,
         };
         if let Some(wants) = value_of {
@@ -112,6 +118,7 @@ fn parse_args(flags: &[String]) -> Result<Args, Exit> {
                     }
                     timeout_ms = n;
                 }
+                "--archive" => archive = Some(PathBuf::from(value)),
                 _ => program = Some(value.clone()),
             }
             i += 2;
@@ -138,8 +145,25 @@ fn parse_args(flags: &[String]) -> Result<Args, Exit> {
         path,
         budget: budget.unwrap_or(DEFAULT_BUDGET),
         program,
+        archive,
         timeout_ms,
     })
+}
+
+/// `aporia replay <archive-dir>`: is the archive intact, and does the run reproduce?
+fn replay_command(flags: &[String]) -> Exit {
+    let Some(first) = flags.first() else {
+        eprintln!("aporia: replay needs an archive directory, e.g. aporia replay run-0001");
+        eprint!("{}", usage());
+        return Exit::Usage;
+    };
+    if flags.len() > 1 {
+        eprintln!("aporia: replay takes one archive directory");
+        return Exit::Usage;
+    }
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    replay::command(&PathBuf::from(first), &mut out)
 }
 
 fn run_command(flags: &[String]) -> Exit {
@@ -168,7 +192,14 @@ fn run_command(flags: &[String]) -> Exit {
             );
             return Exit::Usage;
         }
-        return run::analyse(&loaded, config, &mut out);
+        return run::run_and_report(
+            &loaded,
+            config,
+            &mut aporia_runtime::Interp,
+            "scalar interpreter (the model's own A-IR instructions)",
+            args.archive.as_deref(),
+            &mut out,
+        );
     };
     // A program named for a model that computes its own values would be ignored: the execution path
     // answers for a model as a whole, so there is no point at which both could be asked. Refusing is
@@ -197,6 +228,7 @@ fn run_command(flags: &[String]) -> Exit {
         config,
         &mut engine,
         &format!("program `{display}`, one answer per evaluation"),
+        args.archive.as_deref(),
         &mut out,
     );
     // The report has already been written, because where a run stopped is worth seeing. What it is

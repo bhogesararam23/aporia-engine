@@ -1,0 +1,2 @@
+axis,axis_name,lo,hi,facing_lo,facing_hi,transitions,width
+0,x,-10,10,-8.75,5,16,20
