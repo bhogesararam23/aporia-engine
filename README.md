@@ -65,7 +65,8 @@ software/crates/
   aporia-cli        the command line: `aporia run <model.ap>` (optionally `--program`,
                     `--archive`) and `aporia replay <archive-dir>`
 software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
-software/scripts/     dev-env, test runner, and the gate that build-verifies every committed tree
+software/scripts/     dev-env, test runner, lint gate, and the gate that build-verifies every
+                      committed tree
 ```
 
 ## Build and run
@@ -132,6 +133,12 @@ On Windows with Smart App Control enabled, freshly linked test binaries can be r
 (`os error 4551`) until Microsoft's cloud verdict arrives. `scripts/test.sh` runs the release profile,
 forces a genuine re-link on retry, and prints why it is waiting. That is a machine policy, not a
 project failure.
+
+The same policy blocks the `cargo-clippy` executable, so `cargo clippy` cannot be started here at all.
+`cargo clippy` is a thin driver that sets `RUSTC_WORKSPACE_WRAPPER` to `clippy-driver` and re-enters
+`cargo check`; `clippy-driver` is allowed, so `scripts/clippy.sh` performs that substitution and reports
+clippy's own findings on the same command line. It is the gate the workspace lints in `Cargo.toml` are
+written against, not a weakened stand-in.
 
 ## A model looks like this
 
