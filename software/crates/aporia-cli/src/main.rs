@@ -17,7 +17,7 @@
 //! answering and the map is incomplete.
 
 use aporia_cli::run::Exit;
-use aporia_cli::{replay, run};
+use aporia_cli::{replay, report, run};
 use aporia_search::Config;
 use std::path::PathBuf;
 
@@ -32,11 +32,16 @@ const DEFAULT_TIMEOUT_MS: u64 = 5_000;
 fn usage() -> &'static str {
     "usage: aporia <command> [flags]\n\
      \x20 run <model.ap> [--budget N] [--program \"<program> [args]\"] [--timeout MS]\n\
+     \x20     [--archive DIR]\n\
      \x20     compile the model and run one campaign on it. A model that declares `output`\n\
      \x20     values is executed by the named program, one JSON request and response per line.\n\
+     \x20 replay <archive-dir>        check an archive's integrity and reproduce its run\n\
+     \x20 report <archive-dir>        print a stored run without executing anything\n\
      \x20 help                        show this text\n\
      exit: 0 clean, 1 suspicious regions reported, 2 usage, 3 model not usable,\n\
-     \x20     4 the program stopped answering (the map above is incomplete)\n"
+     \x20     4 the program stopped answering (the map above is incomplete),\n\
+     \x20     5 archive integrity failure, 6 archive intact but the run did not reproduce,\n\
+     \x20     7 the run finished and the archive could not be written\n"
 }
 
 fn main() {
@@ -47,7 +52,8 @@ fn main() {
             Exit::Usage
         }
         Some("run") => run_command(&args[1..]),
-        Some("replay") => replay_command(&args[1..]),
+        Some("replay") => one_directory("replay", &args[1..], replay::command),
+        Some("report") => one_directory("report", &args[1..], report::command),
         Some("help" | "--help" | "-h") => {
             print!("{}", usage());
             Exit::Clean
@@ -150,20 +156,25 @@ fn parse_args(flags: &[String]) -> Result<Args, Exit> {
     })
 }
 
-/// `aporia replay <archive-dir>`: is the archive intact, and does the run reproduce?
-fn replay_command(flags: &[String]) -> Exit {
+/// The shared one-argument shape of the two archive readers: `aporia replay <dir>` and
+/// `aporia report <dir>`. Kept in one place so their usage messages cannot drift apart while doing
+/// the same thing with the same argument.
+fn one_directory<F>(name: &str, flags: &[String], read_it: F) -> Exit
+where
+    F: Fn(&std::path::Path, &mut dyn std::io::Write) -> Exit,
+{
     let Some(first) = flags.first() else {
-        eprintln!("aporia: replay needs an archive directory, e.g. aporia replay run-0001");
+        eprintln!("aporia: {name} needs an archive directory, e.g. aporia {name} run-0001");
         eprint!("{}", usage());
         return Exit::Usage;
     };
     if flags.len() > 1 {
-        eprintln!("aporia: replay takes one archive directory");
+        eprintln!("aporia: {name} takes one archive directory");
         return Exit::Usage;
     }
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    replay::command(&PathBuf::from(first), &mut out)
+    read_it(&std::path::PathBuf::from(first), &mut out)
 }
 
 fn run_command(flags: &[String]) -> Exit {

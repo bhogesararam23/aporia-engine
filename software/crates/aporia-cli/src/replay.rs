@@ -21,7 +21,7 @@ use aporia_store::{Loaded, digest::sha256_hex, replay};
 use crate::run::Exit;
 
 /// `aporia replay <archive-dir>`.
-pub fn command(dir: &std::path::Path, out: &mut impl std::io::Write) -> Exit {
+pub fn command(dir: &std::path::Path, out: &mut dyn std::io::Write) -> Exit {
     let loaded = match Loaded::open(dir) {
         Ok(loaded) => loaded,
         Err(e) => {

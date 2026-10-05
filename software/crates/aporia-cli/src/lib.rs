@@ -17,6 +17,7 @@
 
 pub mod archive;
 pub mod replay;
+pub mod report;
 pub mod run;
 
 pub use run::Exit;
