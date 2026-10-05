@@ -177,31 +177,41 @@ impl Case {
         out
     }
 
-    /// Check every witness. `budget` caps the number of oracle calls, because verification cost is
-    /// part of what a minimiser has to be judged on.
+    /// Check every witness. `budget` caps the number of oracle *calls*, because verification cost is
+    /// part of what a minimiser has to be judged on — and the calls are not the executions, which is
+    /// why a [`Verify`] reports both.
     #[must_use]
     pub fn verify(&self, oracle: &dyn Oracle, budget: u64) -> Verify {
-        let mut evaluations = 0;
+        let mut queries = 0;
+        let mut executions = 0;
         for x in self.witnesses() {
-            evaluations += 1;
-            if evaluations > budget {
+            // The budget is checked before the call, not after, so `queries` stays the number of
+            // answers actually obtained. It used to count the refusal as a call, which made a
+            // budget-limited run report one query more than anything had answered.
+            if queries >= budget {
                 return Verify {
                     holds: false,
-                    evaluations,
+                    queries,
+                    executions,
                     over_budget: true,
                 };
             }
-            if !oracle.violating(&x) {
+            queries += 1;
+            let verdict = oracle.query(&x);
+            executions += verdict.executions;
+            if !verdict.violating {
                 return Verify {
                     holds: false,
-                    evaluations,
+                    queries,
+                    executions,
                     over_budget: false,
                 };
             }
         }
         Verify {
             holds: true,
-            evaluations,
+            queries,
+            executions,
             over_budget: false,
         }
     }
@@ -236,11 +246,15 @@ impl Case {
     }
 }
 
-/// Outcome of checking a case, with the cost it took.
+/// Outcome of checking a case, with the cost it took in both units.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Verify {
     pub holds: bool,
-    pub evaluations: u64,
+    /// Oracle calls made, which is the unit the budget is stated in.
+    pub queries: u64,
+    /// Model executions those calls performed. Equal to `queries` for an oracle that runs the model
+    /// once per point, and larger for one that measures a star around it.
+    pub executions: u64,
     /// Set when the budget ran out rather than a witness passing: a budget refusal is not evidence
     /// that the case is wrong, and the two must not be reported as the same thing.
     pub over_budget: bool,
@@ -328,6 +342,7 @@ fn trim(value: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::oracle::Verdict;
 
     fn case(states: Vec<(Span, AxisState)>) -> Case {
         Case {
@@ -500,27 +515,43 @@ mod tests {
 
     #[test]
     fn verification_stops_at_the_first_witness_that_does_not_fail() {
-        let seen = std::cell::Cell::new(0u64);
-        let oracle = |_x: &[f64]| {
+        use std::cell::Cell;
+        let seen = Cell::new(0u64);
+        let oracle = move |_x: &[f64]| {
             let n = seen.get() + 1;
             seen.set(n);
-            n < 3
+            // One query, no model execution: this predicate reads a counter, not a model, and the
+            // accounting has to be able to say that rather than assume a call is an evaluation.
+            Verdict::new(n < 3, 0)
         };
         let c = case(vec![(C, AxisState::Dropped)]);
         let v = c.verify(&oracle, 100);
         assert!(!v.holds);
         assert!(!v.over_budget);
-        assert_eq!(v.evaluations, 3);
+        assert_eq!(v.queries, 3);
+        assert_eq!(v.executions, 0, "queries are not executions");
     }
 
     #[test]
     fn a_budget_refusal_is_not_the_same_answer_as_a_passing_case() {
         let c = case(vec![(C, AxisState::Dropped)]);
-        let v = c.verify(&|_x: &[f64]| true, 2);
+        let v = c.verify(&|_x: &[f64]| Verdict::new(true, 1), 2);
         assert!(v.over_budget);
+        assert_eq!(v.executions, 2, "the two calls it could afford did run");
         assert!(
             !v.holds,
             "an unaffordable check must not read as a verified case"
         );
+    }
+
+    #[test]
+    fn an_oracle_that_costs_several_executions_per_answer_reports_several() {
+        // The whole reason `Verify` carries two numbers: a witness set of five points asked of an
+        // oracle that measures a star of three executions around each one cost fifteen runs, and a
+        // reader of the cost column has to be able to tell the two apart.
+        let c = case(vec![(C, AxisState::Dropped)]);
+        let v = c.verify(&|_x: &[f64]| Verdict::new(true, 3), 100);
+        assert!(v.holds);
+        assert_eq!((v.queries, v.executions), (5, 15));
     }
 }

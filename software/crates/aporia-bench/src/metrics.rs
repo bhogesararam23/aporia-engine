@@ -344,7 +344,7 @@ pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<C
                 &f.representative,
                 config,
             );
-            let rule_cost = rule.evaluations;
+            let rule_cost = rule.queries;
             // Built per finding, and only trusted if it reproduces the finding first: the scorer is
             // the campaign's frozen evidence model, and the agreement check is what stops a reduction
             // from being graded by a question the report never asked.
@@ -352,13 +352,13 @@ pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<C
             let (minimal, oracle, evaluations) = if rule.verified || !scorer.agrees_with(model, f) {
                 (rule, "rule", rule_cost)
             } else {
-                let risk_oracle = |x: &[f64]| scorer.violating(model, x);
+                let risk_oracle = crate::risk::RiskOracle::new(model, &scorer);
                 // The budget is the shared one: the fallback is not a second helping of search, it is
                 // the same finding asked of a different oracle, and the cost of both attempts is
                 // reported together so a reader can see what the second question added.
                 let risk =
                     aporia_minimize::minimize(&risk_oracle, model, &f.representative, config);
-                let risk_cost = risk.evaluations;
+                let risk_cost = risk.queries;
                 if risk.verified {
                     (risk, "risk", rule_cost + risk_cost)
                 } else {

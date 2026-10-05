@@ -8,9 +8,10 @@
 //! about whether it is convenient.
 
 use aporia_bench::corpus;
-use aporia_bench::risk::RiskScorer;
+use aporia_bench::risk::{RiskOracle, RiskScorer};
 use aporia_boundary::Policy;
 use aporia_ir::Model;
+use aporia_minimize::Oracle;
 use aporia_search::{Campaign, Config, Strategy, run};
 use std::path::PathBuf;
 
@@ -65,13 +66,13 @@ fn the_scorer_reproduces_the_risk_that_made_each_finding() {
     let missed: Vec<String> = c
         .findings
         .iter()
-        .filter(|f| !scorer.violating(&m, &f.representative))
+        .filter(|f| scorer.read(&m, &f.representative).risk < scorer.threshold())
         .map(|f| {
             format!(
                 "cell {} final risk {:.3} scorer risk at representative: {}",
                 f.cell,
                 f.final_risk,
-                scorer.risk_at(&m, &f.representative).0
+                scorer.read(&m, &f.representative).risk
             )
         })
         .collect();
@@ -96,11 +97,11 @@ fn a_frozen_scorer_answers_the_same_question_in_any_order() {
         .take(24)
         .map(|o| o.x.clone())
         .collect();
-    let forward: Vec<f64> = points.iter().map(|x| scorer.risk_at(&m, x).0).collect();
+    let forward: Vec<f64> = points.iter().map(|x| scorer.read(&m, x).risk).collect();
     let reverse: Vec<f64> = points
         .iter()
         .rev()
-        .map(|x| scorer.risk_at(&m, x).0)
+        .map(|x| scorer.read(&m, x).risk)
         .rev()
         .collect();
     assert_eq!(
@@ -111,7 +112,7 @@ fn a_frozen_scorer_answers_the_same_question_in_any_order() {
     // campaign agree even if one has already been asked about other points.
     let other = RiskScorer::from_campaign(&c);
     for x in &points {
-        assert_eq!(scorer.risk_at(&m, x).0, other.risk_at(&m, x).0);
+        assert_eq!(scorer.read(&m, x).risk, other.read(&m, x).risk);
     }
 }
 
@@ -125,7 +126,8 @@ fn the_scorer_only_consults_channels_the_campaign_actually_ran() {
     let x = &c.findings[0].representative;
     let kinds = |s: &RiskScorer| -> Vec<String> {
         let mut v: Vec<String> = s
-            .evidence_at(&m, x)
+            .read(&m, x)
+            .items
             .iter()
             .map(|e| e.channel.name().to_string())
             .collect();
@@ -179,7 +181,7 @@ fn a_model_the_report_trusted_everywhere_gives_the_scorer_nothing_to_flag() {
         let a = 1.0 + 39.0 * (i as f64) / 40.0;
         let b = 1.0 + 39.0 * ((i * 7) % 40) as f64 / 40.0;
         let x = vec![a, b];
-        let (risk, _) = scorer.risk_at(&m, &x);
+        let risk = scorer.read(&m, &x).risk;
         if risk >= scorer.threshold() {
             flagged.push((x, risk));
         }
@@ -259,7 +261,7 @@ fn a_risk_verified_reduction_is_rechecked_at_every_witness_it_claims() {
         if !scorer.agrees_with(&model, f) {
             continue;
         }
-        let risk_oracle = |x: &[f64]| scorer.violating(&model, x);
+        let risk_oracle = RiskOracle::new(&model, &scorer);
         let minimal = aporia_minimize::minimize(
             &risk_oracle,
             &model,
@@ -328,6 +330,15 @@ fn a_finding_made_only_of_declared_relations_is_not_claimed_to_be_minimisable() 
         "the oracle accepted a relation finding it cannot measure at a point"
     );
     // And with no channel left to consult, it reports nothing anywhere: silence, not a clean bill.
-    assert!(scorer.evidence_at(&m, &[7.0, 13.0]).is_empty());
-    assert!(!scorer.violating(&m, &[7.0, 13.0]));
+    let quiet = scorer.read(&m, &[7.0, 13.0]);
+    assert!(quiet.items.is_empty());
+    assert!(
+        quiet.risk < scorer.threshold(),
+        "an oracle with no channel still cleared the bar: {quiet:?}"
+    );
+    assert_eq!(
+        RiskOracle::new(&m, &scorer).query(&[7.0, 13.0]).executions,
+        1,
+        "an oracle with nothing to consult was charged a full measurement"
+    );
 }

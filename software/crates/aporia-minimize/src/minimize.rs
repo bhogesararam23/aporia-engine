@@ -26,7 +26,9 @@ use crate::oracle::Oracle;
 /// How far minimisation is allowed to go.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Config {
-    /// Oracle calls for the whole run. Verification is the cost, not the search: one dropped
+    /// Oracle *calls* for the whole run, not model executions: one call may cost more than one
+    /// execution, and which is recorded separately in [`Minimal::executions`] rather than being
+    /// decided by the caller's arithmetic. Verification is the cost, not the search: one dropped
     /// parameter costs a sample per edge and quartile of its domain.
     pub budget: u64,
     /// Bisection stops when an interval edge is within this fraction of the parameter's own width.
@@ -50,14 +52,17 @@ impl Default for Config {
     }
 }
 
-/// The result of minimisation, including what it cost.
+/// The result of minimisation, including what it cost in both units.
 #[derive(Clone, Debug)]
 pub struct Minimal {
     /// The failing point minimisation started from.
     pub started: Vec<f64>,
     pub case: Case,
-    /// Oracle calls actually made. This is the number a cost metric is built from.
-    pub evaluations: u64,
+    /// Oracle calls actually made, which is what the budget is spent from.
+    pub queries: u64,
+    /// Model executions those calls performed. A published cost that means *work* is built from
+    /// this, not from `queries`; for an oracle that runs the model once per point the two agree.
+    pub executions: u64,
     /// Names of the parameters that turned out not to matter.
     pub dropped: Vec<String>,
     /// True when the final case was verified within the budget.
@@ -70,18 +75,20 @@ pub struct Minimal {
 /// Bookkeeping shared by the stages, so cost is attributed to the run rather than to a stage.
 #[derive(Clone, Copy, Debug, Default)]
 struct Cost {
-    evaluations: u64,
+    queries: u64,
+    executions: u64,
     over_budget: bool,
 }
 
 impl Cost {
     fn verify(&mut self, oracle: &dyn Oracle, case: &Case, budget: u64) -> bool {
-        if self.evaluations >= budget {
+        if self.queries >= budget {
             self.over_budget = true;
             return false;
         }
-        let v = case.verify(oracle, budget - self.evaluations);
-        self.evaluations += v.evaluations;
+        let v = case.verify(oracle, budget - self.queries);
+        self.queries += v.queries;
+        self.executions += v.executions;
         if v.over_budget {
             self.over_budget = true;
             return false;
@@ -90,7 +97,7 @@ impl Cost {
     }
 
     fn spent(&self, budget: u64) -> bool {
-        self.evaluations >= budget
+        self.queries >= budget
     }
 }
 
@@ -108,7 +115,8 @@ pub fn minimize(oracle: &dyn Oracle, model: &Model, x0: &[f64], cfg: Config) -> 
         return Minimal {
             started: start,
             case,
-            evaluations: cost.evaluations,
+            queries: cost.queries,
+            executions: cost.executions,
             dropped: Vec::new(),
             verified: false,
             over_budget: cost.over_budget,
@@ -131,7 +139,8 @@ pub fn minimize(oracle: &dyn Oracle, model: &Model, x0: &[f64], cfg: Config) -> 
     Minimal {
         started: start,
         case,
-        evaluations: cost.evaluations,
+        queries: cost.queries,
+        executions: cost.executions,
         dropped,
         verified,
         over_budget: cost.over_budget,

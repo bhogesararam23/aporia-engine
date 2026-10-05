@@ -14,6 +14,7 @@
 
 use aporia_evidence::{Calibrator, ChannelCorrelation, Evidence, EvidenceSet, fuse};
 use aporia_ir::Model;
+use aporia_minimize::{Oracle, Verdict};
 use aporia_properties::{
     SlopeReference, against_reference, constraints, divergence, numerical, sensitivity_at,
     slope_reference,
@@ -22,6 +23,23 @@ use aporia_runtime::interp::run as evaluate;
 use aporia_runtime::observe::Observation;
 use aporia_runtime::value::{ExecConfig, FpMode};
 use aporia_search::{Campaign, campaign::perturb};
+
+/// One point, measured: what the report would have said about it, and what asking cost.
+///
+/// The executions are counted where they are spent rather than derived from the number of queries,
+/// because this oracle does not run the model once per answer: it runs the point, a perturbed point
+/// per axis, a reduced-precision re-run and an independent reference evaluation — whichever of those
+/// the finding being minimised was actually made of. A published cost column that meant *work* had to
+/// come from here.
+#[derive(Clone, Debug)]
+pub struct Reading {
+    /// The fused risk the report would have attached to the point.
+    pub risk: f64,
+    /// The evidence behind that score, calibrated exactly as the campaign calibrates.
+    pub items: Vec<Evidence>,
+    /// Model executions performed to produce the two fields above.
+    pub executions: u64,
+}
 
 /// The campaign's evidence model, frozen, asked about one point at a time.
 ///
@@ -128,7 +146,7 @@ impl RiskScorer {
         {
             return false;
         }
-        self.risk_at(model, &finding.representative).0 >= self.threshold
+        self.read(model, &finding.representative).risk >= self.threshold
     }
 
     #[must_use]
@@ -136,13 +154,35 @@ impl RiskScorer {
         self.channels & bit(channel) != 0
     }
 
-    /// The evidence the report would have gathered at these coordinates, before calibration.
+    /// The report's judgement of one point that is not in its record set.
     ///
-    /// Identifiers are local to the query (0 for the point itself, 1.. per probe) because the point is
-    /// not in the campaign's record set; the numbers they name are the candidate's own executions, and
-    /// that is what a replayable claim needs.
+    /// Identifiers are local to the query (0 for the point itself, 1.. per probe) because the point
+    /// is not one of the campaign's records; the numbers they name are the candidate's own
+    /// executions, and that is what a replayable claim needs.
     #[must_use]
-    pub fn evidence_at(&self, model: &Model, x: &[f64]) -> Vec<Evidence> {
+    pub fn read(&self, model: &Model, x: &[f64]) -> Reading {
+        let mut executions = 0;
+        let mut items = self.gather(model, x, &mut executions);
+        // Calibrated exactly as the report calibrates: the fitted scales are the campaign's, so a
+        // candidate is unusual against the same ordinary values the finding was.
+        self.calibrator.apply(&mut items);
+        let score = fuse(
+            &EvidenceSet {
+                items: items.clone(),
+            },
+            &self.correlation,
+        )
+        .score;
+        Reading {
+            risk: score,
+            items,
+            executions,
+        }
+    }
+
+    /// The evidence the report would have gathered at these coordinates, before calibration, counting
+    /// every execution it takes to gather it.
+    fn gather(&self, model: &Model, x: &[f64], executions: &mut u64) -> Vec<Evidence> {
         if x.len() != model.params.len() {
             return Vec::new();
         }
@@ -150,6 +190,7 @@ impl RiskScorer {
             fp: FpMode::F64,
             max_steps: self.max_steps,
         };
+        *executions += 1;
         let base = Observation::new(0, x.to_vec(), &evaluate(model, x, cfg));
         let mut items = Vec::new();
         if self.wants(aporia_evidence::Channel::Physical) {
@@ -165,6 +206,7 @@ impl RiskScorer {
                 let Some((point, _step)) = perturb(model, x, axis) else {
                     continue;
                 };
+                *executions += 1;
                 let o = Observation::new(
                     1 + moved.len() as u64,
                     point.clone(),
@@ -181,6 +223,7 @@ impl RiskScorer {
         // being minimised was made of them, because evidence the report never gathered at a point
         // cannot be what a smaller counterexample is verified against.
         if self.wants(aporia_evidence::Channel::Numerical) {
+            *executions += 1;
             let reduced = Observation::new(
                 0,
                 x.to_vec(),
@@ -196,37 +239,42 @@ impl RiskScorer {
             items.extend(numerical(model, &[0], &base.y, &reduced.y));
         }
         if self.wants(aporia_evidence::Channel::Differential) {
+            *executions += 1;
             let reference = aporia_numerics::reference::evaluate(model, x, self.max_steps);
             items.extend(against_reference(model, &[0], &base.y, &reference.values()));
         }
         items
     }
 
-    /// The fused risk the report would have attached to this point, and the sentences behind it.
-    #[must_use]
-    pub fn risk_at(&self, model: &Model, x: &[f64]) -> (f64, Vec<Evidence>) {
-        let mut items = self.evidence_at(model, x);
-        // Calibrated exactly as the report calibrates: the fitted scales are the campaign's, so a
-        // candidate is unusual against the same ordinary values the finding was.
-        self.calibrator.apply(&mut items);
-        let score = fuse(
-            &EvidenceSet {
-                items: items.clone(),
-            },
-            &self.correlation,
-        )
-        .score;
-        (score, items)
-    }
-
+    /// The bar the report flagged a cell at — `Policy::suspicious_mean`, frozen with everything else.
     #[must_use]
     pub fn threshold(&self) -> f64 {
         self.threshold
     }
+}
 
-    /// Does this point reach the bar the report would have flagged it at?
+/// A [`RiskScorer`] in the shape the minimiser takes: one question per point, and the executions that
+/// question spent.
+///
+/// This is a type rather than a closure at the call site because the cost is part of the answer. A
+/// closure that knew only `violating(model, x) -> bool` could report only the call count, and the
+/// published column would go on comparing a one-execution oracle with an arity-plus-three one.
+#[derive(Debug)]
+pub struct RiskOracle<'a> {
+    model: &'a Model,
+    scorer: &'a RiskScorer,
+}
+
+impl<'a> RiskOracle<'a> {
     #[must_use]
-    pub fn violating(&self, model: &Model, x: &[f64]) -> bool {
-        self.risk_at(model, x).0 >= self.threshold
+    pub fn new(model: &'a Model, scorer: &'a RiskScorer) -> Self {
+        Self { model, scorer }
+    }
+}
+
+impl Oracle for RiskOracle<'_> {
+    fn query(&self, x: &[f64]) -> Verdict {
+        let reading = self.scorer.read(self.model, x);
+        Verdict::new(reading.risk >= self.scorer.threshold(), reading.executions)
     }
 }

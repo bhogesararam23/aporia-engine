@@ -8,7 +8,7 @@
 
 use aporia_dsl::lower::compile;
 use aporia_ir::{Dimension, Domain, Model, NumType, Param, Ty};
-use aporia_minimize::{AxisState, Case, Config, FailureOracle, minimize, reason};
+use aporia_minimize::{AxisState, Case, Config, FailureOracle, Oracle, Verdict, minimize, reason};
 
 /// A model of `arity` dimensionless parameters over `[-2, 2]`, with no computation at all.
 fn synthetic(arity: usize) -> Model {
@@ -34,11 +34,18 @@ fn model(text: &str) -> Model {
     c.model
 }
 
+/// A synthetic failure lives in the predicate, not in the model, so it executed nothing to answer.
+/// Wrapping is two lines and keeps the distinction the crate is careful about — queries against
+/// executions — visible in these tests instead of papered over by an assumed cost of one.
+fn predicate(f: impl Fn(&[f64]) -> bool) -> impl Fn(&[f64]) -> Verdict {
+    move |x: &[f64]| Verdict::new(f(x), 0)
+}
+
 #[test]
 fn a_failure_needing_three_of_eleven_parameters_minimises_to_three() {
     // The spec's own example (§11): an eleven-parameter failure reduced to what it needs.
     let m = synthetic(11);
-    let oracle = |x: &[f64]| x[0] > 1.0 && x[3] < -1.0 && x[7].abs() > 0.5;
+    let oracle = predicate(|x: &[f64]| x[0] > 1.0 && x[3] < -1.0 && x[7].abs() > 0.5);
     let start = vec![1.9, 0.4, -0.2, -1.8, 0.0, 1.1, -0.7, 1.4, 0.3, -0.9, 1.2];
     let out = minimize(&oracle, &m, &start, Config::default());
 
@@ -58,14 +65,14 @@ fn a_failure_needing_three_of_eleven_parameters_minimises_to_three() {
 #[test]
 fn a_parameter_the_failure_needs_is_never_dropped() {
     let m = synthetic(2);
-    let oracle = |x: &[f64]| x[0] > 0.0;
+    let oracle = predicate(|x: &[f64]| x[0] > 0.0);
     let out = minimize(&oracle, &m, &[1.0, 0.0], Config::default());
     assert!(out.verified);
     assert!(!matches!(out.case.axes[0].state, AxisState::Dropped));
     assert!(matches!(out.case.axes[1].state, AxisState::Dropped));
     // The drop is only a claim because every sample behind it actually failed.
     assert!(
-        out.case.witnesses().iter().all(|x| oracle(x)),
+        out.case.witnesses().iter().all(|x| oracle(x).violating),
         "{:?}",
         out.case.witnesses()
     );
@@ -74,7 +81,7 @@ fn a_parameter_the_failure_needs_is_never_dropped() {
 #[test]
 fn narrowing_finds_the_edge_of_a_one_sided_failure() {
     let m = synthetic(1);
-    let oracle = |x: &[f64]| x[0].abs() < 0.4;
+    let oracle = predicate(|x: &[f64]| x[0].abs() < 0.4);
     let out = minimize(&oracle, &m, &[0.1], Config::default());
     let AxisState::Band { lo, hi, .. } = out.case.axes[0].state else {
         panic!("expected an interval, got {:?}", out.case.axes[0].state);
@@ -89,7 +96,7 @@ fn digits_shrink_to_the_shortest_interval_that_still_fails() {
     // A region a little wider than 0.06 so the narrowed edges, which sit just inside the true
     // boundary, can be rounded to two digits and stay inside it. Rounding is only ever accepted
     // when the rounded description still verifies, which is the point of the test.
-    let oracle = |x: &[f64]| (x[0] - 0.25).abs() < 0.061;
+    let oracle = predicate(|x: &[f64]| (x[0] - 0.25).abs() < 0.061);
     let out = minimize(
         &oracle,
         &m,
@@ -119,7 +126,7 @@ fn digits_shrink_to_the_shortest_interval_that_still_fails() {
 #[test]
 fn a_failure_that_needs_no_parameters_reports_zero_dimensions() {
     let m = synthetic(4);
-    let oracle = |_x: &[f64]| true;
+    let oracle = predicate(|_x: &[f64]| true);
     let out = minimize(&oracle, &m, &[1.0, 1.0, 1.0, 1.0], Config::default());
     assert_eq!(out.case.dimensions(), 0, "{}", out.case.describe());
     assert!(out.verified);
@@ -131,7 +138,7 @@ fn a_failure_that_needs_no_parameters_reports_zero_dimensions() {
 #[test]
 fn a_start_that_is_not_a_failure_is_said_so_rather_than_minimised() {
     let m = synthetic(2);
-    let oracle = |x: &[f64]| x[0] > 5.0;
+    let oracle = predicate(|x: &[f64]| x[0] > 5.0);
     let out = minimize(&oracle, &m, &[1.0, 1.0], Config::default());
     assert!(!out.verified);
     assert!(!out.over_budget);
@@ -141,7 +148,7 @@ fn a_start_that_is_not_a_failure_is_said_so_rather_than_minimised() {
 #[test]
 fn running_out_of_budget_is_reported_instead_of_claiming_a_result() {
     let m = synthetic(3);
-    let oracle = |x: &[f64]| x[0] > 0.0;
+    let oracle = predicate(|x: &[f64]| x[0] > 0.0);
     let out = minimize(
         &oracle,
         &m,
@@ -153,7 +160,7 @@ fn running_out_of_budget_is_reported_instead_of_claiming_a_result() {
     );
     assert!(out.over_budget, "four calls cannot sample three domains");
     assert!(!out.verified);
-    assert!(out.evaluations >= 4);
+    assert!(out.queries >= 4);
 }
 
 #[test]
@@ -163,21 +170,67 @@ fn cost_is_attributed_to_oracle_calls_and_nothing_else() {
     let calls = Cell::new(0u64);
     let oracle = |x: &[f64]| {
         calls.set(calls.get() + 1);
-        x[0] > 0.0
+        // Nothing executed: the budget and the reported query count are both stated in calls.
+        Verdict::new(x[0] > 0.0, 0)
     };
     let out = minimize(&oracle, &m, &[1.0, 0.0], Config::default());
     assert_eq!(
-        out.evaluations,
+        out.queries,
         calls.get(),
-        "the reported cost is not the number of oracle calls"
+        "the reported query count is not the number of oracle calls"
     );
-    assert!(out.evaluations > 0);
+    assert_eq!(
+        out.executions, 0,
+        "an oracle that ran nothing was charged nothing"
+    );
+    assert!(out.queries > 0);
+}
+
+#[test]
+fn an_expensive_oracle_is_charged_for_every_execution_its_answers_used() {
+    // The distinction the column used to hide: the same search, the same budget, asked of a
+    // predicate that runs the model twice per answer. The budget is still spent in calls, and the
+    // executions are twice the calls — so a cost read from `queries` alone understates the work.
+    let m = synthetic(2);
+    let out = minimize(
+        &|x: &[f64]| Verdict::new(x[0] > 0.0, 2),
+        &m,
+        &[1.0, 0.0],
+        Config::default(),
+    );
+    assert!(out.verified, "{}", out.case.describe());
+    assert!(out.queries > 0);
+    assert_eq!(out.executions, 2 * out.queries);
+}
+
+#[test]
+fn a_budget_is_spent_in_calls_even_when_a_call_costs_several_executions() {
+    // An oracle five times as expensive per answer, asked under a small budget. If the budget were
+    // charged in executions the first verification would already be unaffordable and the run would
+    // stop being comparable with one that used a cheaper oracle, so the refusal has to come from the
+    // call count while the executions are still reported for what they were.
+    let m = synthetic(2);
+    let out = minimize(
+        &|_: &[f64]| Verdict::new(true, 5),
+        &m,
+        &[1.0, 0.0],
+        Config {
+            budget: 4,
+            ..Config::default()
+        },
+    );
+    assert!(out.over_budget);
+    assert_eq!(out.executions, 5 * out.queries);
+    assert!(
+        out.queries > 1,
+        "the budget is spent in calls, so a call's price must not stop the search early"
+    );
 }
 
 #[test]
 fn minimisation_never_adds_a_parameter_to_the_description() {
     let m = synthetic(5);
-    let oracle = |x: &[f64]| x[1] > 0.0 && x[4] > 1.0;
+    let oracle = predicate(|x: &[f64]| x[1] > 0.0 && x[4] > 1.0);
     let start = vec![0.0, 1.5, 0.0, 0.0, 1.9];
     let out = minimize(&oracle, &m, &start, Config::default());
     assert!(out.case.dimensions() <= Case::from_model(&m, &start).dimensions());
@@ -186,12 +239,35 @@ fn minimisation_never_adds_a_parameter_to_the_description() {
 #[test]
 fn the_same_failure_minimises_the_same_way_twice() {
     let m = synthetic(4);
-    let oracle = |x: &[f64]| x[0] < -1.0 && x[2].abs() > 0.5;
+    let oracle = predicate(|x: &[f64]| x[0] < -1.0 && x[2].abs() > 0.5);
     let start = vec![-1.9, 0.0, 1.4, 0.0];
     let a = minimize(&oracle, &m, &start, Config::default());
     let b = minimize(&oracle, &m, &start, Config::default());
     assert_eq!(a.case, b.case, "minimisation is not deterministic");
-    assert_eq!(a.evaluations, b.evaluations);
+    assert_eq!(a.queries, b.queries);
+    assert_eq!(a.executions, b.executions);
+}
+
+#[test]
+fn the_rule_oracle_charges_exactly_one_execution_per_answer() {
+    // `FailureOracle` asks the model one question per point, so its two cost numbers must agree, and
+    // a report that prints either one says the same thing. The risk oracle is where they part, and
+    // that is measured in `aporia-bench/tests/risk.rs` because it needs a finished campaign.
+    let m =
+        model("model s \"\" {\n input x in [-10, 10]\n let y = sqrt(x)\n require finite(y)\n}\n");
+    let oracle = FailureOracle::new(&m);
+    let out = minimize(&oracle, &m, &[-9.0], Config::default());
+    assert!(out.verified, "{}", out.case.describe());
+    assert_eq!(
+        out.executions, out.queries,
+        "one question per point means one execution per point"
+    );
+    // And a point the model cannot be asked about at all is refused without spending anything.
+    let refused = oracle.query(&[1.0, 2.0]);
+    assert!(
+        !refused.violating && refused.executions == 0,
+        "an arity mismatch ran the model: {refused:?}"
+    );
 }
 
 #[test]
@@ -296,7 +372,7 @@ fn an_interval_that_collapsed_is_printed_as_a_value() {
     let m = synthetic(1);
     // The failure needs this exact point and nowhere near it, so no band can be verified and the
     // description must stay a value rather than a degenerate `x in [0.4, 0.4]`.
-    let oracle = |x: &[f64]| (x[0] - 0.4).abs() < 1e-12;
+    let oracle = predicate(|x: &[f64]| (x[0] - 0.4).abs() < 1e-12);
     let out = minimize(
         &oracle,
         &m,
