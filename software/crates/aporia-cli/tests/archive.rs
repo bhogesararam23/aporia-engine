@@ -92,8 +92,7 @@ fn a_committed_archive_reproduces_two_versions_later() {
         .join("archive-sqrt_domain");
     assert!(
         dir.join("manifest.json").exists(),
-        "the committed archive is missing from {:?}",
-        dir
+        "the committed archive is missing from {dir:?}"
     );
     let out = aporia()
         .arg("replay")

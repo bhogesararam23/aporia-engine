@@ -83,8 +83,10 @@ pub fn write(
         environment,
         created_unix_ms: 0,
     };
-    let mut store = Store::create(dir).map_err(|e| format!("{dir:?}: {e}"))?;
-    store.write(&run).map_err(|e| format!("{dir:?}: {e}"))
+    let mut store = Store::create(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    store
+        .write(&run)
+        .map_err(|e| format!("{}: {e}", dir.display()))
 }
 
 /// One finding, in the shape the archive stores. Shared with nothing on purpose: the bench harness
