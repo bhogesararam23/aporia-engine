@@ -398,8 +398,14 @@ pub fn results_json(
     plan: &Plan,
     environment: &Environment,
 ) -> Json {
+    let plan_value = plan_json(plan);
+    let entries_value = entries_json(entries);
     Json::object(vec![
         ("schema", Json::text("aporia.results/1")),
+        (
+            "identity",
+            Json::text(identity_of(&plan_value, &entries_value)),
+        ),
         (
             "question",
             Json::text(
@@ -407,59 +413,8 @@ pub fn results_json(
                  distrust using fewer evaluations than simpler exploration strategies",
             ),
         ),
-        (
-            "plan",
-            Json::object(vec![
-                (
-                    "budgets",
-                    Json::Arr(plan.budgets.iter().map(|b| Json::count(*b)).collect()),
-                ),
-                (
-                    "strategies",
-                    Json::Arr(
-                        plan.strategies
-                            .iter()
-                            .map(|s| Json::text(strategy_name(*s)))
-                            .collect(),
-                    ),
-                ),
-                (
-                    "seeds",
-                    Json::Arr(plan.seeds.iter().map(|s| Json::count(*s)).collect()),
-                ),
-                ("grid_per_axis", Json::count(plan.grid as u64)),
-                ("minimise_budget", Json::count(plan.minimise_budget)),
-                // The rates that cost evaluations are part of the definition of the measurement, so
-                // they travel with its results: without them a reader cannot tell a channel that
-                // changed nothing from a channel that was never sampled.
-                ("probe_every", Json::count(plan.probe_every)),
-                ("numerical_every", Json::count(plan.numerical_every)),
-                ("differential_every", Json::count(plan.differential_every)),
-                ("symmetric_every", Json::count(plan.symmetric_every)),
-                ("refine_every", Json::count(plan.refine_every)),
-                ("calibrate_every", Json::count(plan.calibrate_every)),
-            ]),
-        ),
-        (
-            "entries",
-            Json::Arr(
-                entries
-                    .iter()
-                    .map(|e| {
-                        Json::object(vec![
-                            ("entry", Json::text(e.id())),
-                            ("fault", Json::text(e.truth.fault.clone())),
-                            ("method", Json::text(e.truth.method.clone())),
-                            ("control", Json::Bool(e.truth.control)),
-                            (
-                                "declared_regions",
-                                Json::count(e.truth.regions.len() as u64),
-                            ),
-                        ])
-                    })
-                    .collect(),
-            ),
-        ),
+        ("plan", plan_value),
+        ("entries", entries_value),
         ("environment", environment_json(environment)),
         (
             "sweeps",
@@ -475,6 +430,124 @@ pub fn results_json(
             )),
         ),
     ])
+}
+
+/// What the run was asked to do, as the document records it. Its own function because the identity of
+/// a measurement is a digest of exactly this, and two definitions of "the plan" must not be able to
+/// drift apart.
+fn plan_json(plan: &Plan) -> Json {
+    Json::object(vec![
+        (
+            "budgets",
+            Json::Arr(plan.budgets.iter().map(|b| Json::count(*b)).collect()),
+        ),
+        (
+            "strategies",
+            Json::Arr(
+                plan.strategies
+                    .iter()
+                    .map(|s| Json::text(strategy_name(*s)))
+                    .collect(),
+            ),
+        ),
+        (
+            "seeds",
+            Json::Arr(plan.seeds.iter().map(|s| Json::count(*s)).collect()),
+        ),
+        ("grid_per_axis", Json::count(plan.grid as u64)),
+        ("minimise_budget", Json::count(plan.minimise_budget)),
+        // The rates that cost evaluations are part of the definition of the measurement, so
+        // they travel with its results: without them a reader cannot tell a channel that
+        // changed nothing from a channel that was never sampled.
+        ("probe_every", Json::count(plan.probe_every)),
+        ("numerical_every", Json::count(plan.numerical_every)),
+        ("differential_every", Json::count(plan.differential_every)),
+        ("symmetric_every", Json::count(plan.symmetric_every)),
+        ("refine_every", Json::count(plan.refine_every)),
+        ("calibrate_every", Json::count(plan.calibrate_every)),
+    ])
+}
+
+/// Which corpus entries were covered, and what each one claimed. The claim travels with the name
+/// because measuring against an edited `truth.json` is a different measurement.
+fn entries_json(entries: &[Entry]) -> Json {
+    Json::Arr(
+        entries
+            .iter()
+            .map(|e| {
+                Json::object(vec![
+                    ("entry", Json::text(e.id())),
+                    ("fault", Json::text(e.truth.fault.clone())),
+                    ("method", Json::text(e.truth.method.clone())),
+                    ("control", Json::Bool(e.truth.control)),
+                    (
+                        "declared_regions",
+                        Json::count(e.truth.regions.len() as u64),
+                    ),
+                ])
+            })
+            .collect(),
+    )
+}
+
+/// The identity of one measurement: a short digest of the plan it ran and the entries it covered.
+///
+/// This exists because a measurement needs an address. Under the old name -- the second the run
+/// finished -- two runs of one plan were two unnameable experiments, and "is this the same measurement
+/// I published last month, or a different one?" had no answer that did not involve reading both files
+/// and diffing them by hand. Derived from the document's own `plan` and `entries` sections, so the
+/// bytes of a results file decide its name and a reader can recompute it.
+///
+/// Two things are deliberately *not* in it. The clock, because when a machine ran is not part of the
+/// question being asked. And the environment, because the same experiment run on another OS, or read
+/// from another corpus directory, is the same experiment -- `environment` still travels in the
+/// document as provenance for the numbers; it just does not name them.
+///
+/// List-valued plan fields and the entry list are sorted before digesting: `--strategies adaptive,random`
+/// and `--strategies random,adaptive` measure one comparison, so the name must not depend on the order
+/// the flags were typed in.
+#[must_use]
+pub fn identity_of(plan: &Json, entries: &Json) -> String {
+    let mut key = String::new();
+    if let Json::Obj(fields) = plan {
+        for (name, value) in fields {
+            let text = match value {
+                Json::Arr(items) => {
+                    let mut parts: Vec<String> = items.iter().map(Json::to_compact).collect();
+                    parts.sort();
+                    parts.join(",")
+                }
+                other => other.to_compact(),
+            };
+            key.push_str(name);
+            key.push('=');
+            key.push_str(&text);
+            key.push('\n');
+        }
+    }
+    let mut covered: Vec<String> = match entries {
+        Json::Arr(items) => items.iter().map(Json::to_compact).collect(),
+        _ => Vec::new(),
+    };
+    covered.sort();
+    key.push_str("entries=");
+    key.push_str(&covered.join(","));
+    // A prefix, not the whole digest: this is a name a human types and greps, not a checksum of the
+    // file's bytes. 48 bits is far past the number of measurements this corpus will ever record.
+    aporia_store::digest::sha256_hex(key.as_bytes())[..12].to_string()
+}
+
+/// The identity a results document carries: the recorded one when the writer computed it, and the one
+/// the document's own plan and entries imply when it predates the field. Both paths read the file, so
+/// a published measurement can be named without knowing what build wrote it.
+#[must_use]
+pub fn results_identity(results: &Json) -> Option<String> {
+    if let Some(recorded) = results.get("identity").and_then(Json::as_str) {
+        return Some(recorded.to_string());
+    }
+    let plan = results.get("plan")?;
+    let entries = results.get("entries")?;
+    Some(identity_of(plan, entries))
 }
 
 fn environment_json(environment: &Environment) -> Json {

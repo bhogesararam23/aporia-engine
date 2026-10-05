@@ -446,3 +446,21 @@ against direct evaluation of the model's own rules — so a change in these colu
 changed, not that a ground truth drifted. The reasoning behind the changes between the runs is in
 `docs/decisions/0014`, `0015` and `0016` (internal), and the code for each claim is in the commit
 named against its file in the table at the top of this one.
+
+The files above are named for the second they finished, which made a measurement's identity a fact about
+the clock: re-running one plan produced a second artefact that could not be recognised as the same
+question, and "have I already measured this?" had no answer short of diffing two files by hand. New runs
+are named for the measurement instead — a 12-character digest of the `plan` block and the entries it
+covered, recorded inside the file as `identity`. A rerun of one plan is therefore refused rather than
+duplicated (`pass --out DIR to keep both`), and a change to a budget, a strategy, a seed, an
+evaluation-costing rate, the entry selection or a `truth.json` claim yields a different name, because it
+is a different measurement. Where the run happened is not part of the name: that is provenance, and it
+stays in the document's `environment` block.
+
+Nothing here was renamed. The twelve timestamped files keep their names and their place in the history,
+and `aporia-bench verdict <file>` prints the identity each one implies from its own recorded plan and
+entries, so an old measurement can still be addressed by the experiment it was:
+
+```
+identity  e8a100bbf082  (derived from the plan and entries it records)
+```

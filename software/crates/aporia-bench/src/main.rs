@@ -11,7 +11,7 @@
 //! help text is short enough to keep accurate. A bad argument is refused with the usage printed,
 //! because a benchmark run that silently ignores `--budget` is a run whose numbers mean nothing.
 
-use aporia_bench::{corpus, harness, truth};
+use aporia_bench::{corpus, harness};
 use aporia_search::Strategy;
 use aporia_store::Environment;
 use std::path::PathBuf;
@@ -254,17 +254,6 @@ fn run_run(flags: &[String]) -> Result<i32, String> {
     if plan.budgets.is_empty() {
         plan.budgets = harness::Plan::default().budgets;
     }
-    let mut environment = Environment::current();
-    environment.rust_channel = std::env::var("APORIA_TOOLCHAIN").unwrap_or_default();
-    environment.notes.push((
-        "gpu".to_string(),
-        "no NVIDIA device on this machine, so no CUDA path was measured".to_string(),
-    ));
-    environment.notes.push((
-        "corpus".to_string(),
-        aporia_bench::corpus_root().display().to_string(),
-    ));
-
     let sweeps = harness::run_corpus(&selected, &plan);
     for s in &sweeps {
         println!("{}", s.row());
@@ -276,31 +265,60 @@ fn run_run(flags: &[String]) -> Result<i32, String> {
             selected
                 .iter()
                 .find(|e| e.id() == id)
-                .map(|e| truth::Truth {
-                    method: e.truth.method.clone(),
-                    fault: e.truth.fault.clone(),
-                    derivation: e.truth.derivation.clone(),
-                    regions: e.truth.regions.clone(),
-                    boundaries: e.truth.boundaries.clone(),
-                    control: e.truth.control,
-                    static_expected: e.truth.static_expected,
-                    narrow: e.truth.narrow,
-                    curved: e.truth.curved,
-                    degenerate: e.truth.degenerate,
-                    expects: e.truth.expects.clone(),
-                })
+                .map(|e| e.truth.clone())
         })
     );
 
-    let results = harness::results_json(&sweeps, &selected, &plan, &environment);
+    write_results(&sweeps, &selected, &plan, out_dir)
+}
+
+/// What this build recorded about where the measurement happened. Provenance for the numbers, and
+/// deliberately not part of their identity: the same plan measured elsewhere is the same experiment.
+fn measurement_environment() -> Environment {
+    let mut environment = Environment::current();
+    environment.rust_channel = std::env::var("APORIA_TOOLCHAIN").unwrap_or_default();
+    environment.notes.push((
+        "gpu".to_string(),
+        "no NVIDIA device on this machine, so no CUDA path was measured".to_string(),
+    ));
+    environment.notes.push((
+        "corpus".to_string(),
+        aporia_bench::corpus_root().display().to_string(),
+    ));
+    environment
+}
+
+/// Write the results document, under the name the measurement itself determines.
+///
+/// A rerun of a plan that was already measured is refused rather than written twice, because two files
+/// with the same numbers and different names invite a reader to compare them, and silently replacing
+/// one published number with another is how a measurement stops being evidence. `--out` to a fresh
+/// directory is the way to keep both.
+fn write_results(
+    sweeps: &[harness::Sweep],
+    selected: &[corpus::Entry],
+    plan: &harness::Plan,
+    out_dir: Option<PathBuf>,
+) -> Result<i32, String> {
+    let results = harness::results_json(sweeps, selected, plan, &measurement_environment());
     let dir = out_dir.unwrap_or_else(aporia_bench::results_dir);
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-    let path = dir.join(format!("results-{stamp}.json"));
+    let identity = harness::results_identity(&results)
+        .ok_or("the results document carries no plan or entries, so it cannot be named")?;
+    let path = dir.join(format!("results-{identity}.json"));
+    if path.exists() {
+        return Err(format!(
+            "{} already holds this measurement (identity {identity}). The plan, the strategies, the \
+             seeds and the ground truth are identical, so a second run could only differ in wall_ms; \
+             pass --out DIR to keep both.",
+            path.display()
+        ));
+    }
     std::fs::write(&path, results.to_pretty()).map_err(|e| format!("{}: {e}", path.display()))?;
-    println!("\nresults written to {}", path.display());
+    println!(
+        "\nresults written to {}  identity {identity}",
+        path.display()
+    );
     Ok(0)
 }
 
@@ -371,6 +389,20 @@ fn run_verdict(flags: &[String]) -> Result<i32, String> {
     let Some(sweeps) = value.get("sweeps").and_then(aporia_store::Json::as_array) else {
         return Err(format!("{path} has no sweeps section"));
     };
+    // The file's own name is the measurement's identity, so a results file written before the field
+    // existed can still be asked "which experiment are you" -- the answer comes from the plan and
+    // entries recorded inside it, not from the filename it happens to have.
+    if let Some(identity) = harness::results_identity(&value) {
+        let recorded = value.get("identity").is_some();
+        println!(
+            "identity  {identity}  {}",
+            if recorded {
+                "(as written)"
+            } else {
+                "(derived from the plan and entries it records)"
+            }
+        );
+    }
     for s in sweeps {
         let entry = s
             .get("entry")
