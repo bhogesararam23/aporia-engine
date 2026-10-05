@@ -3,6 +3,8 @@
 //! The measurement harness: the corpus, the ground-truth checks, and the metrics the research
 //! question is answered with.
 //!
+//! - [`cli`] — the six benchmark commands, reachable as a library so the front door and the
+//!   harness binary are one implementation
 //! - [`corpus`] — loading entries and verifying that a declared region really is one
 //! - [`truth`] — the declaration format and the geometry it needs
 //! - [`metrics`] — the metric definitions, each next to the code that computes it
@@ -12,6 +14,7 @@
 //! wrong ground truth is worse than no number at all. `aporia-bench verify` is not a convenience —
 //! it is the step that turns `benchmarks/` from a collection of opinions into a measuring instrument.
 
+pub mod cli;
 pub mod corpus;
 pub mod harness;
 pub mod metrics;
