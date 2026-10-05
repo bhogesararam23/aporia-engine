@@ -12,7 +12,7 @@ use aporia_dsl::lower::compile;
 use aporia_evidence::{Calibrator, Channel, ChannelCorrelation, Evidence, Subject};
 use aporia_ir::to_text;
 use aporia_runtime::{ExecConfig, Observation, Records, interp};
-use aporia_store::compare::{Change, Comparison, Field, Section};
+use aporia_store::compare::{Change, Comparison, Field, Section, Verdict};
 use aporia_store::{Environment, Json, Loaded, Run, Store, StoredFinding};
 use std::path::{Path, PathBuf};
 
@@ -492,6 +492,76 @@ fn comparing_the_same_two_archives_twice_gives_the_same_answer() {
     let first = Comparison::new(&a, &b);
     let second = Comparison::new(&a, &b);
     assert_eq!(first, second, "a comparison must repeat");
+    assert_eq!(
+        first.describe(&a_root, &b_root),
+        second.describe(&a_root, &b_root),
+        "the rendered comparison must repeat too"
+    );
+    let _ = std::fs::remove_dir_all(a_root);
+    let _ = std::fs::remove_dir_all(b_root);
+}
+
+#[test]
+fn the_rendering_shows_only_what_moved_and_names_the_two_values() {
+    let (a_root, a) = archive("render-a", &Variation::new(40));
+    let (b_root, b) = archive("render-b", &Variation::new(640));
+    let c = Comparison::new(&a, &b);
+    let text = c.describe(&a_root, &b_root);
+    assert!(text.contains("run  1 difference(s)"), "{text}");
+    assert!(text.contains("config.budget  40 -> 640"), "{text}");
+    // A section with nothing to say still says so, with how much was checked: silence would be
+    // indistinguishable from a section that was never compared.
+    assert!(text.contains("calibration  same ("), "{text}");
+    assert!(text.starts_with("A  "), "{text}");
+    assert!(text.contains("verdict  DIFFERENT:"), "{text}");
+    assert!(text.contains("neither model was executed"), "{text}");
+    // A section that was compared and found nothing to pair still reports as compared, which is not
+    // the same line as a section that could not be asked.
+    assert!(text.contains("findings  same ("), "{text}");
+    assert!(!text.contains("not compared"), "{text}");
+    // Only the fields there is something to say about are printed, so the text stays short on a real
+    // archive: one detail line here, for the one field that moved.
+    let details = text
+        .lines()
+        .filter(|l| l.starts_with("  ") && !l.starts_with("  verdict"))
+        .count();
+    assert_eq!(details, 1, "{text}");
+    let _ = std::fs::remove_dir_all(a_root);
+    let _ = std::fs::remove_dir_all(b_root);
+}
+
+#[test]
+fn identical_archives_render_a_verdict_that_cannot_be_misread_as_a_difference() {
+    let v = Variation::new(40);
+    let (a_root, a) = archive("render-same-a", &v);
+    let (b_root, b) = archive("render-same-b", &v);
+    let c = Comparison::new(&a, &b);
+    let text = c.describe(&a_root, &b_root);
+    assert!(text.contains("verdict  IDENTICAL"), "{text}");
+    assert!(!text.contains("DIFFERENT"), "{text}");
+    assert_eq!(c.verdict(), Verdict::Identical);
+    let _ = std::fs::remove_dir_all(a_root);
+    let _ = std::fs::remove_dir_all(b_root);
+}
+
+#[test]
+fn a_comparison_with_a_refused_section_is_not_reported_as_a_match() {
+    // The whole-archive version of the rule `identical()` already holds: nothing disagreed *and*
+    // everything was asked are two different results, and the text has to keep them apart.
+    let mut a = Variation::new(40);
+    a.findings = vec![finding(1, &[[-10.0, 0.0]], -8.75, 0.9)];
+    let mut b = Variation::new(40);
+    b.source = TWO;
+    b.samples = 1;
+    b.findings = vec![finding(1, &[[-10.0, 0.0], [0.0, 1.0]], -8.75, 0.9)];
+    let (a_root, la) = archive("refuse-a", &a);
+    let (b_root, lb) = archive("refuse-b", &b);
+    let c = Comparison::new(&la, &lb);
+    let text = c.describe(&a_root, &b_root);
+    assert!(text.contains("findings  not compared"), "{text}");
+    assert!(text.contains("atlas  not compared"), "{text}");
+    assert!(text.contains("skipped  findings:"), "{text}");
+    assert_eq!(c.verdict(), Verdict::Differing, "{text}");
     let _ = std::fs::remove_dir_all(a_root);
     let _ = std::fs::remove_dir_all(b_root);
 }

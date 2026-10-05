@@ -20,6 +20,7 @@
 use crate::json::Json;
 use crate::manifest::Manifest;
 use crate::store::{Loaded, StoredFinding};
+use std::path::Path;
 
 /// Which part of the archive a compared field belongs to, in reporting order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -343,7 +344,15 @@ pub fn calibration(a: &Manifest, b: &Manifest) -> Vec<Field> {
 /// Regions one run did not find at all come out as `OnlyA` / `OnlyB`.
 #[must_use]
 pub fn findings(a: &[StoredFinding], b: &[StoredFinding]) -> Vec<Field> {
-    let mut out = Vec::new();
+    // The count first, so a section with nothing to pair still reports: two runs that both found no
+    // region have been compared and agreed, which is a different statement from a comparison that
+    // could not be made at all.
+    let mut out = vec![Field::scalar(
+        Section::Findings,
+        "count",
+        a.len().to_string(),
+        b.len().to_string(),
+    )];
     let mut waiting: Vec<(String, usize)> =
         b.iter().enumerate().map(|(j, f)| (region(f), j)).collect();
     for found in a {
@@ -613,12 +622,122 @@ impl Comparison {
             .filter(|f| f.change != Change::Same)
             .collect()
     }
+
+    /// What the pair turned out to be, decided once here so no caller has to re-derive it from the
+    /// field list and get it subtly wrong.
+    #[must_use]
+    pub fn verdict(&self) -> Verdict {
+        if self.identical() {
+            Verdict::Identical
+        } else if self.differences().is_empty() {
+            // Nothing disagreed, but something could not be asked: an incomplete comparison is not a
+            // match.
+            Verdict::NotFullyComparable
+        } else {
+            Verdict::Differing
+        }
+    }
+
+    /// The comparison as text: one line per section, and beneath each section only the fields there
+    /// is something to say about.
+    ///
+    /// Deterministic by construction -- sections in [`Section::ORDER`], fields in the order they were
+    /// produced, no timestamps and no path canonicalisation -- because this text is what a test
+    /// asserts on and what a reader pastes into a report.
+    #[must_use]
+    pub fn describe(&self, a: &Path, b: &Path) -> String {
+        use std::fmt::Write as _;
+        let mut out = String::new();
+        let _ = writeln!(out, "A  {}", a.display());
+        let _ = writeln!(out, "B  {}", b.display());
+        for section in Section::ORDER {
+            let mine: Vec<&Field> = self
+                .fields
+                .iter()
+                .filter(|f| f.section == section && f.change != Change::Same)
+                .collect();
+            let total = self.fields.iter().filter(|f| f.section == section).count();
+            if total == 0 {
+                let _ = writeln!(out, "{}  not compared", section.name());
+                continue;
+            }
+            if mine.is_empty() {
+                let _ = writeln!(out, "{}  same ({total} field(s))", section.name());
+                continue;
+            }
+            let _ = writeln!(
+                out,
+                "{}  {} difference(s) of {total}",
+                section.name(),
+                mine.len()
+            );
+            for f in mine {
+                let _ = match (f.a.as_deref(), f.b.as_deref()) {
+                    (Some(x), Some(y)) => writeln!(out, "  {}  {x} -> {y}", f.path),
+                    (Some(x), None) => writeln!(out, "  {}  {x}  (only in A)", f.path),
+                    (None, Some(y)) => writeln!(out, "  {}  (only in B) {y}", f.path),
+                    (None, None) => writeln!(out, "  {}  absent on both sides", f.path),
+                };
+            }
+        }
+        for reason in &self.skipped {
+            let _ = writeln!(out, "skipped  {reason}");
+        }
+        let (changed, only_a, only_b) = self.tally();
+        let _ = match self.verdict() {
+            Verdict::Identical => writeln!(
+                out,
+                "verdict  IDENTICAL: {} field(s) agree",
+                self.fields.len()
+            ),
+            Verdict::Differing => writeln!(
+                out,
+                "verdict  DIFFERENT: {changed} field(s) changed, {only_a} only in A, {only_b} only \
+                 in B"
+            ),
+            Verdict::NotFullyComparable => writeln!(
+                out,
+                "verdict  NOT FULLY COMPARABLE: nothing disagreed, but {} section part(s) could not \
+                 be asked",
+                self.skipped.len()
+            ),
+        };
+        let _ = writeln!(
+            out,
+            "source  every value above was read from the two archives; neither model was executed"
+        );
+        out
+    }
+}
+
+/// How a pair of archives ended up.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Verdict {
+    /// Every compared field agreed, and every section could be compared.
+    Identical,
+    /// At least one field disagreed.
+    Differing,
+    /// No field disagreed, but a section could not be asked -- which is not the same as agreement.
+    NotFullyComparable,
+}
+
+impl Verdict {
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Identical => "IDENTICAL",
+            Self::Differing => "DIFFERENT",
+            Self::NotFullyComparable => "NOT FULLY COMPARABLE",
+        }
+    }
 }
 
 /// The region a finding is about, in the form both archives can produce from their own bytes.
 fn region(f: &StoredFinding) -> String {
     f.bounds_text()
 }
+
+/// Leaf values of two JSON objects, addressed by dotted path. The archived configs APORIA writes are
 /// flat, so a value that is itself an object or array is compared as one compact JSON string rather
 /// than descended into: guessing a nested shape here would be inventing a field the format does not
 /// have.
