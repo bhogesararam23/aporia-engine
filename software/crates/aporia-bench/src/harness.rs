@@ -281,7 +281,15 @@ pub fn archive_and_replay(
         decisions: &decisions,
         calibrator: &campaign.calibrator,
         correlation: &campaign.correlation,
-        exec: aporia_runtime::ExecConfig::default(),
+        exec: aporia_runtime::ExecConfig {
+            fp: aporia_runtime::FpMode::F64,
+            // The guard the campaign actually ran under, not the type's default. `replay_loaded`
+            // replays with this value, so archiving 50,000,000 for a run that was cut off at
+            // 2,000,000 means the replay is allowed to finish where the experiment aborted -- and the
+            // disagreement that follows would be reported as a reproduction failure of the build
+            // rather than as the archive's own bookkeeping error.
+            max_steps: campaign.config.max_steps_per_evaluation,
+        },
         evaluations: campaign.evaluations,
         instruction_steps: campaign.instruction_steps,
         environment,
