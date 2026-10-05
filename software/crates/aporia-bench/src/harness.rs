@@ -719,11 +719,13 @@ fn declared_axis(model: &aporia_ir::Model, region: &crate::truth::Declared) -> O
     model.param(name).map(|p| p as usize)
 }
 
+/// Does this band straddle the declared span on any axis the region constrains?
+///
+/// Overlap, not containment: a band is `[lo, hi]` along one axis while a region names a span on
+/// another, and the claim being made is "the atlas saw a transition where the fault is", which is true
+/// when the two intervals meet. `aporia_boundary::Band::contains` answers a different question — is
+/// this *value* inside this band — and is used by that crate's own tests, not by this metric.
 fn band_covers(band: &aporia_boundary::Band, region: &crate::truth::Declared) -> bool {
-    let name = band.axis.to_string();
-    let _ = name;
-    // A band is per-axis; a region constrains named axes by index, so the caller compares the
-    // numeric axis against each declared span it cares about.
     region
         .axes
         .iter()
