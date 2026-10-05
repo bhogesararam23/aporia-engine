@@ -438,6 +438,59 @@ Three distinct limits, and they are not the same problem.
   unchanged between the two. It is reported as measured with the cause not established, which is
   exactly why this file quotes steps whenever it needs a cost.
 
+## What the Behavioral channel's scale is actually made of
+
+`coupled_coils` declares `check symmetric(reactance wrt (turns_a, turns_b))` and leaves the product
+un-parenthesised on purpose: the base point evaluates `(0.3*Na)*Nb` and the swap evaluates
+`(0.3*Nb)*Na`, which round differently at isolated points. One such reading, at 1.1677e-16 relative,
+was the only Behavioral evidence in that campaign — fewer than eight of its own measurements, so the
+relation gets no stratum of its own and the channel-wide reference is what its claims are scored
+against. `Calibrator::fit` clamps that reference to `MIN_SCALE` = 1e-12. The question this section
+answers is whether that guard is protecting the report from the evaluator's rounding or deciding
+which real violations get believed. It was answered by measuring, not by choosing a constant that
+flatters a table (`aporia-bench/tests/behavioral_scale.rs`, budget 400, seed 1, every base point
+swapped; five models differing only in the size of the term that breaks the symmetry).
+
+| the model's symmetry is | swaps sampled | differing swaps | largest relative asymmetry | fitted Behavioral scale | loudest calibrated strength | peak risk | SUSPICIOUS volume | findings |
+|---|---|---|---|---|---|---|---|---|
+| exactly true, parenthesised | 100 | 0 | 0 | 1.000e0 (unfitted default) | 0.000 | 0.000 | 0.0000 | 0 |
+| exactly true, re-associated | 100 | 0 | 0 | 1.000e0 | 0.000 | 0.000 | 0.0000 | 0 |
+| violated by ~1e-14 | 100 | 74 | 6.226e-15 | **1.000e-12 (the guard)** | 0.000 | 0.000 | 0.0000 | 0 |
+| violated by ~1e-10 | 100 | 97 | 6.186e-11 | 4.141e-12 (its own median) | 1.000 | 1.000 | 0.0000 | 0 |
+| violated by ~1e-3 | 100 | 97 | 6.184e-4 | 4.141e-5 | 1.000 | 1.000 | 0.0000 | 0 |
+
+**The guard is the right order of magnitude for the artifact, and no change to it is supported.** The
+reassociation artifact is rare — at this seed and budget it did not appear at all — and where the
+corpus has measured one it was 1.1677e-16, four orders below the 1e-12 the guard pins the scale to.
+
+**The guard is also load-bearing in a direction this file had not stated.** The ~1e-14 row is not an
+artifact: that model's declared symmetry is genuinely violated wherever the difference shows. Its own
+median sits below the guard, so its stratum is clamped the same way the channel is and every item
+scores zero excess. A real violation of a declared relation is invisible below roughly 1e-11 relative.
+That is defensible — double precision promises little across a three-term expression — but it is now a
+measured consequence of the constant rather than an assumption about it.
+
+**Strength saturates, so the dose-response is read in the magnitudes.** `1 - exp(-excess)` pins the
+1e-10 and 1e-3 cases both at 1.000, differing only in the last digits. An earlier draft of this test
+asserted the scores had to be strictly ordered and failed on that; it would have been testing the
+exponential rather than the instrument.
+
+**The result that matters is not about the scale.** A model whose only defect is that its declared
+symmetry fails — at 97 of 100 swapped points, evidence strength saturating, peak fused risk 1.000 —
+reports `suspicious 0.0000` and zero findings. A relation violation is recorded as a *measurement*, and
+`Policy::suspicious_channels` requires two channels to corroborate a measurement, whereas a *fact* (a
+rule that fired, an output that left the real numbers) needs none. So `require` can flag a cell alone
+and `check symmetric` cannot, however often or however loudly it fails. The corroboration rule is
+working as designed and this section reports its cost: a pure symmetry defect is currently something
+APORIA measures and refuses to call suspicious.
+
+Whether a violated *declaration* should count as a fact rather than a measurement is open, and it is
+not settled here. The counter-evidence is this corpus's own control: `coupled_coils` is a control
+precisely because its symmetry evidence must not become a finding, so promoting relations to facts
+would need the promotion gated on calibrated strength — nonzero, which the guard already decides —
+and measured against the full ladder before it could be claimed. Until that A/B exists, the behaviour
+is pinned by test rather than changed by preference.
+
 ## Reading this table later
 
 `aporia-bench run` regenerates the JSON, and every archive it writes replays. The corpus verifies
