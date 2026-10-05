@@ -8,9 +8,11 @@
 //! the atlas all stay in the crates that already own them; what lives here is the process, the pipe,
 //! the wire format and the accounting of what the program cost.
 //!
-//! - [`protocol`] — one JSON object per line each way, shared by both sides. This is the whole
-//!   contract a foreign program has to meet, and the layer B child-process driver will use the same
-//!   functions on both ends of the pipe, so the format cannot quietly mean two things.
+//! - [`protocol`] — one JSON object per line each way, shared by both sides. The example program
+//!   decodes requests with the same functions APORIA uses to decode responses, so the format cannot
+//!   quietly mean two things.
+//! - [`program`] — the child process: launch, ask, answer, and the explicit failure modes
+//!   (cannot launch, died mid-run, refused to answer, malformed line, timeout).
 //!
 //! ## Why the JSON code is borrowed
 //!
@@ -27,8 +29,10 @@
 //! on this machine, launched by `std::process`. It does not accept a model that mixes external outputs
 //! with the model's own equations — the DSL refuses that, and the reason is recorded there.
 
+pub mod program;
 pub mod protocol;
 
+pub use program::{AdapterError, Program, ProgramSpec};
 pub use protocol::{
     Answer, ProtocolError, decode_request, decode_response, describe, encode_refusal,
     encode_request, encode_response,

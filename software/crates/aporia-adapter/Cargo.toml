@@ -17,5 +17,9 @@ aporia-store = { path = "../aporia-store" }
 aporia-dsl = { path = "../aporia-dsl" }
 aporia-search = { path = "../aporia-search" }
 
+[[bin]]
+name = "aporia-example-solver"
+path = "src/bin/example_solver.rs"
+
 [lints]
 workspace = true
