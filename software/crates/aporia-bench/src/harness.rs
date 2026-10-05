@@ -273,7 +273,7 @@ pub fn archive_and_replay(
         model_text: &entry.source,
         air_text: &air,
         records: &campaign.records,
-        config: Json::parse(&campaign_config_json(plan, strategy, seed)).unwrap_or(Json::Null),
+        config: campaign.config.json(),
         coverage: campaign.atlas.coverage(),
         atlas_csv: &campaign.atlas.to_csv(),
         bands: &bands,
@@ -300,21 +300,6 @@ pub fn archive_and_replay(
     store.write(&run).map_err(|e| e.to_string())?;
     let replay = aporia_store::replay_dir(dir).map_err(|e| e.to_string())?;
     Ok((replay.reproduced, replay.matched, replay.total))
-}
-
-fn campaign_config_json(plan: &Plan, strategy: Strategy, seed: u64) -> String {
-    format!(
-        "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},\"calibrate_every\":{},\"refine_every\":{},\"numerical_every\":{},\"differential_every\":{},\"symmetric_every\":{}}}",
-        plan.budgets.last().copied().unwrap_or(0),
-        crate::metrics::strategy_name(strategy),
-        seed,
-        plan.probe_every,
-        plan.calibrate_every,
-        plan.refine_every,
-        plan.numerical_every,
-        plan.differential_every,
-        plan.symmetric_every,
-    )
 }
 
 /// Run the whole corpus. Entries that do not compile are reported as skipped rather than measured.

@@ -111,34 +111,57 @@ impl Config {
         self
     }
 
-    /// The configuration as an experiment manifest stores it, so a replay can name what it replays.
+    /// The configuration as data, for whatever records the run: an archive's manifest, a results
+    /// document, a report.
+    ///
+    /// This used to return a `String` that every caller immediately parsed back into a value, which
+    /// meant a config could only be stored by way of a format that might fail -- and both callers wrote
+    /// `unwrap_or(Json::Null)` on that parse, so a failure would have archived an empty configuration
+    /// about a run that had all of one. Building the value directly removes the fallible step, and with
+    /// it the invented default.
+    ///
+    /// `max_steps_per_evaluation` is in here because it is part of what the run was: a campaign cut
+    /// off at two million steps per point is a different experiment from one allowed twenty. It
+    /// matches the archived execution guard (`aporia_store`'s `exec` block), which is the same number
+    /// seen from the other end.
     #[must_use]
-    pub fn to_json(&self) -> String {
-        format!(
-            concat!(
-                "{{\"budget\":{},\"strategy\":\"{}\",\"seed\":{},\"probe_every\":{},",
-                "\"calibrate_every\":{},\"numerical_every\":{},\"differential_every\":{},",
-                "\"symmetric_every\":{},",
-                "\"refine_every\":{},",
-                "\"atlas\":{{\"suspicious_mean\":{},\"suspicious_peak\":{},\"min_samples\":{},",
-                "\"min_channels\":{},\"suspicious_channels\":{},\"max_depth\":{}}}}}"
+    pub fn json(&self) -> aporia_store::Json {
+        use aporia_store::Json;
+        Json::object(vec![
+            ("budget", Json::count(self.budget)),
+            ("strategy", Json::text(self.strategy.name())),
+            ("seed", Json::count(self.seed)),
+            ("probe_every", Json::count(self.probe_every)),
+            ("calibrate_every", Json::count(self.calibrate_every)),
+            ("numerical_every", Json::count(self.numerical_every)),
+            ("differential_every", Json::count(self.differential_every)),
+            ("symmetric_every", Json::count(self.symmetric_every)),
+            ("refine_every", Json::count(self.refine_every)),
+            (
+                "max_steps_per_evaluation",
+                Json::count(self.max_steps_per_evaluation),
             ),
-            self.budget,
-            self.strategy.name(),
-            self.seed,
-            self.probe_every,
-            self.calibrate_every,
-            self.numerical_every,
-            self.differential_every,
-            self.symmetric_every,
-            self.refine_every,
-            self.policy.suspicious_mean,
-            self.policy.suspicious_peak,
-            self.policy.min_samples,
-            self.policy.min_channels,
-            self.policy.suspicious_channels,
-            self.policy.max_depth,
-        )
+            (
+                "atlas",
+                Json::object(vec![
+                    ("suspicious_mean", Json::number(self.policy.suspicious_mean)),
+                    ("suspicious_peak", Json::number(self.policy.suspicious_peak)),
+                    (
+                        "min_samples",
+                        Json::count(u64::from(self.policy.min_samples)),
+                    ),
+                    (
+                        "min_channels",
+                        Json::count(u64::from(self.policy.min_channels)),
+                    ),
+                    (
+                        "suspicious_channels",
+                        Json::count(u64::from(self.policy.suspicious_channels)),
+                    ),
+                    ("max_depth", Json::count(u64::from(self.policy.max_depth))),
+                ]),
+            ),
+        ])
     }
 }
 
@@ -1018,6 +1041,7 @@ mod tests {
     use aporia_dsl::lower::compile;
     use aporia_evidence::Channel;
     use aporia_runtime::interp::Outcome;
+    use aporia_store::Json;
 
     fn model(text: &str) -> Model {
         let c = compile("t.ap", text);
@@ -1510,10 +1534,47 @@ mod tests {
 
     #[test]
     fn a_config_describes_itself_exactly_enough_to_replay() {
-        let text = Config::default().to_json();
-        assert!(text.contains("\"strategy\":\"adaptive\""), "{text}");
-        assert!(text.contains("suspicious_mean"), "{text}");
-        assert!(text.contains("\"budget\":4000"), "{text}");
+        let config = Config::default().json();
+        assert_eq!(
+            config.get("strategy").and_then(Json::as_str),
+            Some("adaptive"),
+            "{config:?}"
+        );
+        assert!(
+            config
+                .get("atlas")
+                .is_some_and(|a| a.get("suspicious_mean").is_some()),
+            "the labelling thresholds are part of what the run was: {config:?}"
+        );
+        assert_eq!(
+            config.get("budget").and_then(Json::as_u64),
+            Some(4000),
+            "{config:?}"
+        );
+        // The step guard is the field this record existed without, and the one an archive's `exec`
+        // block repeats: a run cut off at two million steps is not the run allowed twenty.
+        assert_eq!(
+            config
+                .get("max_steps_per_evaluation")
+                .and_then(Json::as_u64),
+            Some(20_000_000),
+            "{config:?}"
+        );
+        // Every rate that costs evaluations is named, or a reader cannot tell a channel that found
+        // nothing from a channel that was never asked.
+        for rate in [
+            "probe_every",
+            "calibrate_every",
+            "numerical_every",
+            "differential_every",
+            "symmetric_every",
+            "refine_every",
+        ] {
+            assert!(
+                config.get(rate).is_some(),
+                "{rate} is missing from the recorded configuration"
+            );
+        }
     }
 
     #[test]

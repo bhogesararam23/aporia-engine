@@ -55,7 +55,7 @@ pub fn write(
     environment
         .notes
         .push(("execution".to_string(), execution.to_string()));
-    let config = Json::parse(&campaign.config.to_json()).unwrap_or(Json::Null);
+    let config = campaign.config.json();
     let bands = campaign.atlas.bands();
     let run = Run {
         model,

@@ -56,11 +56,27 @@ fn an_archive_records_the_step_budget_its_campaign_actually_ran_under() {
     .expect("the archive is written and replayed");
     let loaded = Loaded::open(&dir).expect("the archive reads back");
 
-    assert_eq!(
-        loaded.manifest.exec_max_steps, steps,
-        "the archive recorded a different step budget from the campaign it holds"
-    );
+    assert_eq!(loaded.manifest.exec_max_steps, steps);
     assert_eq!(loaded.manifest.exec_fp, "f64");
+    // The manifest's configuration is the campaign's own value, not a string another writer built to
+    // look like one. `aporia-bench` used to hand-format this block from the plan -- without the atlas
+    // thresholds, without the step guard, and with the top of the budget ladder where the archived
+    // campaign's budget should have been -- while `aporia run` asked the campaign. Two sentences about
+    // one run is how they started meaning different things.
+    assert_eq!(
+        loaded.manifest.config,
+        campaign.config.json(),
+        "the archived configuration is not the campaign's own"
+    );
+    assert_eq!(
+        loaded
+            .manifest
+            .config
+            .get("max_steps_per_evaluation")
+            .and_then(aporia_store::Json::as_u64),
+        Some(steps),
+        "the step guard is missing from the recorded configuration"
+    );
     assert!(
         reproduced,
         "a freshly written archive did not reproduce: {matched}/{total}"

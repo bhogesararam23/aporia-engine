@@ -292,6 +292,13 @@ fn the_archive_holds_exactly_what_the_campaign_offered_to_store() {
     let loaded = aporia_store::Loaded::open(&dir).expect("the archive reads back");
 
     assert_eq!(loaded.findings.len(), offered.len());
+    // The configuration block is the campaign's own value, in both callers' hands now: the harness used
+    // to format an equivalent-looking string itself, and "equivalent-looking" is what drifted.
+    assert_eq!(
+        loaded.manifest.config,
+        campaign.config.json(),
+        "the command line stored a configuration the campaign did not describe"
+    );
     for (stored, expected) in loaded.findings.iter().zip(&offered) {
         // Compared as the archive stores them: a loaded finding holds its evidence as the JSON objects
         // it was read from, so the stored form is the only one both sides have.
