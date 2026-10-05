@@ -5,6 +5,11 @@
 # Session scratch (toolchain bootstrap downloads, temp build dirs)
 /.bootstrap/
 
+# Working scratch this project's own sessions create: a staged copy of a built binary so a long
+# measurement can run while the tree keeps being rebuilt, and the log it prints. Nothing in here is
+# an artefact -- the artefacts it produces land under software/benchmarks/.
+/.scratch/
+
 # Rust build artifacts
 /software/target/
 **/target/
