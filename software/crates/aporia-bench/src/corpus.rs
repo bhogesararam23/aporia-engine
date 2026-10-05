@@ -207,6 +207,7 @@ fn verify_entry(e: &Entry, per_axis: usize) -> Vec<Problem> {
         });
         return out;
     }
+    out.extend(undeclared_axes(e, model));
     let mut inside_total = 0u64;
     let mut inside_ok = 0u64;
     let mut outside_total = 0u64;
@@ -277,6 +278,43 @@ fn verify_entry(e: &Entry, per_axis: usize) -> Vec<Problem> {
 /// A degenerate box has zero width, so a grid can never land inside it: those regions are checked by
 /// evaluating the exact boundary value the box names instead.
 #[must_use]
+/// Every axis a declaration names that the model does not have.
+///
+/// A boundary or region on an absent parameter cannot be checked against anything. It used to reach
+/// the metrics anyway, which reported it as a band that missed -- an absence scored as a failure, in
+/// the same column as real measurements. Refusing it here means a typo in a `truth.json` stops a
+/// measurement instead of quietly becoming part of its published numbers.
+fn undeclared_axes(e: &Entry, model: &Model) -> Vec<Problem> {
+    let named = e
+        .truth
+        .boundaries
+        .iter()
+        .map(|b| {
+            (
+                format!("boundary on axis {:?}", b.axis),
+                vec![b.axis.clone()],
+            )
+        })
+        .chain(e.truth.regions.iter().enumerate().map(|(i, r)| {
+            (
+                format!("region {i} ({})", r.reason),
+                r.axes.iter().map(|(n, _)| n.clone()).collect(),
+            )
+        }));
+    let mut out = Vec::new();
+    for (what, axes) in named {
+        for axis in axes {
+            if model.param(&axis).is_none() {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!("{what}: the model has no parameter named {axis:?}"),
+                });
+            }
+        }
+    }
+    out
+}
+
 fn check_degenerate_boxes(model: &Model, e: &Entry) -> (u64, u64, Option<String>) {
     let mut total = 0;
     let mut ok = 0;

@@ -479,12 +479,18 @@ fn duplicate_rate(
 
 fn boundary_hit(model: &aporia_ir::Model, campaign: &Campaign, b: &Boundary) -> BoundaryHit {
     let Some(axis) = model.param(&b.axis).map(|p| p as usize) else {
+        // Nothing was measured, so nothing is reported as measured. `error: Some(f64::NAN)` was here
+        // instead, which the results writer rendered as the string "NaN" -- a fabricated reading of a
+        // number that does not exist, in the same column as real errors, and `within_tolerance: false`
+        // made the absence count as a missed boundary. `corpus::verify` now refuses such a declaration
+        // before any measurement runs; this is the shape the answer takes if that check is ever
+        // bypassed.
         return BoundaryHit {
             axis: b.axis.clone(),
             declared_at: b.at,
             tolerance: b.tolerance,
             band: None,
-            error: Some(f64::NAN),
+            error: None,
             within_tolerance: false,
         };
     };
