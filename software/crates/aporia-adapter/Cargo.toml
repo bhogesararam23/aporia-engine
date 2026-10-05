@@ -1,0 +1,21 @@
+[package]
+name = "aporia-adapter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The external-computation boundary: run a program APORIA did not parse and feed its answers to the same campaign as any other model."
+
+[dependencies]
+aporia-ir = { path = "../aporia-ir" }
+aporia-runtime = { path = "../aporia-runtime" }
+aporia-store = { path = "../aporia-store" }
+
+[dev-dependencies]
+aporia-dsl = { path = "../aporia-dsl" }
+aporia-search = { path = "../aporia-search" }
+
+[lints]
+workspace = true
