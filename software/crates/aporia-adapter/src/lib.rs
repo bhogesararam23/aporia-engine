@@ -29,6 +29,7 @@
 //! on this machine, launched by `std::process`. It does not accept a model that mixes external outputs
 //! with the model's own equations — the DSL refuses that, and the reason is recorded there.
 
+pub mod example;
 pub mod program;
 pub mod protocol;
 
