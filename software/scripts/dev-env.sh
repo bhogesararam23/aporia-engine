@@ -9,6 +9,31 @@
 # went through vcvars, those are empty and linking fails with LNK1181 on the first
 # import library. Committing the detection here keeps every recorded benchmark run
 # reproducible from a clean checkout.
+#
+# On a platform that does not link through MSVC there is nothing to set, and that is a
+# success rather than a failure. The distinction matters because every verification
+# script in this directory starts with `source scripts/dev-env.sh || exit 1`: an
+# unconditional "no Visual Studio here" would mean the project's gates only close on
+# one operating system, which is exactly the portability claim this file is making.
+
+# Rust lives here when rustup did not modify PATH, which is the case in the minimal-profile
+# bootstrap this project documents. It applies on every platform, so it runs before the MSVC
+# detection below can decide there is nothing else for this file to do.
+if [ -d "$HOME/.cargo/bin" ]; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+case "$(uname -s 2>/dev/null || echo unknown)" in
+    MINGW* | MSYS* | CYGWIN* | Windows_NT) ;;
+    *)
+        # Linux and macOS take cc, ar and the C library from PATH; there is no
+        # INCLUDE / LIB pair for rustc to be missing.
+        if [ "${1-}" = "--print" ]; then
+            echo "platform : $(uname -s) — no MSVC environment to set up"
+        fi
+        return 0 2>/dev/null || exit 0
+        ;;
+esac
 
 _aporia_vs_root=""
 for _cand in \
@@ -56,11 +81,6 @@ export INCLUDE="$(_aporia_win "$_aporia_msvc/include");$(_aporia_win "$_aporia_s
 export LIB="$(_aporia_win "$_aporia_msvc/lib/x64");$(_aporia_win "$_aporia_sdk/Lib/$_aporia_sdk_ver/ucrt/x64");$(_aporia_win "$_aporia_sdk/Lib/$_aporia_sdk_ver/um/x64")"
 export LIBPATH="$LIB"
 export PATH="$PATH:$_aporia_msvc/bin/Hostx64/x64:$_aporia_sdk/bin/$_aporia_sdk_ver/x64"
-
-# Rust lives here on this machine and rustup did not modify PATH.
-if [ -d "$HOME/.cargo/bin" ]; then
-    export PATH="$HOME/.cargo/bin:$PATH"
-fi
 
 unset _aporia_vs_root _aporia_msvc _aporia_sdk _aporia_sdk_ver
 
