@@ -149,6 +149,22 @@ pub struct StateDecl {
     pub init: Expr,
 }
 
+/// A quantity the model declares but does not compute: an external program produces it.
+///
+/// This is the adapter boundary written in the language the analyst already uses. Keeping it in the
+/// DSL instead of a separate spec format means everything downstream of the declaration — units and
+/// dimensions, domains, `require` rules, `check` relations, the verifier and the canonical `.air`
+/// text — applies to a foreign program exactly as it does to a model APORIA interprets itself. A
+/// second description format would only have been a second chance to describe one quantity twice.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OutputDecl {
+    pub name: String,
+    pub span: Span,
+    /// The unit the program's answer arrives in. With no equation to infer a dimension from, an
+    /// unannotated output is a pure number, the same way an unannotated parameter is.
+    pub unit: Option<Expr>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LetDecl {
     pub name: String,
@@ -271,6 +287,7 @@ pub struct CheckStmt {
 pub enum Member {
     Input(InputDecl),
     State(StateDecl),
+    Output(OutputDecl),
     Let(LetDecl),
     Advance(AdvanceStmt),
     Loop(LoopStmt),
@@ -285,6 +302,7 @@ impl Member {
         match self {
             Self::Input(d) => d.span,
             Self::State(d) => d.span,
+            Self::Output(d) => d.span,
             Self::Let(d) => d.span,
             Self::Advance(s) => s.span,
             Self::Loop(s) => s.span,
@@ -304,7 +322,7 @@ impl Member {
     /// loop body.
     #[must_use]
     pub fn is_declaration(&self) -> bool {
-        matches!(self, Self::Input(_) | Self::State(_))
+        matches!(self, Self::Input(_) | Self::State(_) | Self::Output(_))
     }
 }
 

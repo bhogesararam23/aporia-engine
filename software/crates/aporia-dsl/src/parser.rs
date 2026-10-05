@@ -216,6 +216,7 @@ impl Parser<'_> {
         let member = match keyword {
             Some(Keyword::Input) => Member::Input(self.input_decl()?),
             Some(Keyword::State) => Member::State(self.state_decl()?),
+            Some(Keyword::Output) => Member::Output(self.output_decl()?),
             Some(Keyword::Let) => Member::Let(self.let_decl()?),
             Some(Keyword::Advance) => Member::Advance(self.advance()?),
             Some(Keyword::Loop) => Member::Loop(self.loop_stmt()?),
@@ -357,6 +358,20 @@ impl Parser<'_> {
             span: start.merge(name_span),
             unit,
             init,
+        })
+    }
+
+    /// `output name`, optionally followed by `: unit`. No expression, and that is the whole point: a
+    /// foreign model is one where the declaration stops at the name and its dimension because the
+    /// arithmetic lives in another program.
+    fn output_decl(&mut self) -> Parsed<crate::ast::OutputDecl> {
+        let start = self.bump().span;
+        let (name, name_span) = self.expect_ident()?;
+        let unit = self.annotated_unit()?;
+        Ok(crate::ast::OutputDecl {
+            name,
+            span: start.merge(name_span),
+            unit,
         })
     }
 
@@ -930,6 +945,23 @@ mod tests {
         let mut ms = members(text);
         assert_eq!(ms.len(), 1, "{ms:?}");
         ms.remove(0)
+    }
+
+    #[test]
+    fn an_output_declaration_parses_without_an_expression() {
+        // The shape is the feature: `output` carries a name and optionally a unit, and stops there.
+        // If the parser ever swallowed an expression after it, a foreign model could quietly grow
+        // equations that no program is bound to.
+        let Member::Output(d) = one("output deflection : mm") else {
+            panic!("expected an output declaration");
+        };
+        assert_eq!(d.name, "deflection");
+        assert!(d.unit.is_some());
+        let Member::Output(plain) = one("output deflection") else {
+            panic!("expected an output declaration");
+        };
+        assert_eq!(plain.name, "deflection");
+        assert!(plain.unit.is_none(), "{plain:?}");
     }
 
     #[test]

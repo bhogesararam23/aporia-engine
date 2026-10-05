@@ -19,8 +19,8 @@
 
 use crate::ast::{
     AdvanceStmt, AstModel, BinOp, CheckStmt, CmpSyntax, DomainSyntax, Expr, InputDecl, LetDecl,
-    LitValue, LoopStmt, Member, MonotoneDir, RelationSyntax, RequireKind, RequireStmt, StateDecl,
-    UnOp, WatchStmt,
+    LitValue, LoopStmt, Member, MonotoneDir, OutputDecl, RelationSyntax, RequireKind, RequireStmt,
+    StateDecl, UnOp, WatchStmt,
 };
 use crate::builtins;
 use crate::span::{Diagnostic, Diagnostics, Span};
@@ -166,7 +166,40 @@ impl Binder {
             match member {
                 Member::Input(d) => self.input(d),
                 Member::State(d) => self.state(d),
+                Member::Output(d) => self.output(d),
                 _ => {}
+            }
+        }
+        // A model either computes its outputs or declares them external. Both at once is refused,
+        // and the reason is a lie waiting to happen: the analysis path executes a model as a whole,
+        // so a foreign program answering for `deflection` in a model that also writes `let stress =
+        // deflection / area` would leave that equation unread. Either the equations belong to the
+        // program -- in which case APORIA should not be shown a decorative copy of them -- or they
+        // belong to the model, in which case the outputs are not external. Relaxing this needs an
+        // execution path that can answer per value, and nothing has that yet.
+        if ast.members.iter().any(|m| matches!(m, Member::Output(_))) {
+            for member in &ast.members {
+                match member {
+                    Member::Let(d) => self.error(
+                        format!(
+                            "`{}` computes a value, but this model declares external outputs; \
+                             a program supplies every output or the model does",
+                            d.name
+                        ),
+                        d.span,
+                    ),
+                    Member::State(_) | Member::Loop(_) | Member::Advance(_) => self.error(
+                        "state and loops belong to the model's own arithmetic, which an external \
+                         output cannot have",
+                        member.span(),
+                    ),
+                    Member::Watch(w) => self.error(
+                        "`watch` records a value the model computes inside its loop, and an \
+                         external model has no loop to record",
+                        w.span,
+                    ),
+                    _ => {}
+                }
             }
         }
     }
@@ -175,7 +208,7 @@ impl Binder {
         self.in_loop = false;
         for member in &ast.members {
             match member {
-                Member::Input(_) | Member::State(_) => {}
+                Member::Input(_) | Member::State(_) | Member::Output(_) => {}
                 other => self.statement(other),
             }
         }
@@ -196,7 +229,7 @@ impl Binder {
             Member::Watch(w) => self.watch(w),
             Member::Require(r) => self.require(r),
             Member::Check(c) => self.check(c),
-            Member::Input(_) | Member::State(_) => {
+            Member::Input(_) | Member::State(_) | Member::Output(_) => {
                 self.error(
                     "a declaration appeared where a statement was expected",
                     member.span(),
@@ -315,6 +348,36 @@ impl Binder {
             },
         );
         let value = Operand::Slot(id);
+        self.push_output(&d.name, ty, value, d.span);
+    }
+
+    /// `output deflection : mm` — a value an external program supplies.
+    ///
+    /// Lowering emits one `InstrKind::Opaque` and binds the name to it, which is the whole
+    /// representation change: from here the quantity behaves in the language like any other observed
+    /// output (rules type-check against its dimension, relations can name it, the canonical `.air`
+    /// text carries it) while every interpreter that meets the instruction refuses to answer for it.
+    /// The declaration deliberately records no equation, because the equations belong to a program
+    /// APORIA cannot see, and a copy of them here would be a claim about code the instrument never
+    /// read.
+    fn output(&mut self, d: &OutputDecl) {
+        let unit = self.unit_expr(d.unit.as_ref(), d.span).unwrap_or_default();
+        if unit.dim.is_unknown() {
+            self.error(
+                format!("the unit of output `{}` cannot be worked out", d.name),
+                d.span,
+            );
+            return;
+        }
+        let num = if unit.integral {
+            NumType::I64
+        } else {
+            NumType::F64
+        };
+        let ty = Ty { num, dim: unit.dim };
+        let value = self.emit(ty, InstrKind::Opaque);
+        self.scope
+            .insert(d.name.clone(), Bound { value, num, unit });
         self.push_output(&d.name, ty, value, d.span);
     }
 
@@ -2289,5 +2352,75 @@ mod tests {
     fn a_count_unit_marks_a_parameter_integral() {
         let m = ok("model c \"\" {\n input n : count in [1, 100]\n let y = n * 2\n}\n");
         assert_eq!(m.params[0].ty.num, NumType::I64);
+    }
+
+    const BEAM: &str = "model beam \"deflection from an external solver\" {\n\
+        input load : N in [0, 100]\n\
+        output deflection : mm\n\
+        require deflection >= 0\n\
+    }\n";
+
+    #[test]
+    fn an_external_output_lowers_to_a_value_the_model_does_not_compute() {
+        let m = ok(BEAM);
+        assert_eq!(m.params.len(), 1);
+        assert_eq!(m.outputs.len(), 1);
+        assert_eq!(m.outputs[0].name, "deflection");
+        assert_eq!(m.constraints.len(), 1);
+        // The declaration produced exactly one instruction, and it is the one no interpreter answers.
+        assert_eq!(m.instrs.len(), 1, "{:?}", m.instrs);
+        assert!(matches!(m.instrs[0].kind, InstrKind::Opaque));
+        assert_eq!(m.outputs[0].value, Operand::Node(0));
+        // The unit is not decoration: it is what the rule is checked against, so an external quantity
+        // is as dimension-checked as a computed one.
+        assert_eq!(
+            m.outputs[0].ty.dim,
+            aporia_ir::Dimension::base(aporia_ir::LENGTH, 1)
+        );
+    }
+
+    #[test]
+    fn a_model_with_both_equations_and_external_outputs_is_refused() {
+        // The execution path answers for a model as a whole, so an equation sitting beside an
+        // external output would never be run. Accepting it would put arithmetic in the file that the
+        // instrument is not performing -- a claim about code APORIA never executed.
+        let errs = expect_errors(
+            "model mixed \"\" {\n input x in [0, 1]\n output y : mm\n let z = x * 2\n}\n",
+        );
+        assert!(
+            errs.iter().any(|e| e.contains("external outputs")),
+            "{errs:?}"
+        );
+        let errs = expect_errors(
+            "model mixed2 \"\" {\n input dt in [0, 1]\n state x = 1.0\n loop 2 {\n advance x = x + dt\n }\n output y : m\n}\n",
+        );
+        assert!(errs.iter().any(|e| e.contains("state")), "{errs:?}");
+    }
+
+    #[test]
+    fn a_rule_between_two_external_quantities_is_still_dimension_checked() {
+        // Both sides come from a program, and neither is exempt from the unit system: `mm > kg` is
+        // refused exactly as `x * x > m/s` would be.
+        let errs = expect_errors(
+            "model two \"\" {\n input x in [0, 1]\n output d : mm\n output w : kg\n require d > w\n}\n",
+        );
+        assert!(!errs.is_empty(), "the mismatch was accepted");
+        assert!(
+            errs.iter()
+                .any(|e| e.contains("mm") || e.contains("kg") || e.contains("dimension")),
+            "{errs:?}"
+        );
+    }
+
+    #[test]
+    fn an_external_model_writes_and_reads_back_as_canonical_air() {
+        // An archive stores the A-IR text and replays against it, so a model whose outputs come from
+        // outside has to survive that round trip or an archived external run could not be reproduced
+        // from what was stored.
+        let m = ok(BEAM);
+        let text = aporia_ir::to_text(&m);
+        assert!(text.contains("opaque"), "{text}");
+        let back = aporia_ir::from_text(&text).unwrap_or_else(|e| panic!("{e}\n{text}"));
+        assert_eq!(m, back);
     }
 }
