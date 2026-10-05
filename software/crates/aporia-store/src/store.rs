@@ -298,7 +298,12 @@ impl StoredFinding {
         out
     }
 
-    fn bounds_text(&self) -> String {
+    /// The region as text: `[lo, hi]` per axis, in axis order. `compare` uses it as the identity of a
+    /// finding, because it is the part of a finding two archives can legitimately be asked to agree
+    /// on -- unlike `cell`, which is an index into one archive's own atlas and so means nothing in
+    /// another's.
+    #[must_use]
+    pub fn bounds_text(&self) -> String {
         self.bounds
             .iter()
             .map(|[lo, hi]| format!("[{lo}, {hi}]"))

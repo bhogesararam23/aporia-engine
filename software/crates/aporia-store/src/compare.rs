@@ -19,6 +19,7 @@
 
 use crate::json::Json;
 use crate::manifest::Manifest;
+use crate::store::{Loaded, StoredFinding};
 
 /// Which part of the archive a compared field belongs to, in reporting order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -328,7 +329,182 @@ pub fn calibration(a: &Manifest, b: &Manifest) -> Vec<Field> {
     out
 }
 
-/// Leaf values of two JSON objects, addressed by dotted path. The archived configs APORIA writes are
+/// The findings of two runs, put in pairs by the region they describe.
+///
+/// The region is the identity APORIA can actually assert. `cell` is an index into one archive's own
+/// atlas, so two runs that refined in a different order number the same stretch of space
+/// differently, and pairing on it would invent a correspondence the bytes do not support. The bounds
+/// and the representative are coordinates in the model's parameter space, which both runs share
+/// whenever they share a parameter count, so equal geometry means the same claim about the same
+/// place even when the report ranked it differently.
+///
+/// Within a pair every remaining field is compared, including `cell` and the report position: a
+/// region that moved down the ranking, or that the atlas re-cut, is information rather than noise.
+/// Regions one run did not find at all come out as `OnlyA` / `OnlyB`.
+#[must_use]
+pub fn findings(a: &[StoredFinding], b: &[StoredFinding]) -> Vec<Field> {
+    let mut out = Vec::new();
+    let mut waiting: Vec<(String, usize)> =
+        b.iter().enumerate().map(|(j, f)| (region(f), j)).collect();
+    for found in a {
+        let key = region(found);
+        match waiting.iter().position(|(r, _)| *r == key) {
+            Some(at) => {
+                let (_, j) = waiting.remove(at);
+                let paired = &b[j];
+                let path = format!("region {key}");
+                for (field, xa, xb) in finding_fields(found, paired) {
+                    out.push(Field::scalar(
+                        Section::Findings,
+                        &format!("{path}.{field}"),
+                        xa,
+                        xb,
+                    ));
+                }
+                // A minimised case is absent rather than empty on either side, and absence is a
+                // verdict of its own: one run verified a smaller counterexample and the other did
+                // not, which is not the same statement as the two claiming different cases.
+                out.push(Field::optional(
+                    Section::Findings,
+                    &format!("{path}.case"),
+                    found.case.clone(),
+                    paired.case.clone(),
+                ));
+            }
+            None => out.push(Field::optional(
+                Section::Findings,
+                &format!("region {key}"),
+                Some(summary(found)),
+                None,
+            )),
+        }
+    }
+    for (_, j) in waiting {
+        let missed = &b[j];
+        out.push(Field::optional(
+            Section::Findings,
+            &format!("region {}", region(missed)),
+            None,
+            Some(summary(missed)),
+        ));
+    }
+    out
+}
+
+/// Every field of a finding except the region itself, as text from the archive's own writer. Numbers
+/// go through `Json`, so a comparison cannot print a value in a form the file it read does not use.
+fn finding_fields(a: &StoredFinding, b: &StoredFinding) -> Vec<(&'static str, String, String)> {
+    let (ta, tb) = (a.to_json(), b.to_json());
+    let value = |json: &Json, key: &str| {
+        let held = json.get(key).cloned().unwrap_or(Json::Null);
+        leaf(&held)
+    };
+    // The name a reader sees, then the key the archive actually stores it under. `report_index` is
+    // spelled differently on purpose: in the file it is `index`, and here it is the position the
+    // finding held in the report that wrote it.
+    [
+        ("report_index", "index"),
+        ("cell", "cell"),
+        ("label", "label"),
+        ("observation", "observation"),
+        ("online_risk", "online_risk"),
+        ("final_risk", "final_risk"),
+        ("samples", "samples"),
+        ("evidence", "evidence"),
+    ]
+    .into_iter()
+    .map(|(name, key)| (name, value(&ta, key), value(&tb, key)))
+    .collect()
+}
+
+/// A finding as one value, for a region the other run did not report.
+fn summary(f: &StoredFinding) -> String {
+    format!(
+        "{} risk {} {} samples",
+        f.label,
+        Json::number(f.final_risk).to_compact(),
+        f.samples
+    )
+}
+
+/// Two archives read against each other.
+///
+/// The assembly is here rather than in whoever renders it because the order of the sections and the
+/// rule about what may be compared at all are part of what a comparison *means*. A command line that
+/// decided those would be a second definition of the operation.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Comparison {
+    pub fields: Vec<Field>,
+    /// Sections this pair cannot be asked about, each with the reason it was skipped. A structural
+    /// difference makes some comparisons meaningless rather than merely different, and saying which
+    /// ones beats reporting the resulting noise as a result.
+    pub skipped: Vec<String>,
+}
+
+impl Comparison {
+    #[must_use]
+    pub fn new(a: &Loaded, b: &Loaded) -> Self {
+        let mut fields = Vec::new();
+        let mut skipped = Vec::new();
+        fields.extend(identity(&a.manifest, &b.manifest));
+        fields.extend(configuration(&a.manifest, &b.manifest));
+        fields.extend(size(&a.manifest, &b.manifest));
+        fields.extend(calibration(&a.manifest, &b.manifest));
+        // Regions are coordinates in a parameter space, and two archives with different numbers of
+        // parameters are not describing the same space. Pairing their findings anyway would turn a
+        // structural difference into a list of claims about regions one of the runs never had.
+        if a.manifest.counts.params == b.manifest.counts.params {
+            fields.extend(findings(&a.findings, &b.findings));
+        } else {
+            skipped.push(format!(
+                "findings: {} parameters versus {}, so the two runs name coordinates in different \
+                 spaces",
+                a.manifest.counts.params, b.manifest.counts.params
+            ));
+        }
+        Self { fields, skipped }
+    }
+
+    /// True only when every compared field agrees and nothing had to be skipped: a pair of archives
+    /// that were not compared completely is not a pair that was found to be the same.
+    #[must_use]
+    pub fn identical(&self) -> bool {
+        self.skipped.is_empty() && self.fields.iter().all(|f| f.change == Change::Same)
+    }
+
+    /// How many fields changed, how many only the first archive holds, how many only the second.
+    #[must_use]
+    pub fn tally(&self) -> (usize, usize, usize) {
+        (
+            self.fields
+                .iter()
+                .filter(|f| f.change == Change::Changed)
+                .count(),
+            self.fields
+                .iter()
+                .filter(|f| f.change == Change::OnlyA)
+                .count(),
+            self.fields
+                .iter()
+                .filter(|f| f.change == Change::OnlyB)
+                .count(),
+        )
+    }
+
+    /// The fields that are not `Same`, in the order they were produced.
+    #[must_use]
+    pub fn differences(&self) -> Vec<&Field> {
+        self.fields
+            .iter()
+            .filter(|f| f.change != Change::Same)
+            .collect()
+    }
+}
+
+/// The region a finding is about, in the form both archives can produce from their own bytes.
+fn region(f: &StoredFinding) -> String {
+    f.bounds_text()
+}
 /// flat, so a value that is itself an object or array is compared as one compact JSON string rather
 /// than descended into: guessing a nested shape here would be inventing a field the format does not
 /// have.

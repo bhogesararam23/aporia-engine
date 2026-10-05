@@ -30,7 +30,9 @@ pub mod records;
 pub mod replay;
 pub mod store;
 
-pub use compare::{Change, Field, Section, calibration, configuration, identity, size};
+pub use compare::{
+    Change, Comparison, Field, Section, calibration, configuration, findings, identity, size,
+};
 pub use json::{Json, JsonError};
 pub use manifest::{Counts, Environment, Manifest};
 pub use replay::{Mismatch, Replay, replay, replay_dir, replay_loaded};
