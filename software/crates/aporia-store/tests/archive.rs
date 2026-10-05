@@ -388,8 +388,10 @@ fn a_run_replayed_in_f32_reproduces_under_the_recorded_configuration() {
 fn the_summary_and_csv_files_are_readable_text() {
     let cfg = ExecConfig::default();
     let (root, _, _) = write_dir("summary", cfg);
-    let summary = std::fs::read_to_string(root.join("summary.json")).unwrap();
-    let value = Json::parse(&summary).unwrap();
+    // Read through `Loaded`, not off the disk: an archive whose totals a reader cannot reach is a
+    // file the tool wrote and nobody else can use, and this is the one place those totals are checked.
+    let loaded = Loaded::open(&root).expect("open");
+    let value = &loaded.summary;
     assert_eq!(
         value
             .get("counts")
@@ -397,11 +399,52 @@ fn the_summary_and_csv_files_are_readable_text() {
             .and_then(Json::as_u64),
         Some(24)
     );
-    assert!(value.get("coverage").is_some());
+    assert_eq!(
+        value.get("model").and_then(Json::as_str),
+        Some("stored"),
+        "the summary names the run it belongs to"
+    );
+    let coverage = value.get("coverage").expect("coverage totals");
+    for field in [
+        "trusted_fraction",
+        "suspicious_fraction",
+        "unknown_fraction",
+        "resolved_fraction",
+    ] {
+        assert!(
+            coverage.get(field).and_then(Json::as_f64).is_some(),
+            "{field} is missing from the archived coverage"
+        );
+    }
+    assert!(
+        coverage
+            .get("cells")
+            .and_then(Json::as_u64)
+            .is_some_and(|c| c > 0)
+    );
+    // The manifest's counts and the summary's must agree, because a reader is entitled to use either.
+    assert_eq!(
+        value.get("counts").cloned(),
+        Some(loaded.manifest.counts.json())
+    );
     let bands = std::fs::read_to_string(root.join("bands.csv")).unwrap();
     assert!(bands.starts_with("axis,axis_name,lo,hi"));
     let atlas = std::fs::read_to_string(root.join("atlas.csv")).unwrap();
     assert!(atlas.contains("label"), "{atlas}");
-    assert!(Path::new(&root).exists());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn an_archive_without_a_summary_is_refused_rather_than_reported() {
+    // The summary is part of what makes a directory an archive. Reading it is the difference between
+    // "the run measured this much of the space" and a reader having to recompute it from the table.
+    let cfg = ExecConfig::default();
+    let (root, _, _) = write_dir("no-summary", cfg);
+    std::fs::remove_file(root.join("summary.json")).expect("remove");
+    let opened = Loaded::open(&root);
+    assert!(
+        opened.is_err(),
+        "a directory missing its totals opened anyway"
+    );
     let _ = std::fs::remove_dir_all(&root);
 }

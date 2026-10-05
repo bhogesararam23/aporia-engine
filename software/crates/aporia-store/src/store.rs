@@ -10,7 +10,7 @@
 //!   bands.csv            the boundary bands read out of it
 //!   decisions.jsonl      one line per search decision, in order
 //!   findings/NNNNNN.apx  one archive per suspicious region
-//!   summary.json         the machine-readable totals a report is built from
+//!   summary.json         the machine-readable totals a report is built from, read back by `Loaded`
 //! ```
 //!
 //! Two rules the layout exists to enforce. A directory is never overwritten: `create` refuses a root
@@ -515,6 +515,10 @@ pub struct Loaded {
     pub records: Records,
     pub atlas_csv: String,
     pub bands_csv: String,
+    /// `summary.json` as written. The archive's own totals -- coverage fractions, the band list, the
+    /// size of the findings -- are here rather than recomputable from the table, because the run that
+    /// measured them is the only thing entitled to state them.
+    pub summary: Json,
     pub decisions: Vec<Json>,
     pub findings: Vec<StoredFinding>,
     /// The bytes of each file as read, kept so digest verification does not re-read from disk.
@@ -537,6 +541,8 @@ impl Loaded {
         let records = records::read(&observation_bytes)?;
         let atlas_csv = fs::read_to_string(root.join("atlas.csv"))?;
         let bands_csv = fs::read_to_string(root.join("bands.csv"))?;
+        let summary_text = fs::read_to_string(root.join("summary.json"))?;
+        let summary = Json::parse(&summary_text)?;
         let decisions = fs::read_to_string(root.join("decisions.jsonl"))?
             .lines()
             .filter(|l| !l.trim().is_empty())
@@ -566,6 +572,7 @@ impl Loaded {
             records,
             atlas_csv,
             bands_csv,
+            summary,
             decisions,
             findings,
             digests,
