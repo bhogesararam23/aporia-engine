@@ -383,9 +383,11 @@ impl Atlas {
 
     /// Record one evaluation.
     ///
-    /// The observation id is the atlas' own counter. It matches the campaign's record ids because a
-    /// point is recorded once per evaluation, in evaluation order; the search test that compares
-    /// `records` against `atlas` cell points is what keeps that promise honest.
+    /// The observation id is the atlas' own counter, assigned in the order points were handed in — it
+    /// is *not* the campaign's record index, because a campaign records probe and swap evaluations it
+    /// does not offer the atlas. The ids that end up attached to a labelled cell are the ones
+    /// [`Atlas::remeasure`] installs from the finished record set, which is the pass that produces the
+    /// report; this counter only orders the online stream the search steers on.
     pub fn record(&mut self, x: &[f64], risk: f64, channels: u8) {
         // For a caller that only knows what spoke: whatever had something to say was, necessarily,
         // applied. The other direction does not hold, which is why a search that wants TRUSTED to be

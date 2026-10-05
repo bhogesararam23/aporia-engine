@@ -177,8 +177,11 @@ impl Risk {
 
     /// Does this point dominate `other` on every channel and beat it on at least one?
     ///
-    /// Pareto dominance is what the search ranks candidates with when it does not want a single
-    /// number to hide a disagreement between channels.
+    /// Implemented, tested and *not currently what the search ranks with*: `aporia-search` compares
+    /// candidates by the single fused score, so dominance is available to a caller that wants to keep
+    /// a channel disagreement from being averaged away but no caller does yet. Stated here because the
+    /// alternative — a doc comment implying the acquisition policy is Pareto-aware — describes an
+    /// instrument this repository does not run.
     #[must_use]
     pub fn dominates(&self, other: &Risk) -> bool {
         let at_least = self

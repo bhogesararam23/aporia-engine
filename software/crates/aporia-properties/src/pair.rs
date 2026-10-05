@@ -14,7 +14,13 @@ pub struct Pair {
     pub axis: u16,
 }
 
-/// How a pair came to exist, which decides how its evidence is weighed.
+/// How a pair came to exist.
+///
+/// Recorded, not consulted: nothing in the evidence path currently weighs a deliberate perturbation
+/// differently from two samples that happened to lie near each other, and only `Targeted` is ever
+/// constructed. It is kept because the distinction is real — an incidental pair is weaker evidence
+/// about a local slope than a pair chosen to measure one — and because a reader who sees the field
+/// should be able to tell that the weighing has not been implemented rather than assume it has.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProbeKind {
     /// The search deliberately moved this axis by this much to test a local property.

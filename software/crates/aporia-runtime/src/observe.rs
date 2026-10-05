@@ -72,10 +72,12 @@ impl Observation {
     }
 }
 
-/// A column-oriented view over a set of observations.
+/// The stored set of observations, in evaluation order.
 ///
-/// The analyses ask column questions — "how does output 2 vary with parameter 0" — and pulling a
-/// column out once beats indexing thousands of structs.
+/// Column-oriented accessors exist on this type (`column`, `outputs`) and are tested, but the
+/// analyses do not use them: each one walks `items` and indexes the fields it needs. They are kept
+/// because a scan over thousands of structs wants that shape, not because a production path
+/// currently asks for it.
 #[derive(Clone, Debug, Default)]
 pub struct Records {
     pub items: Vec<Observation>,

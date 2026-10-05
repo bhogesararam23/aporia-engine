@@ -12,9 +12,16 @@
 //! - [`batch`] — many candidates through the same model, lane-major, the shape a vector or GPU
 //!   backend copies directly
 //!
-//! A scalar and a batched run of the same model on the same inputs must agree, and that
-//! requirement is a test rather than a hope. When they disagree, APORIA has found something:
-//! that is the differential channel, and it only works because semantics live in exactly one place.
+//! A scalar and a batched run of the same model on the same inputs must agree, and that requirement
+//! is a test rather than a hope — semantics living in exactly one place is what makes the agreement
+//! worth testing.
+//!
+//! Being precise about which pair the Differential channel actually compares during a campaign: it is
+//! the scalar runtime against `aporia_numerics::reference`, the independent double-double evaluator,
+//! because that comparison exists at the point where it costs an evaluation. Scalar-against-batch is
+//! an invariant this crate tests; the batched path has no caller in the campaign, so it is not
+//! currently a source of evidence, and a channel documented as measuring it would be reporting a
+//! comparison nothing runs.
 pub mod batch;
 pub mod exec;
 pub mod interp;

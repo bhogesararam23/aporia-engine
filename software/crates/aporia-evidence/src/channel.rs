@@ -16,7 +16,11 @@ pub enum Channel {
     Physical,
     /// Whether the answer depends on numerical choices: precision, evaluation order.
     Numerical,
-    /// Whether independent execution paths agree: scalar against batch, CPU against GPU.
+    /// Whether independent execution paths agree. In a campaign this is the scalar runtime against
+    /// `aporia-numerics`' double-double reference; the other pairs worth having — scalar against
+    /// batched, one machine's float against another's — are the same question asked of a different
+    /// pair, and are not all wired. What the channel means is: two ways of computing the same
+    /// expression that should not disagree, disagreeing.
     Differential,
     /// Whether a tiny input change produced an implausibly large output change.
     Sensitivity,
