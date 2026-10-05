@@ -1,17 +1,20 @@
 //! `aporia` — the instrument, runnable without a benchmark.
 //!
 //! ```text
-//! aporia run <model.ap> [--budget N]   analyse one model and print the atlas summary
-//! aporia help                          this text
+//! aporia run <model.ap> [--budget N]            analyse one model with the scalar interpreter
+//! aporia run <model.ap> --program "<prog args>" analyse a model whose outputs come from a program
+//! aporia help                                   this text
 //! ```
 //!
-//! Arguments are parsed by hand, the way `aporia-bench` does it: one optional flag is not a reason to
-//! take a dependency, and the usage text has to stay short enough to keep accurate. An unknown flag is
-//! refused rather than ignored, because a run that silently dropped `--budget` would report an
-//! analysis the caller did not ask for.
+//! Arguments are parsed by hand, the way `aporia-bench` does it: two optional flags are not a reason
+//! to take a dependency, and the usage text has to stay short enough to keep accurate. An unknown flag
+//! is refused rather than ignored, because a run that silently dropped `--budget` would report an
+//! analysis the caller did not ask for — and one that silently dropped `--program` would report a
+//! map made by the wrong arithmetic entirely.
 //!
 //! Exit status: `0` ran and found nothing suspicious, `1` ran and reported SUSPICIOUS regions, `2`
-//! bad usage, `3` the model could not be read, compiled or verified.
+//! bad usage, `3` the model could not be read, compiled or verified, `4` the program stopped
+//! answering and the map is incomplete.
 
 use aporia_cli::run::{self, Exit};
 use aporia_search::Config;
@@ -21,11 +24,18 @@ use std::path::PathBuf;
 /// it takes to read one screen, and `--budget` is there for anyone who wants the other.
 const DEFAULT_BUDGET: u64 = 640;
 
+/// How long to wait for one answer from a program. A hung solver is a failed run, not a hang, and a
+/// default that waits forever is a CLI that appears to be working.
+const DEFAULT_TIMEOUT_MS: u64 = 5_000;
+
 fn usage() -> &'static str {
     "usage: aporia <command> [flags]\n\
-     \x20 run <model.ap> [--budget N]   compile the model and run one campaign on it\n\
+     \x20 run <model.ap> [--budget N] [--program \"<program> [args]\"] [--timeout MS]\n\
+     \x20     compile the model and run one campaign on it. A model that declares `output`\n\
+     \x20     values is executed by the named program, one JSON request and response per line.\n\
      \x20 help                        show this text\n\
-     exit: 0 clean, 1 suspicious regions reported, 2 usage, 3 model not usable\n"
+     exit: 0 clean, 1 suspicious regions reported, 2 usage, 3 model not usable,\n\
+     \x20     4 the program stopped answering (the map above is incomplete)\n"
 }
 
 fn main() {
@@ -49,33 +59,72 @@ fn main() {
     std::process::exit(exit.code());
 }
 
-fn run_command(flags: &[String]) -> Exit {
+/// What `aporia run` was asked to do, once the words have been turned into values.
+struct Args {
+    path: PathBuf,
+    budget: u64,
+    /// A program to execute the model with. `None` means the scalar interpreter, which is the
+    /// default the way it should be: invisible, not assumed by the analysis.
+    program: Option<String>,
+    timeout_ms: u64,
+}
+
+/// Read the argument list. Parsing lives apart from running so that "you asked for `--timeout 0`" and
+/// "the program stopped answering" cannot be confused by a reader, an exit status, or a future
+/// maintainer: the first is a conversation about words, the second about a process.
+fn parse_args(flags: &[String]) -> Result<Args, Exit> {
     let mut budget: Option<u64> = None;
+    let mut program: Option<String> = None;
+    let mut timeout_ms = DEFAULT_TIMEOUT_MS;
     let mut path: Option<PathBuf> = None;
     let mut i = 0;
     while i < flags.len() {
         let arg = flags[i].as_str();
-        if arg == "--budget" {
+        let value_of = match arg {
+            "--budget" => Some("a number"),
+            "--program" => Some("a command line"),
+            "--timeout" => Some("a number of milliseconds"),
+            _ => None,
+        };
+        if let Some(wants) = value_of {
             let Some(value) = flags.get(i + 1) else {
-                eprintln!("aporia: --budget needs a number");
-                return Exit::Usage;
+                eprintln!("aporia: {arg} needs {wants}");
+                return Err(Exit::Usage);
             };
-            let Ok(n) = value.parse::<u64>() else {
-                eprintln!("aporia: --budget needs a number, got {value}");
-                return Exit::Usage;
-            };
-            budget = Some(n);
+            match arg {
+                "--budget" => {
+                    let Ok(n) = value.parse::<u64>() else {
+                        eprintln!("aporia: --budget needs a number, got {value}");
+                        return Err(Exit::Usage);
+                    };
+                    budget = Some(n);
+                }
+                "--timeout" => {
+                    let Ok(n) = value.parse::<u64>() else {
+                        eprintln!("aporia: --timeout needs a number of milliseconds, got {value}");
+                        return Err(Exit::Usage);
+                    };
+                    if n == 0 {
+                        eprintln!(
+                            "aporia: --timeout needs a positive number of milliseconds; 0 would mean                              'never wait', and a run that answers nothing is not a faster run"
+                        );
+                        return Err(Exit::Usage);
+                    }
+                    timeout_ms = n;
+                }
+                _ => program = Some(value.clone()),
+            }
             i += 2;
             continue;
         }
         if arg.starts_with('-') {
             eprintln!("aporia: unknown flag {arg}");
             eprint!("{}", usage());
-            return Exit::Usage;
+            return Err(Exit::Usage);
         }
         if path.is_some() {
             eprintln!("aporia: run takes one model file");
-            return Exit::Usage;
+            return Err(Exit::Usage);
         }
         path = Some(PathBuf::from(arg));
         i += 1;
@@ -83,9 +132,21 @@ fn run_command(flags: &[String]) -> Exit {
     let Some(path) = path else {
         eprintln!("aporia: run needs a model file, e.g. aporia run model.ap");
         eprint!("{}", usage());
+        return Err(Exit::Usage);
+    };
+    Ok(Args {
+        path,
+        budget: budget.unwrap_or(DEFAULT_BUDGET),
+        program,
+        timeout_ms,
+    })
+}
+
+fn run_command(flags: &[String]) -> Exit {
+    let Ok(args) = parse_args(flags) else {
         return Exit::Usage;
     };
-    let loaded = match run::load_model(&path) {
+    let loaded = match run::load_model(&args.path) {
         Ok(loaded) => loaded,
         Err(message) => {
             eprintln!("aporia: {message}");
@@ -93,10 +154,59 @@ fn run_command(flags: &[String]) -> Exit {
         }
     };
     let config = Config {
-        budget: budget.unwrap_or(DEFAULT_BUDGET),
+        budget: args.budget,
         ..Config::default()
     };
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
-    run::analyse(&loaded, config, &mut out)
+    let Some(command) = args.program.clone() else {
+        if run::needs_adapter(&loaded.model) {
+            eprintln!(
+                "aporia: `{}` declares outputs the model does not compute; name the program that \
+                 computes them with --program \"<program> [args]\"",
+                args.path.display()
+            );
+            return Exit::Usage;
+        }
+        return run::analyse(&loaded, config, &mut out);
+    };
+    // A program named for a model that computes its own values would be ignored: the execution path
+    // answers for a model as a whole, so there is no point at which both could be asked. Refusing is
+    // the only honest answer, and the same rule is why the DSL rejects a model that mixes `output`
+    // with equations.
+    if !run::needs_adapter(&loaded.model) {
+        eprintln!(
+            "aporia: `{}` computes its own outputs, so --program would be ignored; drop the flag or \
+             declare the outputs with `output`",
+            args.path.display()
+        );
+        return Exit::Usage;
+    }
+    let Some(spec) = aporia_adapter::ProgramSpec::parse(&command, args.timeout_ms) else {
+        eprintln!("aporia: --program needs a command line, e.g. --program \"./solver\"");
+        return Exit::Usage;
+    };
+    let display = spec.display();
+    let mut engine = aporia_adapter::Program::new(spec);
+    if let Err(e) = engine.start(loaded.model.outputs.len()) {
+        eprintln!("aporia: {e}");
+        return Exit::Program;
+    }
+    let exit = run::run_and_report(
+        &loaded,
+        config,
+        &mut engine,
+        &format!("program `{display}`, one answer per evaluation"),
+        &mut out,
+    );
+    // The report has already been written, because where a run stopped is worth seeing. What it is
+    // not is a result: every point after the failure is a non-answer, and the exit status says so.
+    match engine.failure() {
+        Some(failure) => {
+            eprintln!("aporia: {failure}");
+            eprintln!("aporia: the map above is incomplete and must not be read as a result");
+            Exit::Program
+        }
+        None => exit,
+    }
 }

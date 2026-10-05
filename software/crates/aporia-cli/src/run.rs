@@ -11,7 +11,7 @@
 //! answer to compare against the first.
 
 use aporia_ir::Model;
-use aporia_search::{Campaign, Config, run as campaign};
+use aporia_search::{Campaign, Config, run_with};
 use aporia_store::label_text;
 use std::fmt::Write as _;
 use std::io::Write;
@@ -29,6 +29,10 @@ pub enum Exit {
     Suspicious,
     Usage,
     Input,
+    /// The model's values come from a program, and the program stopped answering. The report was
+    /// still written, because where a run broke is information, but the map is not a result: after
+    /// this point every unanswered point is a non-answer, and the atlas is describing a broken pipe.
+    Program,
 }
 
 impl Exit {
@@ -39,6 +43,7 @@ impl Exit {
             Self::Suspicious => 1,
             Self::Usage => 2,
             Self::Input => 3,
+            Self::Program => 4,
         }
     }
 }
@@ -104,18 +109,47 @@ pub fn load_model(path: &Path) -> Result<Loaded, String> {
     })
 }
 
-/// Spend a budget on a model and write what the campaign concluded. Input-agnostic by design.
+/// Spend a budget on a model with the scalar interpreter and write what the campaign concluded.
 pub fn analyse(loaded: &Loaded, config: Config, out: &mut impl Write) -> Exit {
-    let campaign = campaign(&loaded.model, config);
+    run_and_report(
+        loaded,
+        config,
+        &mut aporia_runtime::Interp,
+        "scalar interpreter (the model's own A-IR instructions)",
+        out,
+    )
+}
+
+/// Spend a budget on a model with an arbitrary execution path and write the same report.
+///
+/// The `execution` string is printed in the report because provenance is not decoration: a reader
+/// looking at a Trust Atlas has to be able to tell whether APORIA did the arithmetic or asked
+/// something else to do it. The campaign itself is the same code either way — that is the entire
+/// point of the boundary, and the reason this function takes an `Executor` rather than a flag saying
+/// "external".
+pub fn run_and_report(
+    loaded: &Loaded,
+    config: Config,
+    engine: &mut dyn aporia_runtime::Executor,
+    execution: &str,
+    out: &mut impl Write,
+) -> Exit {
+    let campaign = run_with(&loaded.model, config, engine);
     for notice in &loaded.notices {
         let _ = writeln!(out, "{notice}");
     }
-    let _ = write!(out, "{}", report(&loaded.model, &campaign));
+    let _ = write!(out, "{}", report(&loaded.model, &campaign, execution));
     if campaign.findings.is_empty() {
         Exit::Clean
     } else {
         Exit::Suspicious
     }
+}
+
+/// Does this model declare values only a program can supply?
+#[must_use]
+pub fn needs_adapter(model: &Model) -> bool {
+    aporia_runtime::needs_adapter(model)
 }
 
 /// The report: what ran, how the map came out, and one block per finding up to three.
@@ -124,7 +158,7 @@ pub fn analyse(loaded: &Loaded, config: Config, out: &mut impl Write) -> Exit {
 /// `Replay: aporia replay findings/000000.apx`. That sentence is true of an archived run and a lie
 /// about this one, which writes no archive — so the command prints the same facts in fewer lines and
 /// says nothing it cannot stand behind.
-fn report(model: &Model, campaign: &Campaign) -> String {
+fn report(model: &Model, campaign: &Campaign, execution: &str) -> String {
     let mut out = String::new();
     let coverage = campaign.atlas.coverage();
     let _ = writeln!(
@@ -132,6 +166,7 @@ fn report(model: &Model, campaign: &Campaign) -> String {
         "model {}  strategy {:?}  seed {}  budget {}",
         campaign.model_name, campaign.config.strategy, campaign.config.seed, campaign.config.budget
     );
+    let _ = writeln!(out, "execution  {execution}");
     let _ = writeln!(
         out,
         "campaign {} evaluations  {} instruction steps  {} records  {} decisions",

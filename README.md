@@ -60,7 +60,9 @@ software/crates/
                     atlas CSV, and bit-exact replay against the archive's own A-IR
   aporia-bench      the measurement harness: corpus registry, ground truth, metrics, strategy
                     comparison, verdict, explanation
-  aporia-cli        the command line: `aporia run <model.ap>` analyses a model without a corpus
+  aporia-adapter    the external-computation boundary: a child program, its line protocol, its
+                    failure modes, and an example solver to copy
+  aporia-cli        the command line: `aporia run <model.ap>`, optionally `--program <solver>`
 software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
 software/scripts/     dev-env, test runner, and the gate that build-verifies every committed tree
 ```
@@ -84,10 +86,24 @@ cargo run --release -p aporia-bench -- explain analytic/sqrt_domain --budget 640
 pipeline, spends an evaluation budget on it with the same campaign driver the benchmark uses, and
 prints the atlas summary, the calibration it measured against, and up to three findings with the
 loudest piece of evidence behind each. Exit status is `0` when nothing was flagged, `1` when
-SUSPICIOUS regions were reported, `2` for bad usage and `3` when the model could not be read,
-compiled or verified — so a CI job can fail on the difference between those. It writes no archive,
-reports no minimised case, and reaches no benchmark internals; `--budget N` sets the evaluation
+SUSPICIOUS regions were reported, `2` for bad usage, `3` when the model could not be read, compiled or
+verified, and `4` when an external program stopped answering — so a CI job can fail on the difference
+between those. It writes no archive and reports no minimised case; `--budget N` sets the evaluation
 budget (default 640).
+
+A model whose arithmetic lives elsewhere is named with `--program`:
+
+```sh
+aporia run beam.ap --program "./my-solver --steady"   # beam.ap declares `output deflection : mm`
+```
+
+The program is a child process, spoken to as one JSON request and one JSON response per line, and its
+answers go to the same campaign as any other model's — same sampling, same five channels, same budget
+accounting. The report prints `execution program \`…\`` so no reader has to guess who did the
+arithmetic. `aporia-adapter` ships `aporia-example-solver`, a worked example in about forty lines; a
+program that exits, prints a banner, answers the wrong number of values, refuses a point or hangs is
+reported as what it is (exit status `4`, and the map labelled incomplete) rather than filled in with
+plausible numbers. `--timeout MS` bounds one answer, default 5000.
 
 `aporia-bench run` refuses to produce numbers when a declared region does not hold against direct
 evaluation of the model's own rules, archives every top-of-ladder run, and replays each archive before

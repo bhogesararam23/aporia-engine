@@ -3,6 +3,17 @@
 version = 4
 
 [[package]]
+name = "aporia-adapter"
+version = "0.1.0"
+dependencies = [
+ "aporia-dsl",
+ "aporia-ir",
+ "aporia-runtime",
+ "aporia-search",
+ "aporia-store",
+]
+
+[[package]]
 name = "aporia-bench"
 version = "0.1.0"
 dependencies = [
@@ -30,8 +41,10 @@ dependencies = [
 name = "aporia-cli"
 version = "0.1.0"
 dependencies = [
+ "aporia-adapter",
  "aporia-dsl",
  "aporia-ir",
+ "aporia-runtime",
  "aporia-search",
  "aporia-store",
 ]

@@ -1,0 +1,5 @@
+model beam "deflection computed by an external program" {
+  input load : N in [0, 100]
+  output deflection : mm
+  require deflection >= 0
+}

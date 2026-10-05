@@ -12,9 +12,17 @@ description = "APORIA's command line: run an analysis on a model file without go
 name = "aporia"
 path = "src/main.rs"
 
+# The program the subprocess tests spawn. Declared by name so `CARGO_BIN_EXE_aporia-test-program`
+# exists for `tests/program.rs`; see its module docs for why it lives in this crate.
+[[bin]]
+name = "aporia-test-program"
+path = "src/bin/test_program.rs"
+
 [dependencies]
+aporia-adapter = { path = "../aporia-adapter" }
 aporia-dsl = { path = "../aporia-dsl" }
 aporia-ir = { path = "../aporia-ir" }
+aporia-runtime = { path = "../aporia-runtime" }
 aporia-search = { path = "../aporia-search" }
 aporia-store = { path = "../aporia-store" }
 
