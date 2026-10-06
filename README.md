@@ -35,16 +35,18 @@ a channel's *readings* while charging its evaluations, so the arms cost the same
 this repository's own behaviour, checked by the replay, report and compare tests — and the honest risk
 is that H2 is engineering rather than research.
 
-Neither question is answered yet. The measured answer to the old one is **partial, and the honest
-version is in [`software/benchmarks/results/README.md`](software/benchmarks/results/README.md)**. In
-short: on a 21-entry measurement — 189 sweeps, 945 campaigns — adaptive localises
-`electromagnetics/rlc_resonance`, a band 0.088% of the domain, where neither random nor stratified
-localises anything at any budget; it *loses* on two entries where plain coverage is the right tool;
-and after the fixes that made the baselines better the advantage is one entry wide. One entry is not an
-answer, and the comparison that would mean something — against an adaptive-learning baseline of the
-shape the literature actually uses — has not been run. Numbers are recorded only from runs that
-actually happened, and `TRUSTED` never means *proven correct* — it means no current evidence of a
-problem under the tested assumptions and evidence model.
+Neither question is answered yet, and the measured answer to the old one is now **a negative**, in
+[`software/benchmarks/results/README.md`](software/benchmarks/results/README.md). In short: the
+three-arm ladder localises `electromagnetics/rlc_resonance`, a band 0.088% of the domain, where neither
+random nor stratified localises anything at any budget, and loses on two entries where plain coverage is
+the right tool — one entry wide. The comparison that could have changed that verdict has now been run.
+A fourth arm, `levelset` — a budgeted single-threshold bracket search in the shape the excursion-set
+literature uses, needing none of the evidence instrument — reaches as many entries as the five-channel
+search (13 of 18) and resolves more of them across seeds, and the two arms tie or fail together on 15 of
+18 entries. By the criterion fixed before the run, **the search is not separated from the baseline**, so
+the claim this repository can defend is the evidence model and the artefact, not the algorithm. Numbers
+are recorded only from runs that actually happened, and `TRUSTED` never means *proven correct* — it means
+no current evidence of a problem under the tested assumptions and evidence model.
 
 ## What is here
 
@@ -95,7 +97,7 @@ configure. From `software/`:
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 582 tests
+cargo test --release                  # 598 tests
 cargo fmt --all --check && cargo clippy --workspace --all-targets
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
@@ -196,9 +198,18 @@ only reason the two cannot drift into reporting different numbers for one plan.
 aporia bench list                             what the corpus holds and what each entry claims
 aporia bench verify --grid 40                 check every declaration against direct evaluation
 aporia bench run --budgets 40,80 --seeds 1    sweep, archive, and write results-<identity>.json
+aporia bench run --strategies adaptive,levelset,stratified,random   the four arms, one identity
 aporia bench run --ablate differential        same points, same cost, one channel blind
 aporia bench verdict benchmarks/results/results-1791153844.json
 ```
+
+Four strategies, one driver: `random` and `stratified` are the naive arms, `levelset` is a budgeted
+single-threshold bracket search over the model's own declared rules and needs none of the evidence
+instrument, and `adaptive` is the multi-evidence search. The strategy list is part of the plan, so a run
+with a fourth arm gets a fourth identity and cannot overwrite a measurement made with three. The
+four-arm comparison has been run, and its result — that `adaptive` and `levelset` are not separated on
+this corpus — is in
+[`software/benchmarks/results/README.md`](software/benchmarks/results/README.md).
 
 `--ablate` silences a channel's *readings*, not its evaluations: the ablated arm is charged the same
 executions and samples the same trajectory, so a difference between two arms is a difference in what
@@ -272,12 +283,13 @@ come from a program the harness has no way to run.
 Not done: hand-written x86-64 kernels, which are only admissible with a measured
 advantage over compiler output and are not yet written; a CUDA backend, which cannot be compiled or
 measured on the machine this was built on because it has no NVIDIA device — stated rather than hidden,
-and the design is deferred with its trigger recorded; Julia reference implementations; and the two
-experiments the revised question actually needs — the evidence ablation H1, and a search comparison
-against an adaptive-learning baseline of the shape the excursion-set literature uses rather than against
-random sampling. The prior-work pass that used to be on this list has been done and is written up in
-[`documentation/prior-work.md`](documentation/prior-work.md); it narrowed the question rather than
-answering it.
+and the design is deferred with its trigger recorded; Julia reference implementations; and the evidence
+ablation that H1 actually asks for, whose arms the harness has supported since `9835e17` and which has
+still not been run. The search comparison against an adaptive-learning baseline that used to be on this
+list has been run: `levelset` is implemented, measured across the corpus, and the result is that the
+multi-evidence search is not separated from it on this corpus (E1, above). The prior-work pass has been
+done and is written up in [`documentation/prior-work.md`](documentation/prior-work.md); it narrowed the
+question rather than answering it.
 
 Everything above is described as it is: the repository keeps its failed experiments and its corrected
 documentation in the open rather than presenting only what worked.

@@ -4,8 +4,8 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Thirteen files are committed. Each one is the record of what a change did, and only the last is
-current.
+Fifteen files are committed. Each one is the record of what a change did; the last is the current
+ladder, and the one before it is the pilot that said the current one could be run.
 
 | file | what it is |
 |---|---|
@@ -21,16 +21,20 @@ current.
 | `results-1791150251.json` | declared symmetry wired as swap probes, plus a new symmetry control. Every one of the previous run's 180 sweeps reproduced outcome-for-outcome (see "Wiring declared symmetry") |
 | `results-1791153844.json` | the risk-threshold counterexample oracle wired. Across all 189 sweeps the only measured field that differs from the previous run is `counterexamples` (see "The risk-threshold oracle") |
 | `results-1791158752.json` | the campaign rewired onto an `Executor` seam. Every measured field of all 945 campaigns is identical to the row above, `wall_ms` except — kept because "this refactor changed no measurement" is a claim that needs its own run rather than an assertion |
-| `results-bb424c168dd4.json` | **current**, and the first `aporia.results/2` document: the oracle now reports its own executions, so a counterexample row carries its call count *and* its model-execution count. Identical to `results-1791158752.json` in every field of every sweep and every outcome except `wall_ms`, and identical in all 341 counterexample rows except their cost columns (see "What a minimisation actually costs") |
+| `results-bb424c168dd4.json` | the last three-arm ladder, and the source of every figure in the sections below that speak of "the current run": the oracle now reports its own executions, so a counterexample row carries its call count *and* its model-execution count. Identical to `results-1791158752.json` in every field of every sweep and every outcome except `wall_ms`, and identical in all 341 counterexample rows except their cost columns (see "What a minimisation actually costs") |
+| `results-8a74233bf0c6.json` | the E1 pilot: four entries, four arms, budgets 60-500, two seeds, 128 campaigns. Run to find out whether a level-set competitor can be measured at all, and it found one defect no test could have (see "E1" below) |
+| `results-bc6d5c38dd15.json` | **current.** E1 as specified in advance: the full 22-entry corpus, budgets 40-1280, seeds 1-5, four arms including `levelset`, 420 sweeps, 84 archives all replayed byte-exactly (see "E1: a level-set competitor, and what it did not separate") |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
 `differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
 sampling costs are not recorded cannot be compared against one that ran under different ones. The
-figures quoted throughout this file are from `results-bb424c168dd4.json`, the current run. It is
-field-for-field identical to `results-1791153844.json`, the run those figures were quoted from
-before, apart from `wall_ms` and the counterexample cost columns — so every detection, localisation,
-boundary and replay number below is the same number in both files. The older rows are evidence about
-what each change did, not separate citable results.
+figures quoted in the sections that describe the three-arm ladder are from
+`results-bb424c168dd4.json`; the four-arm figures are in the E1 section below and come from
+`results-bc6d5c38dd15.json`. `results-bb424c168dd4.json` is field-for-field identical to
+`results-1791153844.json`, the run those figures were quoted from before, apart from `wall_ms` and the
+counterexample cost columns — so every detection, localisation, boundary and replay number in the
+three-arm narrative is the same number in both files. The older rows are evidence about what each change
+did, not separate citable results.
 
 ### The differential channel, and a sampling lesson
 
@@ -321,6 +325,82 @@ One entry where the method shows an advantage, two where a baseline is plainly t
 fifteen where the ladder cannot tell them apart, is not an answer. It is a reason the ladder needs more
 entries of the resonance shape. Adding them is the next experiment, not a rhetorical claim that the
 shape does not matter.
+
+## E1: a level-set competitor, and what it did not separate
+
+That paragraph was written against two baselines, and the literature said two weak baselines are the
+wrong comparison for a budgeted boundary search. So the fourth arm the prior-work pass asked for was
+built and measured — `results-8a74233bf0c6.json` (pilot) and `results-bc6d5c38dd15.json` (the
+experiment), in that order, because the experiment design says a plan is piloted before it is run
+against the corpus.
+
+`levelset` is APORIA's minimal level-set-shaped baseline: one scalar reading per placed point — the
+signed distance to the tightest rule *the model itself declared* — then the midpoint of the widest
+bracket that straddles that level inside the coarsest atlas leaf holding both sides. No calibration,
+no fusion, no correlation, no acquisition family, no surrogate. It is not AK-MCS and does not claim to
+reproduce any published algorithm (see `documentation/prior-work.md`); what it is, is a competitor that
+needs none of the instrument, so that a difference between it and `adaptive` is a difference in
+multi-evidence search and nothing else.
+
+420 sweeps over the full 22-entry corpus, budgets 40-80-160-320-640-1280, seeds 1 to 5, all four arms.
+Ground truth re-verified at grid 41 before anything was measured. 84 archives written at the largest
+budget, every one replaying byte-exactly. **Each arm charged 264,600 evaluations and 25,943,400
+instruction steps in total** — same budget, same points paid for, arms differing only in where they
+placed.
+
+Against the level-set arm, taking per entry the smallest budget that localised every declared region
+across the five seeds, on the 18 entries that declare a region and are not controls:
+
+| outcome | entries |
+|---|---|
+| adaptive cheaper | 3 — `exp_overflow` 40 vs 80, `rlc_resonance` 640 vs 1280, `one_pct_3d` 640 vs 1280 |
+| levelset cheaper | 0 |
+| tie | 10 |
+| neither resolved it at any budget | 5 — `reciprocal_bound`, `euler_decay_2d`, `projectile_zero_gravity`, `tenth_pct_3d`, `narrow_1d_unreachable` |
+
+Fifteen of 18 entries are ties or joint failures — 83%. The experiment design set a stopping criterion
+for exactly this: if the localisation distributions overlap for two thirds or more of the entries, the
+comparison is recorded as **not separated** and the contribution claim moves elsewhere. It is not
+separated. The search is not what this instrument's evidence is, and the honest claim is the evidence
+model and the artefact, which is H1 and H2 in `documentation/prior-work.md`.
+
+The per-arm reach is worth stating separately, because the tally above hides the part that is not
+comfortable:
+
+| arm | entries localised | seed-rows localised |
+|---|---|---|
+| adaptive | 13 / 18 | 60 / 90 |
+| levelset | 13 / 18 | **65 / 90** |
+| stratified | 12 / 18 | 60 / 90 |
+| random | 12 / 18 | 55 / 90 |
+
+A single-scalar bracket search reaches as many entries as the five-channel instrument and resolves more
+of them across seeds. The instrument's advantage in this corpus is not reach; on three entries it is
+getting there at a quarter to half the budget, and nowhere else. Against the *cheapest* baseline the
+headline is unchanged at 1 better / 2 worse / 15 equal-or-unresolved, because on those same three
+entries plain coverage also gets there: the two losses remain `narrow_1d` (adaptive 320 against 160)
+and `one_pct_2d` (640 against 320). The one place multi-evidence search demonstrably buys something is
+still `rlc_resonance` — and there levelset is the only arm that resolves it on all five seeds, while
+adaptive is the only arm that resolves it below the top budget.
+
+Controls, 15 sweeps per arm (3 controls × 5 seeds): clean at some budget — adaptive 6, levelset 5,
+stratified 5, random 5. The new arm is neither cleaner nor dirtier than the others, which is what a
+shared instrument should imply, and it is the check that the fourth arm did not smuggle in a labelling
+change.
+
+Two integrity notes, because this is the first run compared against a published one. The three arms E1
+shares with `results-bb424c168dd4.json` agree entry by entry on 61 of 63 arm-entry pairs; the two that
+differ are `stratified/one_pct_2d` and `random/one_pct_2d`, which the shorter old ladder left unresolved
+and the extra 1280 rung plus two extra seeds resolve. Nothing else moved, and the trajectories of the
+three older strategies are pinned by digest in `aporia-search/tests/strategies.rs` — they did not change
+when the fourth arm joined the driver. And the pilot earned its place: the results document's
+comparison block had been built from three strategy names written out in code, so the first four-arm
+run produced a table describing three of the four arms it had measured. Nothing failed, because the
+three rows were correct.
+
+`levelset` stays in the default plan. Not because it performed well — it lost to the cheapest arm in
+the places that matter — but because removing a baseline for that reason is exactly what this file's
+corrections exist to forbid.
 
 ## The controls, and a correction to this file
 

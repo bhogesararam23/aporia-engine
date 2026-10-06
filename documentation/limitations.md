@@ -13,26 +13,39 @@ uncertain under a simulation budget, and Azzimonti et al. produce an inside / ou
 partition with error control and a stopping rule. Against that work, beating random and stratified
 sampling is not the interesting comparison.
 
-The question has therefore been split in two, and neither part is answered:
+The question has therefore been split in two. The search half has now been measured and came back
+unseparated, so what is left is the evidence and the artefact:
 
 - **H1 — evidence.** Does fusing five heterogeneous signals, calibrated and correlation-discounted
   against the same run, localise regions that no strict subset of them localises at the same budget?
-  This is now expressible as an experiment (`aporia bench run --ablate …`) and has not been run.
+  This is the only remaining question that can move the claim, it is expressible as an experiment
+  (`aporia bench run --ablate …`), and it has not been run.
 - **H2 — artefact.** Does an atlas whose every region carries re-executable provenance change what a
   reader can do with a result? Parts of this are tested in this repository; whether it counts as
   research rather than engineering is open.
+- **E1 — search.** Adaptive versus a level-set baseline. **Run, and not separated** (see the list
+  below). The arm stays in the default plan whatever it measures.
 
-The measured answer to the *old* question is **partial**:
+The measured answer to the *old* question is **a negative, and it has now been measured against the
+baseline the literature actually uses**:
 
 - Adaptive localises `electromagnetics/rlc_resonance`, a band 0.088% of the domain, at a budget where
   neither random nor stratified localises anything at any budget tested.
 - It *loses* on two entries where plain coverage is simply the right tool.
 - After the fixes that made the baselines better rather than worse, the advantage is **one entry wide**
   out of 21 swept entries, 189 sweeps, 945 campaigns.
+- **E1 (run):** a fourth arm, `levelset` — a budgeted single-threshold bracket search over the model's
+  own declared rules, needing none of the evidence instrument — reaches the same number of entries as
+  adaptive (13 of 18) and resolves *more* of them across seeds (65 seed-rows to 60). The two arms tie or
+  fail together on 15 of 18 entries; adaptive is cheaper on three and never dearer. By the criterion
+  fixed before the run, **the search is not separated from the baseline**, so nothing in this repository
+  may claim a search contribution on this corpus. What the instrument buys is earlier localisation on
+  three entries, not reach.
 
-One entry is not an answer. And since the pass, no claim of novelty appears anywhere in this
-repository: the metamorphic relations are standard, minimisation is standard, dependence-aware fusion
-is standard outside testing, calibrated scores are standard, and the three-label map is a known shape.
+One entry, and a baseline that matches the method's reach, is not an answer. And since the pass, no
+claim of novelty appears anywhere in this repository: the metamorphic relations are standard,
+minimisation is standard, dependence-aware fusion is standard outside testing, calibrated scores are
+standard, and the three-label map is a known shape.
 What survives is narrower and is listed at the end of
 [`prior-work.md`](prior-work.md) — a five-signal score fitted from the run it grades, provenance under
 every labelled region, a minimised case re-executed at its own witnesses, and honest refusals.

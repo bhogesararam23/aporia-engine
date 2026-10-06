@@ -19,7 +19,7 @@ Outside this directory, two documents carry the evidence:
 - [`../README.md`](../README.md) — what the project is, how to build and run it, and the measured answer
   in one paragraph.
 - [`../software/benchmarks/results/README.md`](../software/benchmarks/results/README.md) — the
-  measurements themselves: thirteen runs, what each change did, where the method loses, and the
+  measurements themselves: fifteen runs, what each change did, where the method loses, and the
   places where it corrected an earlier claim of its own against the data.
 
 ## Reading order

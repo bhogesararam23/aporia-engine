@@ -19,7 +19,7 @@ earlier claims in that same file.
 
 ```
 software/crates/          13 Rust crates, one concern each (the list is in the root README)
-software/benchmarks/      the corpus (22 entries, 21 swept), the 13 committed measurements,
+software/benchmarks/      the corpus (22 entries, 21 swept), the 15 committed measurements,
                           the archives a ladder run wrote (git-ignored, regenerable)
 software/examples/        external programs in other languages, with their models
 software/scripts/         shell helpers — convenience and one lint substitution, never semantics
@@ -41,7 +41,7 @@ git ls-files | grep -c "^docs/"
 ```sh
 cd software
 cargo build --release
-cargo test --release                   # the whole suite; ~550 tests across 13 crates
+cargo test --release                   # the whole suite; ~600 tests across 13 crates
 cargo fmt --all --check
 cargo clippy --workspace --all-targets
 ```
@@ -187,6 +187,20 @@ to anyone changing them:
   bug. That is why the sampling rates, the atlas thresholds and the `--ablate` channel list are all in
   `plan_json`, and why a new arm of any comparison has to be added there rather than passed through
   some other way.
+- **Adding a strategy: one enum, one driver, nothing else.** `Strategy` (name, `parse`, `ALL`, `names`)
+  in `aporia-search/src/plan.rs`, the family set it may use in the same file, and its placement rule in
+  `campaign.rs::choose_point`. The budget, the charging, the atlas and the retrospective pass are shared
+  by construction — a strategy chooses where to go and does not decide what the evidence means — so an
+  arm that needs its own labelling or its own accounting is not a strategy and belongs somewhere else.
+  `Family::LevelSet` was appended to the end of the family list rather than inserted, because decisions
+  and results rows name those indices and old files have to keep meaning what they say
+  (`a_family_index_does_not_move_underneath_an_archive`). The three older arms' trajectories are pinned
+  by digest in `aporia-search/tests/strategies.rs`: adding an arm is exactly the change that can move
+  them by accident, and a moved trajectory would silently invalidate every published comparison.
+- **A baseline is not removable because it performed badly.** `levelset` reaches as many entries as the
+  multi-evidence search and resolves more of them across seeds; E1 is recorded as "not separated" and
+  the arm stays in the default plan. Tuning a baseline against a desired outcome, or dropping one that
+  wins, is the same error in the other direction.
 
 ## Recording an experiment
 

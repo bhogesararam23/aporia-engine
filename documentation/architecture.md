@@ -116,9 +116,24 @@ into `Trusted`.
 
 `aporia-search` runs the campaign: budget, sampling, acquisition, two-stage risk, findings. Six
 acquisition families — Random, Coverage (a Halton sequence), Boundary, Uncertainty, Sensitivity,
-Contradiction — and a UCB meta-policy over new information per evaluation. **All three strategies are
-the same driver with a different set of families enabled**, which is what makes a difference in outcome
-a statement about where points were placed and not about the code that placed them.
+Contradiction — and a UCB meta-policy over new information per evaluation, plus a seventh variant that
+is not an evidence-driven family at all: **LevelSet**, APORIA's level-set baseline. **All four
+strategies are the same driver with a different rule for placing a point**, which is what makes a
+difference in outcome a statement about where points were placed and not about the code that placed
+them.
+
+LevelSet reads one scalar per placed point: `aporia_properties::level`, the signed distance to the
+tightest rule the model itself declared (`require y >= 0`, `require finite(z)`), positive inside,
+negative outside, scaled by the same residual the physical channel reports a violation in. It then
+places the midpoint of the widest bracket that straddles that level inside the coarsest atlas leaf
+holding both sides. It uses no calibration, no fusion, no correlation and no acquisition-family choice,
+so it is the competitor that needs none of the instrument — the shape the excursion-set and AK-MCS
+literature works with, implemented minimally and interpretably rather than as a Gaussian process. Three
+things follow and are part of the design rather than accidents: it needs a model that declares a rule it
+can cross, so an entry with only `check` relations gives it nothing and it degrades to the coverage
+design instead of inventing a boundary; its resolution is bounded by the atlas's `max_depth`, not by its
+own bisection; and the *map it reports* is labelled by the same shared instrument as every other arm,
+because a strategy chooses where to go and does not decide what the evidence means.
 
 Two-stage risk is the reason the map and the report agree: `online_risk` is what the search could see
 while it was looking, and `final_risk` is measured again after the whole record set exists, because

@@ -45,9 +45,18 @@ to rest on.
 **Consequence.** "Spend a fixed evaluation budget finding where behaviour crosses a threshold, and
 report which side of it is trustworthy" is an established objective with more theory than APORIA's
 atlas has. APORIA's quadtree bisection and acquisition families are a discrete, evidence-driven
-instance of it, not a new search algorithm. The comparison this repository should be making is against
-an adaptive-learning baseline of that shape, not against random and stratified sampling — and it has
-not been made yet, which is stated in the README rather than smoothed over.
+instance of it, not a new search algorithm. The comparison this repository should have been making was
+against an adaptive-learning baseline of that shape rather than against random and stratified sampling,
+**and it has now been made**: `levelset` — APORIA's minimal level-set-shaped baseline, one scalar
+reading per point and the widest bracket cut in the coarsest leaf straddling it, with no calibration,
+no fusion and no surrogate — reaches as many entries as the multi-evidence search across the corpus and
+resolves more of them across seeds, and the two arms tie or fail together on 15 of 18 region-bearing
+entries. Measured, recorded and **not separated**
+([`../software/benchmarks/results/README.md`](../software/benchmarks/results/README.md)). It is not
+AK-MCS and claims no reproduction of it: it has no Gaussian process, no uncertainty model and no
+stopping rule with guarantees, so this result says the multi-evidence search buys earlier localisation
+on three entries and no more reach than a single-threshold bracket search — it does not measure the
+literature's best instrument against anything.
 
 ### Metamorphic and property-based testing
 
@@ -156,8 +165,11 @@ evidence model:
 - That APORIA is more accurate, faster, or better than any named tool. No such comparison has been
   run; the only numbers in this repository are about APORIA's own runs.
 - That bit-exact replay holds across platforms.
-- That the search beats random or stratified sampling in general. It currently beats them on one
-  measured entry out of 21, and that is recorded as one entry.
+- That the search beats random or stratified sampling in general. It beats them on one measured entry
+  out of 21, and that is recorded as one entry.
+- That the search beats a level-set-shaped single-threshold baseline. Measured on the whole corpus:
+  same reach, fewer seeds resolved, three entries cheaper, fifteen ties or joint failures. Not
+  separated, and no claim rests on the search.
 
 ## Not verified, and not used above
 
