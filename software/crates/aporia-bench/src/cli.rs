@@ -55,11 +55,14 @@ pub const COMMANDS: [&str; 6] = ["list", "verify", "run", "verdict", "scan", "ex
 
 #[must_use]
 pub fn usage(program: &str) -> String {
+    // The arm names come from the enum that owns them, the same discipline that killed the `halton`
+    // alias: help text that lists a vocabulary the parser has stopped accepting is a second name.
+    let strategies = aporia_search::Strategy::names().join(",");
     format!(
         "usage: {program} <command> [flags]\n\
      \x20 list                      entries, faults and declared regions\n\
      \x20 verify [--grid N]         check the declarations against direct evaluation\n\
-     \x20 run [--budgets a,b,..] [--strategies adaptive,random,stratified]\n\
+     \x20 run [--budgets a,b,..] [--strategies {strategies}]\n\
      \x20     [--seeds n,..] [--grid N] [--out DIR] [--only family/name,..]\n\
      \x20     [--archive DIR] [--differential-every N] [--numerical-every N]\n\
      \x20     [--ablate channel,..]  drop a channel's READINGS, not its evaluations:\n\

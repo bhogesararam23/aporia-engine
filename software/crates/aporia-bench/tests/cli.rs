@@ -88,7 +88,7 @@ fn an_argument_that_cannot_be_a_value_is_refused_before_the_corpus_is_read() {
         ),
         (
             vec!["--strategies".to_string(), "halton".to_string()],
-            "this tool knows adaptive, stratified, random",
+            "this tool knows",
         ),
         (
             vec!["--seeds".to_string(), "one".to_string()],
@@ -102,6 +102,18 @@ fn an_argument_that_cannot_be_a_value_is_refused_before_the_corpus_is_read() {
         let e = refused("run", &argv);
         assert!(e.contains(needle), "{} -> {e}", argv.join(" "));
     }
+    // The list a refusal prints is the vocabulary the parser owns, not a copy of it that can age. This
+    // is the same rule that killed the `halton` alias, aimed the other way: when the fourth arm landed,
+    // a hard-coded three-name sentence would have kept passing while telling callers the truth was
+    // three names.
+    let e = refused("run", &["--strategies".to_string(), "halton".to_string()]);
+    assert!(
+        e.contains(&format!(
+            "this tool knows {}",
+            aporia_search::Strategy::names().join(", ")
+        )),
+        "{e}"
+    );
 }
 
 #[test]

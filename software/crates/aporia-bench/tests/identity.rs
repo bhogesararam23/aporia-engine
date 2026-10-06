@@ -83,18 +83,62 @@ fn named(doc: &Json) -> String {
 fn plan(budgets: &[u64], strategies: &[&str], seeds: &[u64]) -> Plan {
     Plan {
         budgets: budgets.to_vec(),
+        // Parsed by the enum that owns the names, so this helper cannot drift into testing a vocabulary
+        // the tool no longer has — which is the same reason the CLI refuses `halton`.
         strategies: strategies
             .iter()
-            .map(|s| match *s {
-                "adaptive" => Strategy::Adaptive,
-                "stratified" => Strategy::Stratified,
-                "random" => Strategy::Random,
-                other => panic!("not a strategy name: {other}"),
-            })
+            .map(|s| Strategy::parse(s).unwrap_or_else(|| panic!("not a strategy name: {s}")))
             .collect(),
         seeds: seeds.to_vec(),
         ..Plan::default()
     }
+}
+
+#[test]
+fn a_fourth_arm_is_a_new_experiment_and_cannot_overwrite_the_old_one() {
+    let entries = vec![entry(
+        "analytic",
+        "sqrt_domain",
+        "sqrt of a negative input",
+        1,
+    )];
+    let three = plan(&[40, 80], &["adaptive", "stratified", "random"], &[1]);
+    let four = plan(
+        &[40, 80],
+        &["adaptive", "levelset", "stratified", "random"],
+        &[1],
+    );
+    let (old, new) = (
+        named(&document(&three, &entries)),
+        named(&document(&four, &entries)),
+    );
+    assert_ne!(
+        old, new,
+        "adding the level-set baseline changes what is measured, so it must change the name"
+    );
+    assert_eq!(
+        new,
+        named(&document(
+            &plan(
+                &[80, 40],
+                &["random", "adaptive", "levelset", "stratified"],
+                &[1]
+            ),
+            &entries
+        )),
+        "membership names the experiment, the order the flags were typed in does not"
+    );
+    // The default plan is the E1 plan: four arms, and a reader of `explain` or `verdict` gets the arm
+    // they asked for rather than one of three.
+    assert_eq!(
+        Plan::default().strategies,
+        vec![
+            Strategy::Adaptive,
+            Strategy::LevelSet,
+            Strategy::Stratified,
+            Strategy::Random
+        ]
+    );
 }
 
 #[test]

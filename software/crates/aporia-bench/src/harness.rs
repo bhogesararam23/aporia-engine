@@ -59,7 +59,15 @@ impl Default for Plan {
     fn default() -> Self {
         Self {
             budgets: vec![60, 120, 250, 500, 1000],
-            strategies: vec![Strategy::Adaptive, Strategy::Stratified, Strategy::Random],
+            // E1's four arms. Adding the level-set baseline changes what a default plan measures, and
+            // therefore its measurement identity: a rerun of the ladder cannot overwrite the runs that
+            // were measured before the competitor existed, and the name says so.
+            strategies: vec![
+                Strategy::Adaptive,
+                Strategy::LevelSet,
+                Strategy::Stratified,
+                Strategy::Random,
+            ],
             seeds: vec![1],
             grid: 33,
             minimise_budget: 4_000,
@@ -778,9 +786,15 @@ fn band_covers(band: &aporia_boundary::Band, region: &crate::truth::Declared) ->
 }
 
 /// What the measurements say, as text a person can read in a terminal.
+///
+/// The subject of the sentence is the adaptive arm and everything else in the plan is a baseline,
+/// which is what E1 asks. Arms are discovered from the sweeps rather than listed here, because a
+/// comparison whose participant list is written by the printer rather than by the plan is a
+/// comparison that quietly changes when the plan grows.
 #[must_use]
 pub fn verdict(sweeps: &[Sweep], truth_of: &dyn Fn(&str) -> Option<Truth>) -> String {
     use std::fmt::Write as _;
+    const SUBJECT: &str = "adaptive";
     let mut out = String::new();
     let mut wins = 0u32;
     let mut losses = 0u32;
@@ -809,13 +823,38 @@ pub fn verdict(sweeps: &[Sweep], truth_of: &dyn Fn(&str) -> Option<Truth>) -> St
             let at = group.iter().filter_map(|s| s.localised_at).min();
             (at, resolved, group.len())
         };
-        let (adaptive, a_ok, a_n) = best("adaptive");
-        let (stratified, s_ok, s_n) = best("stratified");
-        let (random, r_ok, _) = best("random");
-        let baseline = [stratified, random].into_iter().flatten().min();
+        let (adaptive, a_ok, a_n) = best(SUBJECT);
+        // Every arm this plan actually measured, named by the sweeps rather than by a list written
+        // here. The three names this function used to hard-code are how a fourth arm would have been
+        // dropped from the sentence the README quotes — quietly, with the tally still reading right.
+        let mut arms: Vec<&'static str> = sweeps
+            .iter()
+            .filter(|s| s.entry == entry)
+            .map(|s| s.strategy)
+            .collect();
+        arms.sort_unstable();
+        arms.dedup();
+        if a_n == 0 {
+            let _ = writeln!(
+                out,
+                "{entry}: no {SUBJECT} arm in this plan; measured {}",
+                arms.join(", ")
+            );
+            continue;
+        }
+        let others: Vec<&'static str> = arms.into_iter().filter(|a| *a != SUBJECT).collect();
+        let baseline = others.iter().filter_map(|a| best(a).0).min();
+        let detail = others
+            .iter()
+            .map(|a| {
+                let (at, ok, n) = best(a);
+                format!("{a} {at:?} ({ok}/{n})")
+            })
+            .collect::<Vec<_>>()
+            .join(" | ");
         let _ = writeln!(
             out,
-            "{entry}: adaptive {adaptive:?} ({a_ok}/{a_n}) | baseline {baseline:?}              | stratified {stratified:?} ({s_ok}/{s_n}) | random {random:?} ({r_ok})"
+            "{entry}: {SUBJECT} {adaptive:?} ({a_ok}/{a_n}) | baseline {baseline:?} | {detail}"
         );
         match (adaptive, baseline) {
             (None, None) => {
