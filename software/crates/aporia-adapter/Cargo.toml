@@ -16,6 +16,9 @@ aporia-store = { path = "../aporia-store" }
 [dev-dependencies]
 aporia-dsl = { path = "../aporia-dsl" }
 aporia-search = { path = "../aporia-search" }
+# Only for `tests/minimisation.rs`, which asks whether a finding made by a real child process can be
+# shrunk by that same process. A test-only edge: nothing in the adapter depends on the minimiser.
+aporia-minimize = { path = "../aporia-minimize" }
 
 [[bin]]
 name = "aporia-example-solver"
