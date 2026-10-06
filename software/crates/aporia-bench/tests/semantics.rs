@@ -77,3 +77,70 @@ fn the_symplectic_twin_stays_clean_over_its_whole_domain() {
         );
     }
 }
+
+/// One measured outcome, with every field that is not the point of this test set to something a real
+/// campaign could have produced.
+fn outcome(entry: &str, strategy: &'static str) -> aporia_bench::metrics::Outcome {
+    aporia_bench::metrics::Outcome {
+        entry: entry.to_string(),
+        family: "synthetic".into(),
+        fault: "declared_well".into(),
+        control: false,
+        strategy,
+        seed: 1,
+        budget: 80,
+        evaluations: 80,
+        instruction_steps: 1_600,
+        wall_ms: 0,
+        arity: 1,
+        declared_regions: 1,
+        detected_regions: 1,
+        localised_regions: 1,
+        first_true_failure: Some(3),
+        false_positive_fraction: Some(0.0),
+        suspicious_volume: 0.1,
+        trusted_volume: 0.8,
+        unknown_volume: 0.1,
+        findings: 1,
+        duplicates: Some(0.0),
+        boundaries: Vec::new(),
+        counterexamples: Vec::new(),
+        replay: None,
+        replay_error: None,
+    }
+}
+
+#[test]
+fn the_comparison_block_reports_every_arm_the_batch_measured() {
+    // Written because this block used to be built from three strategy names written out in the code
+    // that printed it. A plan that measured a fourth arm therefore produced a results document whose
+    // comparison described three of the four arms it had actually run — and nothing failed, because
+    // the three it did describe were all correct.
+    use aporia_bench::metrics::compare;
+    // `compare` aggregates a whole run, so the arms have to arrive as one batch.
+    let four = compare(&[
+        outcome("synthetic/x", "adaptive"),
+        outcome("synthetic/x", "levelset"),
+        outcome("synthetic/x", "stratified"),
+        outcome("synthetic/x", "random"),
+    ]);
+    let row = four.first().expect("one entry, one row");
+    for arm in ["adaptive", "levelset", "stratified", "random"] {
+        assert!(
+            row.get(arm).is_some(),
+            "{arm} is missing from the comparison table: {row:?}"
+        );
+    }
+    // An arm that was not measured is absent rather than invented, and the order is the enum's, not
+    // the order the outcomes happened to arrive in.
+    let three = compare(&[
+        outcome("synthetic/x", "random"),
+        outcome("synthetic/x", "adaptive"),
+    ]);
+    let row = three.first().expect("one entry, one row");
+    assert!(row.get("adaptive").is_some() && row.get("random").is_some());
+    assert!(
+        row.get("levelset").is_none() && row.get("stratified").is_none(),
+        "an arm that ran nothing cannot have a row: {row:?}"
+    );
+}

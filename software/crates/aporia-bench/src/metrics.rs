@@ -573,7 +573,7 @@ pub fn compare(outcomes: &[Outcome]) -> Vec<Json> {
     by_entry
         .into_iter()
         .map(|(entry, group)| {
-            let row = |name: &str| {
+            let row_for = |name: &str| {
                 let Some(best) = group.iter().filter(|o| o.strategy == name).max_by_key(|o| {
                     // Rank on localised regions first, then on how early they were localised.
                     (o.localised_regions, o.evaluations.min(u32::MAX as u64))
@@ -591,12 +591,20 @@ pub fn compare(outcomes: &[Outcome]) -> Vec<Json> {
                     ),
                 ])
             };
-            Json::object(vec![
-                ("entry", Json::text(entry)),
-                ("adaptive", row("adaptive")),
-                ("stratified", row("stratified")),
-                ("random", row("random")),
-            ])
+            // One row per arm this batch actually measured, in the order the enum reports them. The
+            // three names this function used to write out by hand are how the comparison table would
+            // have gone on claiming three arms after the plan started measuring four — the same class
+            // of defect `verdict` had, and the reason the run that found it was worth doing.
+            let arms: Vec<&'static str> = Strategy::ALL
+                .iter()
+                .map(|s| s.name())
+                .filter(|name| group.iter().any(|o| o.strategy == *name))
+                .collect();
+            let mut row = vec![("entry", Json::text(entry))];
+            for name in arms {
+                row.push((name, row_for(name)));
+            }
+            Json::object(row)
         })
         .collect()
 }
