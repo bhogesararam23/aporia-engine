@@ -335,7 +335,7 @@ impl RiskScorer {
             if engine.has_reference_path() {
                 *executions += 1;
                 let reference = aporia_numerics::reference::evaluate(model, x, self.max_steps);
-                items.extend(against_reference(model, &[0], &base.y, &reference.values()));
+                items.extend(against_reference(model, &[0], &base.y, &reference));
             } else {
                 // No A-IR instructions to re-do: the equations live in the program. Comparing its
                 // answer against an interpreter of a model that does not describe it would be

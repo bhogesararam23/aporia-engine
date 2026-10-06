@@ -747,14 +747,71 @@ pub fn numerical(model: &Model, ids: &[u64], f64_out: &[f64], f32_out: &[f64]) -
 ///
 /// This function had no caller anywhere in the project until the campaign wired it, which is how a
 /// five-channel instrument shipped with four channels for a whole measurement campaign.
+///
+/// It takes the whole [`Reference`] rather than its values, because the reference carries two flags
+/// that decide whether a comparison happened at all, and a caller holding only numbers cannot see
+/// them. Both were computed and unread until now: the campaign passed `reference.values()` and dropped
+/// the rest, so a reference that had **not finished** was compared as though it had, and one that left
+/// the real numbers where the runtime did not was silently agreed with.
+///
+/// Measured before changing anything, over the whole corpus (1,408 reference evaluations on a 64-point
+/// grid per entry, at the published 2M-step budget and again at 20,000 and 1,000): `budget_exceeded`
+/// never fired — not even at 1,000 steps — and every one of the 65 `non_finite` readings sat on a
+/// point where the runtime was non-finite too. So this closes a trap that no published number has
+/// fallen into, and the finite-versus-finite path below is byte-for-byte the comparison that produced
+/// them.
 #[must_use]
 pub fn against_reference(
     model: &Model,
     ids: &[u64],
     fast: &[f64],
-    reference: &[f64],
+    reference: &aporia_numerics::reference::Reference,
 ) -> Vec<Evidence> {
-    let out = disagreement(model, ids, fast, reference, Channel::Differential);
+    if reference.budget_exceeded {
+        // The reference stopped early, so its outputs are whatever the environment held at that
+        // instruction. Reporting no disagreement from that would be reporting agreement between two
+        // programs that never both answered, and reporting a disagreement would be a measurement of a
+        // truncated sum. Zero strength is the honest shape: the question was not answered, and a
+        // reader can tell that apart from an answer that came back clean.
+        return (0..model.outputs.len())
+            .map(|j| {
+                Evidence::new(
+                    Channel::Differential,
+                    Subject::PathDisagreement { output: j as u16 },
+                    0.0,
+                    ids.to_vec(),
+                    format!(
+                        "{} not compared: the reference path exhausted its budget after {} steps",
+                        model.outputs[j].name, reference.steps
+                    ),
+                )
+            })
+            .collect();
+    }
+    let values = reference.values();
+    let mut out = disagreement(model, ids, fast, &values, Channel::Differential);
+    for (j, (f, r)) in fast.iter().zip(values.iter()).enumerate() {
+        if f.is_finite() && !r.is_finite() {
+            // `disagreement` skips any pair with a non-finite side, which is right when both sides
+            // diverge and wrong when only one does: an independent implementation that cannot produce
+            // a number where this one can is exactly the claim this channel exists to catch. Left
+            // alone it would be silence, and silence reads as agreement in every report that counts
+            // the readings instead of the questions.
+            out.push(
+                Evidence::new(
+                    Channel::Differential,
+                    Subject::PathDisagreement { output: j as u16 },
+                    1.0,
+                    ids.to_vec(),
+                    format!(
+                        "{} is {f} on the runtime path and {r} on the reference path",
+                        model.outputs[j].name
+                    ),
+                )
+                .absolute(1.0),
+            );
+        }
+    }
     // No magnitude fudge here. An earlier version multiplied this channel's distances by 1e9 "because
     // the reference is the more trustworthy signal", which was a way of making one channel outrank
     // another by decree; it predates per-claim calibration, and with 0014 in place it is both
@@ -1120,6 +1177,102 @@ mod tests {
             level(&m, &record(&m, 0, &[0.5])),
             None,
             "inventing a level here would be inventing a region"
+        );
+    }
+
+    /// A reference reading built by hand, so the two flags can be set independently of the numbers.
+    fn reference(values: &[f64], steps: u64, budget_exceeded: bool) -> aporia_numerics::Reference {
+        aporia_numerics::Reference {
+            outputs: values
+                .iter()
+                .map(|v| aporia_numerics::Dd::from_f64(*v))
+                .collect(),
+            steps,
+            budget_exceeded,
+            non_finite: values.iter().any(|v| !v.is_finite()),
+        }
+    }
+
+    #[test]
+    fn an_exhausted_reference_is_reported_as_not_compared() {
+        // The reference stopped early, so its outputs are a truncated sum. Comparing that against a
+        // finished runtime answer would manufacture either a loud disagreement or a clean bill, and
+        // both would be claims about two programs that never both answered.
+        let m = model("model part \"\" {\n input x in [0, 10]\n let y = x\n let z = x / 2\n}\n");
+        let ev = against_reference(&m, &[7], &[1.0, 0.5], &reference(&[10.0, 5.0], 7, true));
+        assert_eq!(
+            ev.len(),
+            m.outputs.len(),
+            "every output was left un-compared"
+        );
+        for e in &ev {
+            assert_eq!(e.channel, Channel::Differential);
+            assert_eq!(
+                e.magnitude, 0.0,
+                "an unanswered question raises no risk: {e:?}"
+            );
+            assert!(!e.fixed, "not answering is not a fact against the model");
+            assert!(e.detail.contains("not compared"), "{}", e.detail);
+            assert!(!e.detail.contains("differs between paths"), "{}", e.detail);
+        }
+    }
+
+    #[test]
+    fn one_path_leaving_the_reals_is_a_disagreement_rather_than_silence() {
+        let m = model("model lone \"\" {\n input x in [0, 10]\n let y = x\n}\n");
+        let ev = against_reference(&m, &[7], &[1.0], &reference(&[f64::NAN], 9, false));
+        assert_eq!(
+            ev.len(),
+            1,
+            "the pair was dropped, which reads as agreement"
+        );
+        assert_eq!(ev[0].channel, Channel::Differential);
+        assert!(
+            ev[0].fixed,
+            "one program producing a number and the other not is a fact"
+        );
+        // Two programs that both fail to produce a number agree with each other, and divergence is
+        // the physical channel's business — that pair stays skipped.
+        assert!(
+            against_reference(
+                &m,
+                &[7],
+                &[f64::NAN],
+                &reference(&[f64::INFINITY], 9, false)
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_finished_reference_is_compared_exactly_as_it_was() {
+        // The published ladder's differential readings came through this path. Nothing above may
+        // change what a finite-versus-finite comparison says, so the distance, the channel and the
+        // wording are checked to still be the ones that produced those numbers.
+        let m = model("model same \"\" {\n input x in [0, 10]\n let y = x\n}\n");
+        let ev = against_reference(&m, &[7], &[1.0], &reference(&[1.001], 9, false));
+        assert_eq!(ev.len(), 1);
+        assert_eq!(ev[0].channel, Channel::Differential);
+        assert!(
+            (ev[0].magnitude - 0.001 / 1.001).abs() < 1e-12,
+            "{:?}",
+            ev[0].magnitude
+        );
+        assert!(
+            ev[0].detail.contains("differs between paths"),
+            "{}",
+            ev[0].detail
+        );
+        assert!(!ev[0].fixed, "a distance is a measurement, not a fact");
+        // Bit-level differences are not disagreement, flags or no flags.
+        assert!(
+            against_reference(
+                &m,
+                &[7],
+                &[1.0],
+                &reference(&[f64::from_bits(1.0f64.to_bits() + 1)], 9, false)
+            )
+            .is_empty()
         );
     }
 

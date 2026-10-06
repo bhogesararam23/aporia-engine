@@ -136,3 +136,55 @@ fn a_declared_external_entry_is_refused_before_any_budget_is_spent() {
         "an external model was accepted for measurement: {text:?}"
     );
 }
+
+#[test]
+fn the_reference_path_finishes_wherever_the_corpus_measures_it() {
+    // The differential channel now refuses to compare a reference that ran out of steps, and names a
+    // reference that left the real numbers while the runtime did not. Both branches are inert on the
+    // corpus as it stands, and this is where that is checked rather than asserted in a comment: the
+    // claim "this change moves no published number" has to be re-derivable by a reader, not trusted
+    // from a session log.
+    //
+    // The grid is the search's own unit square at 64 deterministic points per entry, and the step
+    // guard is the one every committed ladder run used.
+    let entries = corpus::load(&corpus_root()).expect("the corpus loads");
+    let mut non_finite_readings = 0usize;
+    for e in &entries {
+        let Some(m) = &e.model else { continue };
+        for k in 0..64u64 {
+            let unit: Vec<f64> = (0..m.params.len())
+                .map(|i| ((k.wrapping_mul(7 + i as u64) % 64) as f64) / 63.0)
+                .collect();
+            let x = aporia_search::to_parameters(m, &unit);
+            let r = aporia_numerics::reference::evaluate(m, &x, 2_000_000);
+            assert!(
+                !r.budget_exceeded,
+                "{} at {x:?}: the reference path exhausted its 2M-step budget after {} steps, so the \
+                 differential channel would report an un-compared point rather than a comparison",
+                e.id(),
+                r.steps
+            );
+            let fast = aporia_runtime::interp::run(m, &x, aporia_runtime::ExecConfig::default());
+            for (j, (f, rv)) in fast.outputs.iter().zip(r.values()).enumerate() {
+                if !rv.is_finite() {
+                    non_finite_readings += 1;
+                    assert!(
+                        !f.is_finite(),
+                        "{} at {x:?} output {j}: the reference produced {rv} while the runtime \
+                         produced {f}, which is a one-sided divergence the ladder has never been \
+                         scored on — the channel must name it now, so this entry needs its own \
+                         investigation rather than a silenced pair",
+                        e.id()
+                    );
+                }
+            }
+        }
+    }
+    // Recorded, not asserted away: some corpus models genuinely leave the reals inside their declared
+    // domains, and that is what the sqrt and reciprocal entries exist to test.
+    assert!(
+        non_finite_readings > 0,
+        "no entry left the real numbers anywhere, which would mean the boundary entries stopped \
+         being boundary entries"
+    );
+}

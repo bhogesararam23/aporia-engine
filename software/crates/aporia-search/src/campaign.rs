@@ -533,7 +533,7 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
                     model,
                     &[id],
                     &o.y,
-                    &reference.values(),
+                    &reference,
                 ));
             }
         }
