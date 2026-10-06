@@ -1,10 +1,12 @@
 //! Where the next evaluation goes.
 //!
-//! Six acquisition families, each a question about the current state of the atlas, and one
-//! meta-policy that spends budget on the families that have been paying for themselves. The whole
-//! point of the split is that it can be measured: every strategy in the comparison — random,
-//! stratified, adaptive — is the same driver with a different set of families enabled, so a
-//! difference in outcome is a difference in *where points were placed* and nothing else.
+//! Seven ways to ask where to put the next point. Six of them are acquisition families, each a
+//! question about the current state of the atlas's *evidence*, plus a meta-policy that spends budget
+//! on the families that have been paying for themselves. The seventh is the level-set baseline, which
+//! asks about the model's declared rules instead and uses none of the instrument. The whole point of
+//! the split is that it can be measured: every strategy in the comparison — random, stratified,
+//! levelset, adaptive — is the same driver with a different rule for placing a point, so a difference
+//! in outcome is a difference in *where points were placed* and nothing else.
 
 use aporia_ir::Model;
 use aporia_numerics::Rng;
@@ -24,16 +26,25 @@ pub enum Family {
     Sensitivity,
     /// Points where two channels disagreed about how risky the region is.
     Contradiction,
+    /// The coarsest cell whose own observations straddle one model-declared level, cut at its bracket.
+    ///
+    /// This is the odd one out and it is meant to be visible as such. Every family above asks about
+    /// the atlas's *evidence* — which cells carry risk, which channels disagreed — while `LevelSet`
+    /// asks only where the model's declared rules change sign. It exists so the multi-evidence search
+    /// has a competitor that needs none of the instrument, in the shape the excursion-set and
+    /// active-learning reliability literature use (see `documentation/prior-work.md`).
+    LevelSet,
 }
 
 impl Family {
-    pub const ALL: [Family; 6] = [
+    pub const ALL: [Family; 7] = [
         Family::Random,
         Family::Coverage,
         Family::Boundary,
         Family::Uncertainty,
         Family::Sensitivity,
         Family::Contradiction,
+        Family::LevelSet,
     ];
 
     /// The three families an adaptive campaign switches between once the space is roughly covered.
@@ -54,6 +65,7 @@ impl Family {
             Self::Uncertainty => "uncertainty",
             Self::Sensitivity => "sensitivity",
             Self::Contradiction => "contradiction",
+            Self::LevelSet => "levelset",
         }
     }
 
@@ -66,6 +78,7 @@ impl Family {
             Self::Uncertainty => 3,
             Self::Sensitivity => 4,
             Self::Contradiction => 5,
+            Self::LevelSet => 6,
         }
     }
 
@@ -84,18 +97,32 @@ pub enum Strategy {
     Stratified,
     /// Meta-selected among the informative families, with a floor of random exploration.
     Adaptive,
+    /// One scalar reading per point — the model's own declared rules, signed — and a cell cut where
+    /// its observations straddle that level. No calibration, no fusion, no acquisition choice.
+    ///
+    /// Named for what it is: APORIA's minimal level-set-shaped baseline, motivated by the excursion-set
+    /// and AK-MCS literature (`documentation/prior-work.md`) and sharing its objective, not
+    /// reproducing its methods. It has no surrogate, no uncertainty estimate and no stopping rule
+    /// with guarantees, and it cannot run on a model that declares no rule to cross.
+    LevelSet,
 }
 
 impl Strategy {
     /// Every strategy the driver can be told to follow, in the order a sweep reports them.
-    pub const ALL: [Self; 3] = [Self::Adaptive, Self::Stratified, Self::Random];
+    pub const ALL: [Self; 4] = [
+        Self::Adaptive,
+        Self::LevelSet,
+        Self::Stratified,
+        Self::Random,
+    ];
 
     /// The names a caller may use, derived from [`Strategy::name`] rather than written out again next
     /// to it, so a refusal can never list a vocabulary the parser has stopped accepting.
     #[must_use]
-    pub fn names() -> [&'static str; 3] {
+    pub fn names() -> [&'static str; 4] {
         [
             Self::Adaptive.name(),
+            Self::LevelSet.name(),
             Self::Stratified.name(),
             Self::Random.name(),
         ]
@@ -107,6 +134,7 @@ impl Strategy {
             Self::Random => "random",
             Self::Stratified => "stratified",
             Self::Adaptive => "adaptive",
+            Self::LevelSet => "levelset",
         }
     }
 
@@ -122,6 +150,7 @@ impl Strategy {
             "random" => Self::Random,
             "stratified" => Self::Stratified,
             "adaptive" => Self::Adaptive,
+            "levelset" => Self::LevelSet,
             _ => return None,
         })
     }
@@ -135,8 +164,8 @@ impl Strategy {
 /// average, which keeps a family that has not been tried recently from being written off forever.
 #[derive(Clone, Debug)]
 pub struct Acquisition {
-    pub evaluations: [u64; 6],
-    pub value: [f64; 6],
+    pub evaluations: [u64; 7],
+    pub value: [f64; 7],
     alpha: f64,
     /// Probability of ignoring the scores and sampling uniformly, so a bad early read cannot lock
     /// the campaign into one family.
@@ -148,8 +177,8 @@ pub struct Acquisition {
 impl Default for Acquisition {
     fn default() -> Self {
         Self {
-            evaluations: [0; 6],
-            value: [0.0; 6],
+            evaluations: [0; 7],
+            value: [0.0; 7],
             // A slow average would let one lucky batch dominate a whole campaign; a fast one would
             // chase noise. 0.1 over a few hundred decisions keeps a horizon of tens.
             alpha: 0.1,
@@ -344,6 +373,33 @@ mod tests {
         }
         assert_eq!(Strategy::names().to_vec(), strategy_names());
         assert_eq!(Strategy::parse("halton"), None, "an alias is a second name");
+        // The baseline's one name, and nothing near it: `level`, `level-set` and `level_set` would each
+        // be a second vocabulary for the same arm, which is the defect 0023 item 4 removed.
+        assert_eq!(Strategy::parse("levelset"), Some(Strategy::LevelSet));
+        for wrong in ["level", "level-set", "level_set", "ak-mcs", "kriging"] {
+            assert_eq!(
+                Strategy::parse(wrong),
+                None,
+                "{wrong} is not in the vocabulary"
+            );
+        }
+    }
+
+    #[test]
+    fn a_family_index_does_not_move_underneath_an_archive() {
+        // Decisions are credited through these indices, `Acquisition` keeps an array per index, and a
+        // results row names the family it measured. Adding the level-set baseline at the *end* was the
+        // whole trick: the six families that produced every published number keep the indices those
+        // numbers were written with, so an old file still means what it said.
+        assert_eq!(Family::Random.index(), 0);
+        assert_eq!(Family::Coverage.index(), 1);
+        assert_eq!(Family::Boundary.index(), 2);
+        assert_eq!(Family::Uncertainty.index(), 3);
+        assert_eq!(Family::Sensitivity.index(), 4);
+        assert_eq!(Family::Contradiction.index(), 5);
+        assert_eq!(Family::LevelSet.index(), 6);
+        assert_eq!(Family::ALL.len(), 7);
+        assert_eq!(Acquisition::default().evaluations.len(), 7);
     }
 
     fn strategy_names() -> Vec<&'static str> {

@@ -17,7 +17,7 @@
 //! risks are kept per point, so a reader can see how far refinement moved the answer.
 //!
 //! Every evaluation — base points and probes alike — is charged against the budget, and one driver
-//! runs all three strategies, so a difference between strategies is a difference in where points were
+//! runs all four strategies, so a difference between strategies is a difference in where points were
 //! placed and nothing else. Atlas labels come from the online risk the search actually acted on;
 //! findings are ranked by the retrospective risk. That asymmetry is intentional and is stated in the
 //! report rather than hidden in a merged number.
@@ -27,7 +27,7 @@ use aporia_boundary::{Atlas, FACE_EPS, Label, Policy};
 use aporia_evidence::{Calibrator, ChannelCorrelation, Evidence, EvidenceSet, fuse};
 use aporia_ir::{Model, RelationKind};
 use aporia_numerics::Rng;
-use aporia_properties::{Pair, Probes, constraints, divergence, numerical, sensitivity};
+use aporia_properties::{Pair, Probes, constraints, divergence, level, numerical, sensitivity};
 use aporia_runtime::observe::{Observation, Records};
 use aporia_runtime::value::{ExecConfig, FpMode};
 use aporia_runtime::{Executor, Interp};
@@ -354,6 +354,9 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
     let mut records = Records::new();
     let mut probes = Probes::new();
     let mut decisions: Vec<Decision> = Vec::new();
+    // The level-set arm's steering state: the base points it placed, the level each one read, and the
+    // leaves it has already cut. Kept out of the instrument — no other arm writes to it or reads it.
+    let mut frontier = Frontier::default();
     let mut online_risk: Vec<f64> = Vec::new();
     let mut log: Vec<EvidenceSet> = Vec::new();
     let mut numerical_pairs: Vec<(u64, Vec<f64>)> = Vec::new();
@@ -366,6 +369,7 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
         Strategy::Random => vec![Family::Random],
         Strategy::Stratified => vec![Family::Coverage],
         Strategy::Adaptive => Family::ADAPTIVE.to_vec(),
+        Strategy::LevelSet => vec![Family::LevelSet],
     };
     let at_f64 = ExecConfig {
         fp: FpMode::F64,
@@ -390,11 +394,29 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
     while evaluations < config.budget {
         let round = evaluations;
         let family = acquisition.choose(&allowed, &mut rng);
-        let x = choose_point(model, &atlas, family, &mut acquisition, &mut rng);
+        let (x, unit) = choose_point(
+            model,
+            &atlas,
+            family,
+            &mut acquisition,
+            &mut rng,
+            &mut frontier,
+        );
         let (obs, cost) = eval(engine, model, &x, at_f64, evaluations);
         evaluations += 1;
         steps += cost;
         let id = records.push(obs);
+        if matches!(family, Family::LevelSet) {
+            // The one number this arm acts on, read straight off the model's declared rules and from
+            // nothing else. Base points only: the probe stars belong to the instrument, which every arm
+            // shares, and are not this strategy's business.
+            let read = records.by_id(id).and_then(|o| level(model, o));
+            frontier.placed.push(Placed {
+                x: x.clone(),
+                unit,
+                level: read,
+            });
+        }
         online_risk.push(0.0);
         let mut group = vec![id];
 
@@ -713,28 +735,42 @@ fn eval(
     (Observation::new(id, x.to_vec(), &outcome), cost)
 }
 
-/// Place one point, in the model's own units.
+/// Place one point, returning it in the model's own units and in the unit coordinates that produced
+/// it. The second half exists for the level-set arm: a bracket is a distance, and a distance measured
+/// across two declared ranges of different sizes only means something after both axes sit on [0, 1].
 fn choose_point(
     model: &Model,
     atlas: &Atlas,
     family: Family,
     acquisition: &mut Acquisition,
     rng: &mut Rng,
-) -> Vec<f64> {
+    frontier: &mut Frontier,
+) -> (Vec<f64>, Vec<f64>) {
     let dims = model.params.len();
     match family {
-        Family::Random | Family::Sensitivity => to_parameters(
-            model,
-            &(0..dims).map(|_| rng.next_f64()).collect::<Vec<f64>>(),
-        ),
-        Family::Coverage => to_parameters(model, &acquisition.next_unit(dims)),
+        Family::Random | Family::Sensitivity => {
+            let unit: Vec<f64> = (0..dims).map(|_| rng.next_f64()).collect();
+            (to_parameters(model, &unit), unit)
+        }
+        Family::Coverage => {
+            let unit = acquisition.next_unit(dims);
+            (to_parameters(model, &unit), unit)
+        }
+        Family::LevelSet => {
+            let unit = match frontier.cut(atlas) {
+                Some(unit) => unit,
+                // Nothing straddles the level yet, or every mixed leaf has already been cut at its
+                // current resolution, so the run places a designed-experiment point instead: cover the
+                // domain until there is a bracket worth cutting.
+                None => acquisition.next_unit(dims),
+            };
+            (to_parameters(model, &unit), unit)
+        }
         other => {
             let Some(cell) = target_cell(atlas, other) else {
                 // Nothing to target yet, so the first rounds are necessarily coarse.
-                return to_parameters(
-                    model,
-                    &(0..dims).map(|_| rng.next_f64()).collect::<Vec<f64>>(),
-                );
+                let unit: Vec<f64> = (0..dims).map(|_| rng.next_f64()).collect();
+                return (to_parameters(model, &unit), unit);
             };
             let root = atlas.root().clone();
             let unit: Vec<f64> = (0..dims)
@@ -752,8 +788,104 @@ fn choose_point(
                         + ((hi - inset) - (lo + inset)) / span * rng.next_f64()
                 })
                 .collect();
-            to_parameters(model, &unit)
+            (to_parameters(model, &unit), unit)
         }
+    }
+}
+
+/// A bracket this narrow, in unit coordinates, is settled: cutting it again would place a point the
+/// atlas cannot distinguish from one it already has.
+const BRACKET_FLOOR: f64 = 1e-6;
+
+/// A base point the level-set arm placed, and the level it read there.
+struct Placed {
+    x: Vec<f64>,
+    /// The unit coordinates the point came from, kept so a bracket's length is comparable across axes.
+    unit: Vec<f64>,
+    /// `None` where the model declares nothing this point sits on a side of. Such a point takes no part
+    /// in a bracket: it is not evidence about a level, and treating the absence of a reading as a
+    /// reading is the mistake that made the old atlas call an unvisited slot a zero.
+    level: Option<f64>,
+}
+
+/// The level-set arm's own steering state: the base points it placed and the level each one read.
+#[derive(Default)]
+struct Frontier {
+    placed: Vec<Placed>,
+}
+
+impl Frontier {
+    /// The next cut of APORIA's level-set baseline: the midpoint of the *widest* straddling bracket
+    /// inside the coarsest atlas leaf that holds both sides of the level.
+    ///
+    /// Both halves of that rule are load-bearing, and getting them right was a measurement rather than
+    /// an argument. Version one took the *tightest* bracket in the coarsest leaf, which on any model
+    /// whose two edges still live in one leaf spends the whole budget halving whichever edge it reached
+    /// first and never mentions the other; marking each leaf as cut once fixed the spread and lost the
+    /// tightening. Widest-first is what does both: a cut replaces one gap with two shorter ones, so the
+    /// frontier's widest open gap shrinks over the run, and where a model has two crossings the two
+    /// sides take turns because each is the widest gap at some point in the sequence.
+    ///
+    /// The leaf enters because a bracket is only a statement about a boundary if it is local. Taking
+    /// the coarsest leaf with both signs puts the next point where the boundary is least resolved, which
+    /// is the same reason the atlas exists at all.
+    ///
+    /// `None` is an answer, not a failure: no leaf holds both sides of the declared level. That is true
+    /// at the start of every run and permanently true on a model whose rules never change sign, and the
+    /// caller covers the domain in that case rather than inventing a boundary to cut.
+    fn cut(&mut self, atlas: &Atlas) -> Option<Vec<f64>> {
+        use std::collections::BTreeMap;
+        let mut by_cell: BTreeMap<u32, Vec<usize>> = BTreeMap::new();
+        for (i, p) in self.placed.iter().enumerate() {
+            if p.level.is_some() {
+                by_cell.entry(atlas.locate(&p.x)).or_default().push(i);
+            }
+        }
+        let root = atlas.root().clone();
+        let mut best: Option<(f64, u32, usize, usize)> = None;
+        for (cell, idxs) in by_cell {
+            let Some(size) = atlas.cell(cell).map(|c| c.relative_size(&root)) else {
+                continue;
+            };
+            let mut pair: Option<(usize, usize, f64)> = None;
+            for (ai, a) in idxs.iter().enumerate() {
+                for b in &idxs[ai + 1..] {
+                    let (Some(la), Some(lb)) = (self.placed[*a].level, self.placed[*b].level)
+                    else {
+                        continue;
+                    };
+                    if (la < 0.0) == (lb < 0.0) {
+                        continue; // both on the same side, so nothing is bracketed between them
+                    }
+                    let gap: f64 = self.placed[*a]
+                        .unit
+                        .iter()
+                        .zip(&self.placed[*b].unit)
+                        .map(|(u, v)| (u - v) * (u - v))
+                        .sum();
+                    if gap <= BRACKET_FLOOR * BRACKET_FLOOR {
+                        continue;
+                    }
+                    if pair.is_none_or(|(_, _, g)| gap > g) {
+                        pair = Some((*a, *b, gap));
+                    }
+                }
+            }
+            let Some((a, b, _)) = pair else { continue };
+            // Coarsest leaf wins, and a tie goes to the lower cell id because this loop is keyed by it.
+            if best.is_none_or(|(bs, _, _, _)| size > bs) {
+                best = Some((size, cell, a, b));
+            }
+        }
+        let (_, _cell, a, b) = best?;
+        Some(
+            self.placed[a]
+                .unit
+                .iter()
+                .zip(&self.placed[b].unit)
+                .map(|(u, v)| (u + v) / 2.0)
+                .collect(),
+        )
     }
 }
 
@@ -1485,7 +1617,7 @@ mod tests {
         let m = model(
             "model c \"\" {\n input x in [0, 1]\n input y in [0, 1]\n let z = x / (y + 0.001)\n require finite(z)\n}\n",
         );
-        for s in [Strategy::Random, Strategy::Stratified, Strategy::Adaptive] {
+        for s in Strategy::ALL {
             let c = run(
                 &m,
                 Config {
