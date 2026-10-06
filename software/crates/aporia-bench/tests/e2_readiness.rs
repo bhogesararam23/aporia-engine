@@ -226,3 +226,50 @@ fn an_arm_that_keeps_one_channel_is_expressible_and_says_so() {
         );
     }
 }
+
+#[test]
+fn the_fitted_calibrator_and_correlation_never_saw_the_silenced_channel() {
+    // E2 grades each arm by the evidence it was allowed to have, and the grading machinery itself
+    // is fitted from that same evidence: the calibrator's per-channel scales and the channel
+    // correlation are estimated from the evidence log after the mask's retain. If a silenced
+    // channel's magnitudes still entered either fit, the ablated arm would be calibrated by the
+    // readings it was supposed to be without — the ablation would leak through the scales, and a
+    // "no effect" null would be an artifact of grading both arms with the full instrument's
+    // ruler.
+    //
+    // `euler_decay` produces Numerical readings at these rates (f32 against f64 on a decaying
+    // exponential), so an arm that silences Numerical must report that channel's scale as
+    // unfitted — the fit had no magnitudes to fit from.
+    let m = model(FULL_INSTRUMENT_ENTRY);
+    let full = run(&m, ladder(320));
+    assert!(
+        full.calibrator.is_fitted(Channel::Numerical),
+        "the full arm fitted no Numerical scale, so this entry stops proving the exclusion"
+    );
+    let arm = run(&m, ladder(320).without(Channel::Numerical));
+    assert!(
+        !arm.calibrator.is_fitted(Channel::Numerical),
+        "the -numerical arm fitted a scale for the channel it silenced: {}",
+        arm.calibrator.describe()
+    );
+    // The channels it kept stay fitted — the exclusion is per channel, not a refusal to calibrate.
+    for kept in Channel::ALL {
+        if kept == Channel::Numerical {
+            continue;
+        }
+        if full.calibrator.is_fitted(kept) {
+            assert!(
+                arm.calibrator.is_fitted(kept),
+                "silencing Numerical unfitted the {kept:?} scale too: {}",
+                arm.calibrator.describe()
+            );
+        }
+    }
+    // And the correlation estimate never saw a silenced pair: a channel that cannot appear in the
+    // log cannot appear in a correlated pair with it. The samples count is over the retained log,
+    // so the silenced arm's population is at most the full arm's.
+    assert!(
+        arm.correlation.samples() <= full.correlation.samples(),
+        "the silenced arm's correlation was fitted from more evidence sets than the full arm's"
+    );
+}
