@@ -243,15 +243,14 @@ fn the_interpreter_shrinks_this_case_into_a_claim_about_nan() {
         !program_evidence
             .iter()
             .any(|e| e.detail.contains("NaN") || e.detail.contains("nan")),
-        "the program reported a non-finite value: {:?}",
-        program_evidence
+        "the program reported a non-finite value: {program_evidence:?}"
     );
     assert!(
         interp_evidence
             .iter()
             .any(|e| e.detail.contains("NaN") || e.detail.contains("nan")),
-        "the interpreter did not report the non-finite value that makes its claim meaningless: {:?}",
-        interp_evidence
+        "the interpreter did not report the non-finite value that makes its claim meaningless: \
+         {interp_evidence:?}"
     );
 }
 

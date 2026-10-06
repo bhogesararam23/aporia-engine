@@ -201,8 +201,10 @@ fn the_archive_and_the_results_file_say_which_arm_produced_them() {
             .to_string()
     };
     let full = Plan::default();
-    let mut ablated = Plan::default();
-    ablated.ablate = vec![Channel::Numerical];
+    let ablated = Plan {
+        ablate: vec![Channel::Numerical],
+        ..Plan::default()
+    };
     assert_ne!(
         identity(&full),
         identity(&ablated),
@@ -226,7 +228,7 @@ fn the_ablation_vocabulary_is_refused_by_name() {
     assert_eq!(Channel::parse("numerical"), Some(Channel::Numerical));
     // And silencing everything is refused rather than run: with no channel consulted a campaign has
     // nothing to search on and would report a domain of TRUSTED cells built on nothing.
-    let all: Vec<String> = Channel::names().iter().map(|s| s.to_string()).collect();
+    let all: Vec<String> = Channel::names().into_iter().map(str::to_string).collect();
     assert_eq!(all.len(), Channel::ALL.len());
 }
 
