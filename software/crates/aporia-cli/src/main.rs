@@ -3,7 +3,11 @@
 //! ```text
 //! aporia run <model.ap> [--budget N]            analyse one model with the scalar interpreter
 //! aporia run <model.ap> --program "<prog args>" analyse a model whose outputs come from a program
-//! aporia help                                   this text
+//! aporia replay <archive-dir>                   check an archive, then reproduce its run
+//! aporia report <archive-dir>                   print a stored run without executing anything
+//! aporia compare <dir-a> <dir-b>                say what differs between two stored runs
+//! aporia bench <command> [flags]                the measurement harness, forwarded to aporia-bench
+//! aporia help | --version                       this text, or which build this is
 //! ```
 //!
 //! Arguments are parsed by hand, the way `aporia-bench` does it: two optional flags are not a reason
@@ -12,9 +16,11 @@
 //! analysis the caller did not ask for — and one that silently dropped `--program` would report a
 //! map made by the wrong arithmetic entirely.
 //!
-//! Exit status: `0` ran and found nothing suspicious, `1` ran and reported SUSPICIOUS regions, `2`
-//! bad usage, `3` the model could not be read, compiled or verified, `4` the program stopped
-//! answering and the map is incomplete.
+//! Exit status, the same list `aporia help` prints: `0` ran and found nothing suspicious, `1` ran and
+//! reported SUSPICIOUS regions, `2` bad usage, `3` the model could not be read, compiled or verified,
+//! `4` the program stopped answering and the map is incomplete, `5` archive integrity failure, `6`
+//! archive intact but the run did not reproduce, `7` the run finished and the archive could not be
+//! written, `8` the two archives differ, `9` the two archives agree on everything comparable.
 
 use aporia_cli::run::Exit;
 use aporia_cli::{bench, compare, replay, report, run};
@@ -41,6 +47,7 @@ fn usage() -> &'static str {
      \x20 bench <command> [flags]    the measurement harness: list, verify, run, verdict, scan,\n\
      \x20                            explain (bare `bench` shows its own usage)\n\
      \x20 help                        show this text\n\
+     \x20 version                     which build of aporia this is\n\
      exit: 0 clean, 1 suspicious regions reported, 2 usage, 3 model not usable,\n\
      \x20     4 the program stopped answering (the map above is incomplete),\n\
      \x20     5 archive integrity failure, 6 archive intact but the run did not reproduce,\n\
@@ -68,6 +75,13 @@ fn main() {
             print!("{}", usage());
             Exit::Clean
         }
+        // The build a number came from is part of what makes it reproducible, and an archive's
+        // environment block records the toolchain that wrote it. A reader holding a log line that
+        // says only `aporia` needs the version beside it, so this costs one macro and no dependency.
+        Some("version" | "--version" | "-V") => {
+            println!("aporia {}", env!("CARGO_PKG_VERSION"));
+            Exit::Clean
+        }
         Some(other) => {
             eprintln!("aporia: unknown command {other:?}");
             eprint!("{}", usage());
@@ -75,6 +89,24 @@ fn main() {
         }
     };
     std::process::exit(exit.code());
+}
+
+/// True when the arguments ask what the command does rather than asking it to do something.
+///
+/// Every command answers this, because before it did, `aporia replay --help` read `--help` as the
+/// archive directory and reported that no such archive existed — a usage question answered as a
+/// missing file, with a status that meant "input not usable". Help is an argument the tool already
+/// has, so it is checked before any argument is turned into a path.
+fn help_requested(flags: &[String]) -> bool {
+    flags
+        .iter()
+        .any(|a| a == "--help" || a == "-h" || a == "help")
+}
+
+/// Print the usage text for a command that was asked for it, and succeed.
+fn show_help() -> Exit {
+    print!("{}", usage());
+    Exit::Clean
 }
 
 /// What `aporia run` was asked to do, once the words have been turned into values.
@@ -128,7 +160,8 @@ fn parse_args(flags: &[String]) -> Result<Args, Exit> {
                     };
                     if n == 0 {
                         eprintln!(
-                            "aporia: --timeout needs a positive number of milliseconds; 0 would mean                              'never wait', and a run that answers nothing is not a faster run"
+                            "aporia: --timeout needs a positive number of milliseconds; 0 would mean \
+                             'never wait', and a run that answers nothing is not a faster run"
                         );
                         return Err(Exit::Usage);
                     }
@@ -173,6 +206,9 @@ fn one_directory<F>(name: &str, flags: &[String], read_it: F) -> Exit
 where
     F: Fn(&std::path::Path, &mut dyn std::io::Write) -> Exit,
 {
+    if help_requested(flags) {
+        return show_help();
+    }
     let Some(first) = flags.first() else {
         eprintln!("aporia: {name} needs an archive directory, e.g. aporia {name} run-0001");
         eprint!("{}", usage());
@@ -193,6 +229,9 @@ fn two_directories<F>(name: &str, flags: &[String], read_it: F) -> Exit
 where
     F: Fn(&std::path::Path, &std::path::Path, &mut dyn std::io::Write) -> Result<Exit, String>,
 {
+    if help_requested(flags) {
+        return show_help();
+    }
     let [first, second] = flags else {
         eprintln!(
             "aporia: {name} needs exactly two archive directories, e.g. aporia {name} run-0001 \
@@ -215,6 +254,9 @@ where
 }
 
 fn run_command(flags: &[String]) -> Exit {
+    if help_requested(flags) {
+        return show_help();
+    }
     let Ok(args) = parse_args(flags) else {
         return Exit::Usage;
     };
