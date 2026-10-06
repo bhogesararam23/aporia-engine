@@ -80,22 +80,26 @@ pub fn write(w: &mut impl Write, records: &Records) -> io::Result<u64> {
 }
 
 /// Read a whole observation file.
+///
+/// The header is parsed by [`header`], the same function a report uses when it wants counts without
+/// the records, because two parsers of one format is how a format silently acquires two meanings.
+///
+/// `total_steps` is then checked rather than discarded. It is derived from the records when the file is
+/// written (`Records::total_steps`), so a file whose header disagrees with its own records was either
+/// written by something that did not derive it or edited afterwards. This is a *format consistency*
+/// check, not the archive's integrity control — the manifest digest is that — and it exists because the
+/// number is printed: an unchecked header would let a report state a work total that its own records
+/// contradict.
 pub fn read(bytes: &[u8]) -> Result<Records, crate::StoreError> {
-    let Some(magic) = bytes.get(0..6) else {
-        return Err(crate::StoreError::Truncated { at: 0, needed: 6 });
-    };
-    if magic != MAGIC {
-        return Err(crate::StoreError::Format(format!(
-            "not an observation file: starts with {:02x?}",
-            &bytes[..bytes.len().min(6)]
-        )));
-    }
-    let mut at = 6usize;
-    let arity = take_u16(bytes, &mut at)?;
-    let outputs = take_u16(bytes, &mut at)?;
-    let traces = take_u16(bytes, &mut at)?;
-    let count = take_u64(bytes, &mut at)?;
-    let total_steps = take_u64(bytes, &mut at)?;
+    let h = header(bytes)?;
+    let Header {
+        arity,
+        outputs,
+        traces,
+        count,
+        total_steps,
+    } = h;
+    let mut at = 6usize + 2 + 2 + 2 + 8 + 8;
     let mut records = Records::new();
     for _ in 0..count {
         let id = take_u64(bytes, &mut at)?;
@@ -152,26 +156,37 @@ pub fn read(bytes: &[u8]) -> Result<Records, crate::StoreError> {
             bytes.len() - at
         )));
     }
-    let _ = total_steps;
+    let stated = records.total_steps();
+    if stated != total_steps {
+        return Err(crate::StoreError::Format(format!(
+            "the observation header says {total_steps} instruction steps and its {} records sum to \
+             {stated}, which means the header was not derived from the records it introduces",
+            records.items.len()
+        )));
+    }
     Ok(records)
 }
 
-/// The header alone, for a report that wants counts without loading every record.
+/// The header alone, for a report that wants counts without loading every record, and as the one
+/// place the header's byte layout is interpreted — see [`read`].
 pub fn header(bytes: &[u8]) -> Result<Header, crate::StoreError> {
-    if bytes.get(0..6).is_some_and(|m| m == MAGIC) {
-        let mut at = 6usize;
-        Ok(Header {
-            arity: take_u16(bytes, &mut at)?,
-            outputs: take_u16(bytes, &mut at)?,
-            traces: take_u16(bytes, &mut at)?,
-            count: take_u64(bytes, &mut at)?,
-            total_steps: take_u64(bytes, &mut at)?,
-        })
-    } else {
-        Err(crate::StoreError::Format(
-            "not an observation file".to_string(),
-        ))
+    let Some(magic) = bytes.get(0..6) else {
+        return Err(crate::StoreError::Truncated { at: 0, needed: 6 });
+    };
+    if magic != MAGIC {
+        return Err(crate::StoreError::Format(format!(
+            "not an observation file: starts with {:02x?}",
+            &bytes[..bytes.len().min(6)]
+        )));
     }
+    let mut at = 6usize;
+    Ok(Header {
+        arity: take_u16(bytes, &mut at)?,
+        outputs: take_u16(bytes, &mut at)?,
+        traces: take_u16(bytes, &mut at)?,
+        count: take_u64(bytes, &mut at)?,
+        total_steps: take_u64(bytes, &mut at)?,
+    })
 }
 
 fn put(w: &mut impl Write, b: &[u8]) -> io::Result<u64> {
@@ -302,6 +317,43 @@ mod tests {
         assert_eq!(h.outputs as usize, first.y.len());
         assert_eq!(h.traces as usize, first.traces.len());
         assert_eq!(h.total_steps, original.total_steps());
+    }
+
+    #[test]
+    fn a_header_that_disagrees_with_its_own_records_is_refused_by_name() {
+        // The header's `total_steps` is derived at write time, so a file whose header claims a
+        // different total is not a file this writer produced. Before this check the field was read and
+        // discarded (`let _ = total_steps`), which meant a report could print a work total its own
+        // records contradicted and nothing in the reader would notice.
+        let original = records(7);
+        let mut bytes = Vec::new();
+        write(&mut bytes, &original).unwrap();
+        // magic[6] arity u16 outputs u16 traces u16 count u64 -> `total_steps` is the u64 at offset 20.
+        let at = 6 + 2 + 2 + 2 + 8;
+        let claimed = u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap());
+        assert_eq!(claimed, original.total_steps(), "the writer derived it");
+        bytes[at..at + 8].copy_from_slice(&3u64.to_le_bytes());
+        let error = read(&bytes).expect_err("a header that lies about its records must not read");
+        let text = error.to_string();
+        assert!(
+            text.contains("instruction steps")
+                && text.contains(&claimed.to_string())
+                && text.contains("its 7 records sum to"),
+            "{text}"
+        );
+        // And the header-only reader still reports what the file says, because that is what it is for.
+        assert_eq!(header(&bytes).unwrap().total_steps, 3);
+    }
+
+    #[test]
+    fn a_file_that_is_not_an_observation_file_says_so_with_its_own_bytes() {
+        for (input, want) in [
+            (Vec::<u8>::new(), "file ends at byte 0, needed 6 more"),
+            (b"PK\x03\x04AP".to_vec(), "not an observation file"),
+        ] {
+            let text = read(&input).expect_err("refused").to_string();
+            assert!(text.contains(want), "{text} for {input:?}");
+        }
     }
 
     #[test]
