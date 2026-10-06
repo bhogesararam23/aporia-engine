@@ -1,7 +1,8 @@
 //! The ablation control, and the two properties that make it a control rather than a reconfiguration.
 //!
-//! `docs/decisions/0028` narrowed the research question to one about evidence: does fusing five
-//! heterogeneous signals localise regions that no subset of them localises at the same budget? That is
+//! The prior-work pass (`documentation/prior-work.md`) narrowed the research question to one about
+//! evidence: does fusing five heterogeneous signals localise regions that no subset of them localises
+//! at the same budget? That is
 //! only answerable if removing a channel changes *what the instrument concluded* without changing
 //! *what it paid for*. Those are the two assertions here, in both directions:
 //!

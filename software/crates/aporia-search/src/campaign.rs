@@ -79,8 +79,8 @@ pub struct Config {
     /// evaluations: a silenced channel's probe star still runs and is still charged, so two arms of an
     /// ablation spend exactly the same budget on exactly the same points and differ only in what the
     /// instrument was allowed to conclude from them. Removing the evaluations too would change which
-    /// cells the search reaches, which makes the arms incomparable — that variant is a different
-    /// experiment and is recorded as such in `docs/decisions/0029`.
+    /// cells the search reaches, which makes the arms incomparable — skipping the evaluations as well
+    /// is a different experiment with a different cost basis, so it is not a mode of this mask.
     ///
     /// The mask is recorded in [`Config::json`], so an archive says which arm produced its numbers.
     /// Zero, the default, consults every channel the rest of the config turns on.
