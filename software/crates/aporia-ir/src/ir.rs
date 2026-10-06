@@ -458,6 +458,11 @@ impl Domain {
         }
     }
 
+    /// True when a continuous extent has no finite edge, which is what makes volumes, coverage and
+    /// sampling undefined rather than merely wide. A choice list is never "unbounded" in that sense —
+    /// it is bounded by its own values — but a list holding a non-finite value or nothing at all is
+    /// still unsampleable, and `crate::verify::check_domains` refuses both shapes rather than letting
+    /// the flag's `false` answer stand for "acceptable".
     #[must_use]
     pub fn is_unbounded(&self) -> bool {
         match self {

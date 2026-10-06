@@ -7,7 +7,7 @@
 //! every backend may assume the verifier passed.
 
 use crate::ir::{
-    Binop, BlockId, Builtin, ConstraintKind, Id, Instr, InstrKind, Model, Operand, Unop,
+    Binop, BlockId, Builtin, ConstraintKind, Domain, Id, Instr, InstrKind, Model, Operand, Unop,
 };
 use std::fmt;
 
@@ -67,6 +67,7 @@ pub fn verify(model: &Model) -> Report {
     let defs = collect_defs(model, &mut report);
     check_structure(model, &defs, &mut report);
     check_names(model, &mut report);
+    check_domains(model, &mut report);
     check_types(model, &mut report);
     check_declarations(model, &defs, &mut report);
     report
@@ -314,6 +315,63 @@ fn check_names(model: &Model, report: &mut Report) {
     }
     if model.name.is_empty() {
         report.errors.push(VerError::global("model has no name"));
+    }
+}
+
+/// Every parameter's declared extent, checked against what an instrument can sample.
+///
+/// This is a refusal, not a representation, and the reason is measured rather than assumed. Handed
+/// `input x in [0, inf]`, the campaign does not fail loudly: the sampler maps its unit coordinates
+/// onto the interval and produces `x = inf`, the atlas bisects an infinite cell into children whose
+/// bounds come out degenerate, and 32 of 80 evaluations then land outside every leaf. What is printed
+/// is
+///
+/// ```text
+/// atlas 1 cells (1 leaves)  trusted 0.0000  suspicious NaN  unknown 0.0000  resolved NaN
+/// ```
+///
+/// — a coverage statement of `NaN`, because every volume fraction divides by the root cell's infinite
+/// extent. The same run then reported a SUSPICIOUS finding whose printed risk was 0.000 with no
+/// evidence attached to it, which is a claim the report cannot reproduce from its own numbers.
+///
+/// A model with an unbounded domain is a real thing a scientist means: "this quantity is not
+/// bounded by physics, explore what you can". APORIA's answer to that is not to analyse it and print
+/// arithmetic about nothing; it has no exploration window separate from the declared domain, so it
+/// asks for the extent that will actually be sampled. Trust over a bounded explored region is a
+/// claim; trust over the reals is not one this instrument has earned.
+fn check_domains(model: &Model, report: &mut Report) {
+    for p in &model.params {
+        match &p.domain {
+            Domain::Interval { lo, hi } => {
+                if p.domain.is_unbounded() {
+                    report.errors.push(VerError::global(format!(
+                        "parameter `{}` has an unbounded domain [{lo}, {hi}]: volumes, coverage and \
+                         sampling are undefined over an infinite extent. Declare the range you \
+                         intend to explore.",
+                        p.name
+                    )));
+                } else if lo > hi {
+                    report.errors.push(VerError::global(format!(
+                        "parameter `{}` has an inverted domain [{lo}, {hi}]",
+                        p.name
+                    )));
+                }
+            }
+            Domain::Choices(values) => {
+                if values.is_empty() {
+                    report.errors.push(VerError::global(format!(
+                        "parameter `{}` declares no choices, so there is nothing to sample",
+                        p.name
+                    )));
+                }
+                if let Some(v) = values.iter().find(|v| !v.is_finite()) {
+                    report.errors.push(VerError::global(format!(
+                        "parameter `{}` offers {v}, which is not a value a bounded axis can hold",
+                        p.name
+                    )));
+                }
+            }
+        }
     }
 }
 
@@ -673,6 +731,43 @@ mod tests {
             origin: crate::Origin::Declared,
         });
         assert!(!verify(&broken).is_ok());
+    }
+
+    #[test]
+    fn a_domain_that_cannot_be_sampled_is_refused_before_anything_runs() {
+        // Measured, not theorised: `input x in [0, inf]` used to be accepted, and the campaign then
+        // produced `suspicious NaN  unknown 0.0000  resolved NaN` for its coverage line, lost 32 of 80
+        // evaluations outside every leaf, and reported a SUSPICIOUS finding at printed risk 0.000 with
+        // no evidence attached. Every volume fraction divides by the root cell's infinite extent, so
+        // what was printed was arithmetic about nothing. Refusing at the declaration is the same
+        // decision `aporia run` makes about a model it has no program for.
+        let cases = [
+            (Domain::interval(0.0, f64::INFINITY), "unbounded domain"),
+            (Domain::interval(f64::NEG_INFINITY, 1.0), "unbounded domain"),
+            (Domain::interval(5.0, 1.0), "inverted domain"),
+            (Domain::Choices(vec![]), "declares no choices"),
+            (Domain::Choices(vec![1.0, f64::INFINITY]), "not a value"),
+        ];
+        for (domain, needle) in cases {
+            let mut m = model_with(0);
+            m.params[0].domain = domain.clone();
+            let report = verify(&m);
+            let text: Vec<String> = report.errors.iter().map(|e| e.message.clone()).collect();
+            assert!(
+                !report.is_ok()
+                    && text
+                        .iter()
+                        .any(|t| t.contains("parameter `x`") && t.contains(needle)),
+                "{domain:?} should be refused for {needle:?}, got {text:?}"
+            );
+        }
+        // The rule is about extents, not about parameters: a bounded interval and a real choice list
+        // still pass, so this cannot become a way to reject models nobody meant to widen.
+        for domain in [Domain::interval(0.0, 1.0), Domain::Choices(vec![1.0, 2.0])] {
+            let mut m = model_with(0);
+            m.params[0].domain = domain.clone();
+            assert!(verify(&m).is_ok(), "{domain:?} should be accepted");
+        }
     }
 
     #[test]
