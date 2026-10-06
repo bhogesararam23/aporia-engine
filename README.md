@@ -66,24 +66,39 @@ software/crates/
   aporia-cli        the command line: `aporia run <model.ap>` (optionally `--program`, `--archive`),
                     `aporia replay`, `aporia report`, `aporia compare`, `aporia bench`
 software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
+software/examples/    external programs in other languages and the models they answer for —
+                      `beam.py` (Python 3, standard library only) and `beam.ap`
 software/scripts/     dev-env, test runner, lint gate, and the gate that build-verifies every
                       committed tree
+documentation/        architecture, adapter protocol, reproducibility, portability, contributor
+                      guide, limitations — the developer-facing docs, tracked and public
 ```
 
 ## Build and run
 
-Rust 1.88 or newer (`stable-msvc` on Windows; the workspace builds with MSVC 14.44 and Windows SDK
-10.0.26100). From `software/`:
+Rust 1.88 or newer (edition 2024; everything published here was built with 1.99.0) and the C toolchain
+your target needs — MSVC plus the Windows SDK on `*-pc-windows-msvc`, `cc` on Linux, the Xcode command
+line tools on macOS. Python 3 and git are optional and each used by one thing: the language-boundary
+fixture and three checkout tests. There is no other dependency, nothing to download and no service to
+configure. From `software/`:
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 526 tests
+cargo test --release                  # 557 tests
+cargo fmt --all --check && cargo clippy --workspace --all-targets
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
 cargo run --release -p aporia-bench -- verify    # ground truth against direct evaluation
 cargo run --release -p aporia-bench -- run --budgets 40,80,160,320,640 --seeds 1,2,3
 cargo run --release -p aporia-bench -- explain analytic/sqrt_domain --budget 640
 ```
+
+`aporia help` and `aporia --help` print the command list and every exit status; `aporia --version`
+prints which build produced the number you are quoting — the same value an archive records as
+`tool_version`. Each command answers `--help` too, rather than reading the flag as a filename.
+[`documentation/portability.md`](documentation/portability.md) states which platforms have actually
+been measured and which are only expected; the short version is that Windows x86_64 is the only one
+where a ladder run has happened.
 
 `aporia run <model.ap>` is the instrument's own front door: it compiles the file with the DSL
 pipeline, spends an evaluation budget on it with the same campaign driver the benchmark uses, and
@@ -102,11 +117,15 @@ aporia run beam.ap --program "./my-solver --steady"   # beam.ap declares `output
 
 The program is a child process, spoken to as one JSON request and one JSON response per line, and its
 answers go to the same campaign as any other model's — same sampling, same five channels, same budget
-accounting. The report prints `execution program \`…\`` so no reader has to guess who did the
-arithmetic. `aporia-adapter` ships `aporia-example-solver`, a worked example in about forty lines; a
-program that exits, prints a banner, answers the wrong number of values, refuses a point or hangs is
-reported as what it is (exit status `4`, and the map labelled incomplete) rather than filled in with
-plausible numbers. `--timeout MS` bounds one answer, default 5000.
+accounting. The contract is [`documentation/adapter-protocol.md`](documentation/adapter-protocol.md),
+and it is the whole interface: nothing else about your program is visible to APORIA. The report prints
+`execution program \`…\`` so no reader has to guess who did the arithmetic. `software/crates/aporia-adapter`
+ships `aporia-example-solver`, a worked example in about forty lines, and `software/examples/beam.py` is
+the same contract satisfied in Python with its standard library alone — which is the version that has to
+get the number encoding right by itself, because it shares no serialiser with the caller. A program that
+exits, prints a banner, answers the wrong number of values, refuses a point or hangs is reported as what
+it is (exit status `4`, and the map labelled incomplete) rather than filled in with plausible numbers.
+`--timeout MS` bounds one answer, default 5000.
 
 `--archive DIR` writes the run out as an archive — model text, A-IR, every execution, the atlas
 table, the boundary bands, the search decisions, the fitted calibration and a manifest that digests
@@ -216,7 +235,13 @@ Working and tested end to end, but not measured as a research result: the comman
 `report`, `compare`, `bench`) and the adapter for programs APORIA does not compile, which is a real child
 process over pipes — its five failure modes are exercised by spawning it, not by simulating them. A model
 that declares `output` values is analysed through that program by the same campaign as any interpreted
-model.
+model, in either of the two example languages; that is a demonstration that the boundary works, not a
+benchmark of it, and no ladder run has ever used a program.
+
+Two things the instrument now refuses rather than mis-measures, both found by running them and looking at
+what came out: a model whose parameter domain is unbounded (its coverage fractions are `NaN`, its
+bisection loses a third of the run's evaluations outside every leaf), and a benchmark entry whose values
+come from a program the harness has no way to run.
 
 Not done: hand-written x86-64 kernels, which are only admissible with a measured
 advantage over compiler output and are not yet written; a CUDA backend, which cannot be compiled or
@@ -226,6 +251,8 @@ pass, which must precede any claim of novelty.
 
 Everything above is described as it is: the repository keeps its failed experiments and its corrected
 documentation in the open rather than presenting only what worked.
+[`documentation/limitations.md`](documentation/limitations.md) is the full list of what this cannot yet
+support a claim about.
 
 ## License
 
