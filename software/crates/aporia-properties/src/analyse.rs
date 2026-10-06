@@ -8,6 +8,11 @@
 //! The five channels map onto these functions as: constraints and traces → physical, relations and
 //! inferred patterns → behavioral, precision comparison → numerical, path comparison → differential,
 //! probes → sensitivity.
+//!
+//! One function here produces no evidence: [`level`] answers the question a level-set baseline asks —
+//! which side of the model's own declared rules is this point, and how far — as a plain signed number.
+//! It is the only measurement in this crate that is not reported as a channel, and that is the point:
+//! a search strategy has to be comparable with the instrument's opinion taken out of it.
 
 use crate::pair::Probes;
 use aporia_evidence::{Channel, Evidence, PatternKind, Subject};
@@ -148,6 +153,86 @@ pub fn constraints(model: &Model, o: &Observation) -> Vec<Evidence> {
         }
     }
     out
+}
+
+/// One signed number saying which side of the model's own rules an execution sits on, and how far.
+///
+/// This is the level the `levelset` baseline searches against. It is deliberately not a channel
+/// reading: no calibration, no fusion, no correlation, no judgement about how loudly a signal deserves
+/// to be heard. It takes the rules an author wrote — `require y >= 0`, `require finite(z)` — and
+/// reports the distance to the tightest of them, positive inside and negative outside, which is all an
+/// excursion-set-shaped search needs: which side is this point on, and how near was it to the line.
+///
+/// The unit is the one [`residual`] already uses for a violated bound — the gap divided by the larger
+/// of the two magnitudes, floored at 1 — so a level of `-0.5` means the same width outside the rule as
+/// a physical magnitude of `0.5` says about how far outside it the model went. The sign is the sign
+/// [`CmpOp::holds`] would report, and a test below keeps them from drifting.
+///
+/// `None` means the model declares nothing a point can be on a side of, or that this particular
+/// execution names operands the reading cannot resolve. That is a fact about the model and not a
+/// failure to be papered over: a caller that needs a level and gets `None` must say so rather than
+/// invent one.
+#[must_use]
+pub fn level(model: &Model, o: &Observation) -> Option<f64> {
+    let mut worst: Option<f64> = None;
+    for c in &model.constraints {
+        let margin = match &c.kind {
+            ConstraintKind::Finite { value } => {
+                let Some(v) = observation_value(o, value, model) else {
+                    continue;
+                };
+                // There is no distance from NaN to a finite number, so this rule contributes one unit
+                // on each side — the same unit `constraints` reports a left-the-reals violation in.
+                if v.is_finite() { 1.0 } else { -1.0 }
+            }
+            ConstraintKind::Cmp {
+                lhs,
+                cmp,
+                rhs,
+                tolerance,
+            } => {
+                let (Some(l), Some(r)) = (
+                    observation_value(o, lhs, model),
+                    observation_value(o, rhs, model),
+                ) else {
+                    continue;
+                };
+                if !l.is_finite() || !r.is_finite() {
+                    // The arithmetic did not close here. A point whose value is not a number is not
+                    // inside the region the rule describes, so it is outside by the same unit.
+                    -1.0
+                } else {
+                    signed_gap(l, *cmp, r, *tolerance)
+                }
+            }
+        };
+        worst = Some(worst.map_or(margin, |w| w.min(margin)));
+    }
+    worst
+}
+
+/// True when a model declares at least one rule, which is the precondition for [`level`] to have a
+/// meaning at all. A model with no rules has no level set in it, and a baseline that needs one is
+/// asking a question this model cannot answer.
+#[must_use]
+pub fn declares_level(model: &Model) -> bool {
+    !model.constraints.is_empty()
+}
+
+/// [`level`] for one comparison: the gap to the bound, scaled, with the sign `holds` would give.
+fn signed_gap(l: f64, cmp: CmpOp, r: f64, tolerance: f64) -> f64 {
+    let scale = l.abs().max(r.abs()).max(1.0);
+    match cmp {
+        CmpOp::Gt | CmpOp::Ge => (l - r) / scale,
+        CmpOp::Lt | CmpOp::Le => (r - l) / scale,
+        CmpOp::EqApprox => {
+            // Distance to the edge of the declared tolerance band, in band widths: inside the band is
+            // positive, and -1 is exactly as far outside it as +1 is inside.
+            let tol = if tolerance == 0.0 { 1e-9 } else { tolerance };
+            let band = tol * r.abs().max(1.0);
+            (band - (l - r).abs()) / band
+        }
+    }
 }
 
 /// A baseline that APORIA always applies, whether or not the model declared anything: an output
@@ -961,6 +1046,81 @@ mod tests {
             r.push(record(model, i as u64, x));
         }
         r
+    }
+
+    #[test]
+    fn the_levels_sign_is_the_verdict_the_physical_channel_reports() {
+        // The two read the same rules by different routes: `level` for a search that must not be given
+        // fusion, `constraints` for the report. A point where they disagree about inside or outside
+        // would mean the baseline and the instrument were never measuring the same region, and every
+        // later comparison between them would be about two different questions.
+        let m = model(
+            "model side \"\" {\n input x in [0.0, 10.0]\n let y = x - 4.0\n require y >= 0\n}\n",
+        );
+        for i in 0..=20u64 {
+            let x = (i as f64) / 2.0;
+            let o = record(&m, i, &[x]);
+            let fired = !constraints(&m, &o).is_empty();
+            let l = level(&m, &o).expect("a declared comparison rule");
+            assert_eq!(l < 0.0, fired, "x={x}: level {l}, channel fired {fired}");
+        }
+    }
+
+    #[test]
+    fn a_point_that_stops_being_a_number_is_outside_the_level() {
+        let m = model(
+            "model root \"\" {\n input x in [0.0, 1.0]\n let y = sqrt(x - 0.4)\n require finite(y)\n}\n",
+        );
+        assert!(level(&m, &record(&m, 1, &[0.9])).expect("finite rule") > 0.0);
+        assert!(level(&m, &record(&m, 2, &[0.1])).expect("finite rule") < 0.0);
+    }
+
+    #[test]
+    fn the_level_is_the_tightest_rule_rather_than_the_last_one() {
+        let m = model(
+            "model both \"\" {\n input x in [0.0, 10.0]\n let y = x - 2.0\n let z = 8.0 - x\n require y >= 0\n require z >= 0\n}\n",
+        );
+        for x in [0.0, 1.0, 9.0, 10.0] {
+            let l = level(&m, &record(&m, 0, &[x])).expect("two rules");
+            assert!(l < 0.0, "{x} is outside one of the two declared rules: {l}");
+        }
+        for x in [4.0, 5.0, 6.0] {
+            let l = level(&m, &record(&m, 0, &[x])).expect("two rules");
+            assert!(l > 0.0, "{x} satisfies both: {l}");
+        }
+    }
+
+    #[test]
+    fn an_approximate_rule_levels_on_its_own_tolerance_band() {
+        // `require y ~ 1 within 0.1` declares a band, not a line. A baseline that treated the centre as
+        // the level would search for a transition the model never claimed.
+        let m = model(
+            "model near \"\" {\n input x in [0.0, 2.0]\n let y = x\n require y ~ 1.0 within 0.1\n}\n",
+        );
+        for x in [1.0, 1.05, 0.95] {
+            let o = record(&m, 0, &[x]);
+            assert!(level(&m, &o).expect("band") > 0.0, "{x} is inside the band");
+            assert!(constraints(&m, &o).is_empty(), "{x} inside but reported");
+        }
+        for x in [1.2, 0.8] {
+            let o = record(&m, 0, &[x]);
+            assert!(
+                level(&m, &o).expect("band") < 0.0,
+                "{x} is outside the band"
+            );
+            assert!(!constraints(&m, &o).is_empty(), "{x} outside but silent");
+        }
+    }
+
+    #[test]
+    fn a_model_that_declares_no_rule_has_no_level() {
+        let m = model("model bare \"\" {\n input x in [0.0, 1.0]\n let y = x * x\n}\n");
+        assert!(!declares_level(&m));
+        assert_eq!(
+            level(&m, &record(&m, 0, &[0.5])),
+            None,
+            "inventing a level here would be inventing a region"
+        );
     }
 
     fn pairs(items: &[(u64, u64, u16)]) -> Probes {
