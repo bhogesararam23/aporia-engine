@@ -62,7 +62,7 @@ fn the_scorer_reproduces_the_risk_that_made_each_finding() {
         !c.findings.is_empty(),
         "this entry is expected to produce findings"
     );
-    let scorer = RiskScorer::from_campaign(&c);
+    let scorer = RiskScorer::from_campaign(&c, &aporia_runtime::Interp);
     let missed: Vec<String> = c
         .findings
         .iter()
@@ -96,7 +96,7 @@ fn a_frozen_scorer_answers_the_same_question_in_any_order() {
     // candidate moved the ordinary slope or the fitted scale, ddmin could improve its own yardstick
     // while shrinking the case, and "verified" would mean the reduction graded itself.
     let (m, c) = campaign("aerospace/projectile_zero_gravity", 640);
-    let scorer = RiskScorer::from_campaign(&c);
+    let scorer = RiskScorer::from_campaign(&c, &aporia_runtime::Interp);
     let points: Vec<Vec<f64>> = c
         .records
         .items
@@ -120,7 +120,7 @@ fn a_frozen_scorer_answers_the_same_question_in_any_order() {
     );
     // And it is the campaign's own record set that defined the reference: two scorers from the same
     // campaign agree even if one has already been asked about other points.
-    let other = RiskScorer::from_campaign(&c);
+    let other = RiskScorer::from_campaign(&c, &aporia_runtime::Interp);
     for x in &points {
         assert_eq!(
             scorer.read(&m, x, &mut aporia_runtime::Interp).risk,
@@ -135,7 +135,7 @@ fn the_scorer_only_consults_channels_the_campaign_actually_ran() {
     // against: that would flag a candidate for a reason no finding was ever made of, and let a
     // reduction be "verified" by an oracle the atlas does not contain.
     let (m, c) = campaign("aerospace/projectile_zero_gravity", 640);
-    let all = RiskScorer::from_campaign(&c);
+    let all = RiskScorer::from_campaign(&c, &aporia_runtime::Interp);
     let x = &c.findings[0].representative;
     let kinds = |s: &RiskScorer| -> Vec<String> {
         let mut v: Vec<String> = s
@@ -158,14 +158,17 @@ fn the_scorer_only_consults_channels_the_campaign_actually_ran() {
         "the campaign never ran the reference path"
     );
 
-    let no_probes = RiskScorer::from_campaign(&run(
-        &m,
-        Config {
-            probe_every: 0,
-            numerical_every: 0,
-            ..ladder(640)
-        },
-    ));
+    let no_probes = RiskScorer::from_campaign(
+        &run(
+            &m,
+            Config {
+                probe_every: 0,
+                numerical_every: 0,
+                ..ladder(640)
+            },
+        ),
+        &aporia_runtime::Interp,
+    );
     let quiet = kinds(&no_probes);
     assert!(
         !quiet.contains(&"sensitivity".to_string()),
@@ -188,7 +191,7 @@ fn a_model_the_report_trusted_everywhere_gives_the_scorer_nothing_to_flag() {
         0.0,
         "the report flagged part of a control"
     );
-    let scorer = RiskScorer::from_campaign(&c);
+    let scorer = RiskScorer::from_campaign(&c, &aporia_runtime::Interp);
     let mut flagged = Vec::new();
     for i in 0..40 {
         let a = 1.0 + 39.0 * (i as f64) / 40.0;
@@ -270,7 +273,7 @@ fn a_risk_verified_reduction_is_rechecked_at_every_witness_it_claims() {
     let c = run(&model, ladder(640));
     let mut reduced = 0usize;
     for f in c.findings.iter().take(3) {
-        let scorer = RiskScorer::for_finding(&c, f);
+        let scorer = RiskScorer::for_finding(&c, f, &aporia_runtime::Interp);
         if !scorer.agrees_with(&model, f, &mut aporia_runtime::Interp) {
             continue;
         }
@@ -329,11 +332,11 @@ fn a_risk_query_is_charged_for_every_execution_it_performs() {
         .findings
         .iter()
         .find(|f| {
-            let s = RiskScorer::for_finding(&c, f);
+            let s = RiskScorer::for_finding(&c, f, &aporia_runtime::Interp);
             s.agrees_with(&m, f, &mut aporia_runtime::Interp)
         })
         .expect("a finding the frozen scorer reproduces");
-    let scorer = RiskScorer::for_finding(&c, finding);
+    let scorer = RiskScorer::for_finding(&c, finding, &aporia_runtime::Interp);
     let oracle = RiskOracle::new(&m, &scorer);
     let answer = oracle.query(&finding.representative, &mut aporia_runtime::Interp);
     assert!(
@@ -367,7 +370,7 @@ fn a_risk_query_is_charged_for_every_execution_it_performs() {
             ..ladder(640)
         },
     );
-    let physical_only = RiskScorer::from_campaign(&quiet);
+    let physical_only = RiskScorer::from_campaign(&quiet, &aporia_runtime::Interp);
     assert_eq!(
         RiskOracle::new(&m, &physical_only)
             .query(&finding.representative, &mut aporia_runtime::Interp)
@@ -433,7 +436,7 @@ fn a_finding_made_only_of_declared_relations_is_not_claimed_to_be_minimisable() 
             "declared symmetry judged over the record set".to_string(),
         )],
     };
-    let scorer = RiskScorer::for_finding(&c, &fabricated);
+    let scorer = RiskScorer::for_finding(&c, &fabricated, &aporia_runtime::Interp);
     assert!(
         !scorer.agrees_with(&m, &fabricated, &mut aporia_runtime::Interp),
         "the oracle accepted a relation finding it cannot measure at a point"
@@ -451,5 +454,161 @@ fn a_finding_made_only_of_declared_relations_is_not_claimed_to_be_minimisable() 
             .executions,
         1,
         "an oracle with nothing to consult was charged a full measurement"
+    );
+}
+
+/// One answer, one implementation, one precision — which is what a program APORIA did not parse is.
+///
+/// The values come from the interpreter so that the evidence under test is real readings, but both
+/// capability flags say no, and that is the entire thing these two tests are about: a scorer must
+/// inherit the limits of the path it measures through, and must refuse rather than quietly measure
+/// less when it is handed a path that cannot answer what its finding was made of.
+#[derive(Default)]
+struct SinglePath {
+    inner: aporia_runtime::Interp,
+    runs: usize,
+}
+
+impl aporia_runtime::Executor for SinglePath {
+    fn execute(
+        &mut self,
+        model: &Model,
+        x: &[f64],
+        cfg: aporia_runtime::ExecConfig,
+    ) -> aporia_runtime::Outcome {
+        self.runs += 1;
+        use aporia_runtime::Executor;
+        self.inner.execute(model, x, cfg)
+    }
+
+    fn varies_with_precision(&self) -> bool {
+        false
+    }
+
+    fn has_reference_path(&self) -> bool {
+        false
+    }
+}
+
+/// The channels a scorer actually produced readings for at one point.
+fn channels_at(
+    scorer: &RiskScorer,
+    model: &Model,
+    x: &[f64],
+    path: &mut dyn aporia_runtime::Executor,
+) -> Vec<String> {
+    let mut v: Vec<String> = scorer
+        .read(model, x, path)
+        .items
+        .iter()
+        .map(|e| e.channel.name().to_string())
+        .collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
+#[test]
+fn a_scorer_inherits_the_channels_its_path_can_measure() {
+    // The campaign gated its own sensors on these flags, so a scorer that ignored them would claim
+    // channels the report never had — and for a program's campaign that means comparing the program
+    // against itself at a precision it was never told to use, then calling the agreement evidence.
+    let entries = corpus::load(&benchmarks()).expect("corpus loads");
+    let entry = entries
+        .iter()
+        .find(|e| e.id() == "aerospace/projectile_zero_gravity")
+        .expect("entry present");
+    let m = entry.model.clone().expect("entry compiles");
+    let c = run(
+        &m,
+        Config {
+            numerical_every: 11,
+            differential_every: 3,
+            ..ladder(640)
+        },
+    );
+    let x = &c.findings.first().expect("findings").representative;
+    let own = channels_at(
+        &RiskScorer::from_campaign(&c, &aporia_runtime::Interp),
+        &m,
+        x,
+        &mut aporia_runtime::Interp,
+    );
+    assert!(
+        own.contains(&"numerical".to_string()) && own.contains(&"differential".to_string()),
+        "the interpreter's scorer should claim both second-path channels: {own:?}"
+    );
+    let single = RiskScorer::from_campaign(&c, &SinglePath::default());
+    let foreign = channels_at(&single, &m, x, &mut SinglePath::default());
+    assert!(
+        !foreign.contains(&"numerical".to_string()),
+        "a path with one precision was asked for a numerical reading: {foreign:?}"
+    );
+    assert!(
+        !foreign.contains(&"differential".to_string()),
+        "a path with no reference was compared against an interpreter of a model it does not contain"
+    );
+    assert!(
+        foreign.contains(&"physical".to_string()),
+        "the model's own rules are answerable by any path that answers at all: {foreign:?}"
+    );
+}
+
+#[test]
+fn a_path_that_cannot_answer_a_wanted_channel_gets_no_verdict_not_a_lower_score() {
+    // The trap this closes is silent: fusing fewer items gives a *smaller* risk, so a scorer that
+    // dropped the channel it could not measure would look conservative while grading a reduction by a
+    // question the report never asked. `Reading::answered` is the difference between "not suspicious
+    // here" and "I could not ask".
+    let entries = corpus::load(&benchmarks()).expect("corpus loads");
+    let entry = entries
+        .iter()
+        .find(|e| e.id() == "aerospace/projectile_zero_gravity")
+        .expect("entry present");
+    let m = entry.model.clone().expect("entry compiles");
+    let c = run(
+        &m,
+        Config {
+            numerical_every: 11,
+            differential_every: 3,
+            ..ladder(640)
+        },
+    );
+    // Built from the interpreter's campaign, asked of a path that offers neither second route.
+    let scorer = RiskScorer::from_campaign(&c, &aporia_runtime::Interp);
+    let mut path = SinglePath::default();
+    let x = &c.findings.first().expect("findings").representative;
+    let reading = scorer.read(&m, x, &mut path);
+    let mut names: Vec<String> = reading
+        .unmeasurable
+        .iter()
+        .map(|ch| ch.name().to_string())
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        vec!["differential".to_string(), "numerical".to_string()],
+        "the reading did not say which channels the path could not answer"
+    );
+    assert!(
+        !reading.answered(),
+        "a reading missing two of the finding's channels claimed to answer"
+    );
+    assert!(
+        !RiskOracle::new(&m, &scorer)
+            .query(x, &mut SinglePath::default())
+            .violating,
+        "an unanswerable reading was allowed to verify a reduction"
+    );
+    // The base point and its probe star, and nothing for the two channels it could not measure. The
+    // equality is the invariant worth asserting: executions are counted where they are spent, so a
+    // channel that was skipped must not have been charged either.
+    assert_eq!(
+        reading.executions, path.runs as u64,
+        "the reading charged executions the path did not perform"
+    );
+    assert!(
+        reading.executions >= 1,
+        "a path that was asked about a point ran nothing at all"
     );
 }

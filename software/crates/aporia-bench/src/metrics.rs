@@ -369,7 +369,7 @@ pub fn counterexamples(
             // Built per finding, and only trusted if it reproduces the finding first: the scorer is
             // the campaign's frozen evidence model, and the agreement check is what stops a reduction
             // from being graded by a question the report never asked.
-            let scorer = crate::risk::RiskScorer::for_finding(campaign, f);
+            let scorer = crate::risk::RiskScorer::for_finding(campaign, f, &*engine);
             let (minimal, oracle, queries, executions) =
                 if rule.verified || !scorer.agrees_with(model, f, engine) {
                     (rule, "rule", rule_queries, rule_executions)

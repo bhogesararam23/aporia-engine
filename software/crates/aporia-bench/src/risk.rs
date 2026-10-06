@@ -11,6 +11,14 @@
 //! calibrator, its measured channel correlation, its ordinary slopes per output and axis, its policy
 //! threshold — asked about coordinates the search never sampled. It is deliberately narrower than the
 //! report, and says which way: see [`RiskScorer::from_campaign`].
+//!
+//! It measures through the [`Executor`] the campaign used, and it inherits that path's limits. A
+//! probe that needs a second precision or a second implementation is not asked of a path that has
+//! neither, because running the same program twice and calling the agreement evidence would be
+//! APORIA manufacturing a scientific signal out of its own repeatability. Those two flags are the
+//! campaign's, so a scorer built from a program-executed campaign does not claim the Numerical or the
+//! Differential channel; and a scorer handed a path that cannot do something its mask still asks for
+//! answers *nothing* rather than answering a shorter question, which is [`Reading::unmeasurable`].
 
 use aporia_evidence::{Calibrator, ChannelCorrelation, Evidence, EvidenceSet, fuse};
 use aporia_ir::Model;
@@ -39,6 +47,22 @@ pub struct Reading {
     pub items: Vec<Evidence>,
     /// Model executions performed to produce the two fields above.
     pub executions: u64,
+    /// Channels this scorer was told to consult that the answering path cannot measure.
+    ///
+    /// Non-empty is a refusal, not a partial answer. A risk computed with one of the finding's own
+    /// channels missing is a *different* question — and because fusing fewer items gives a lower
+    /// score, the missing channel makes the point look safer, so ddmin would be refusing to shrink
+    /// rather than wrongly shrinking. That asymmetry is not worth trusting at a call site: the
+    /// reading says it did not measure, and [`RiskOracle`] answers nothing.
+    pub unmeasurable: Vec<aporia_evidence::Channel>,
+}
+
+impl Reading {
+    /// True when every channel this scorer was built to consult was answerable by the path it asked.
+    #[must_use]
+    pub fn answered(&self) -> bool {
+        self.unmeasurable.is_empty()
+    }
 }
 
 /// The campaign's evidence model, frozen, asked about one point at a time.
@@ -68,7 +92,15 @@ fn bit(channel: aporia_evidence::Channel) -> u8 {
 }
 
 impl RiskScorer {
-    /// Freeze everything the finished campaign measured, and consult every channel it ran.
+    /// Freeze everything the finished campaign measured, and consult every channel that campaign's
+    /// path could actually measure.
+    ///
+    /// `engine` is the path the campaign ran on, and it is asked rather than assumed because two of
+    /// the five channels are statements about *paths*, not about points: the Numerical channel needs
+    /// a second rounding of the same arithmetic, and the Differential channel needs a second
+    /// implementation of the same equations. A campaign that ran an external program skipped both —
+    /// the campaign gates them on exactly these flags — so a scorer that claimed them afterwards would
+    /// be asking a candidate for evidence the report could never have had.
     ///
     /// **Coverage, and it is not the whole report.** The channels scored here are the four whose
     /// measurement is defined at a single point: Physical (the model's own rules and its divergence),
@@ -85,15 +117,17 @@ impl RiskScorer {
     /// from a declared relation is not minimisable by this oracle, and `metrics::counterexamples`
     /// reports the absence rather than treating it as a pass.
     #[must_use]
-    pub fn from_campaign(campaign: &Campaign) -> Self {
+    pub fn from_campaign(campaign: &Campaign, engine: &dyn Executor) -> Self {
         let mut channels = bit(aporia_evidence::Channel::Physical);
         if campaign.config.probe_every > 0 {
             channels |= bit(aporia_evidence::Channel::Sensitivity);
         }
-        if campaign.config.numerical_every > 0 {
+        // Configured *and* answerable. A rate alone used to be enough here, which meant a scorer over
+        // a program's campaign claimed a precision channel that the program never offered.
+        if campaign.config.numerical_every > 0 && engine.varies_with_precision() {
             channels |= bit(aporia_evidence::Channel::Numerical);
         }
-        if campaign.config.differential_every > 0 {
+        if campaign.config.differential_every > 0 && engine.has_reference_path() {
             channels |= bit(aporia_evidence::Channel::Differential);
         }
         Self {
@@ -117,8 +151,12 @@ impl RiskScorer {
     /// "verify" a reduction at coordinates the report would have left alone. So a finding is minimised
     /// against the channels it was made of, and nothing else.
     #[must_use]
-    pub fn for_finding(campaign: &Campaign, finding: &aporia_search::Finding) -> Self {
-        let mut base = Self::from_campaign(campaign);
+    pub fn for_finding(
+        campaign: &Campaign,
+        finding: &aporia_search::Finding,
+        engine: &dyn Executor,
+    ) -> Self {
+        let mut base = Self::from_campaign(campaign, engine);
         let mut wanted = 0u8;
         for e in &finding.evidence {
             let bit_of = bit(e.channel);
@@ -151,7 +189,7 @@ impl RiskScorer {
         {
             return false;
         }
-        self.read(model, &finding.representative, engine).risk >= self.threshold
+        self.read(model, &finding.representative, engine).answered()
     }
 
     #[must_use]
@@ -173,7 +211,8 @@ impl RiskScorer {
     #[must_use]
     pub fn read(&self, model: &Model, x: &[f64], engine: &mut dyn Executor) -> Reading {
         let mut executions = 0;
-        let mut items = self.gather(model, x, engine, &mut executions);
+        let mut unmeasurable = Vec::new();
+        let mut items = self.gather(model, x, engine, &mut executions, &mut unmeasurable);
         // Calibrated exactly as the report calibrates: the fitted scales are the campaign's, so a
         // candidate is unusual against the same ordinary values the finding was.
         self.calibrator.apply(&mut items);
@@ -188,17 +227,19 @@ impl RiskScorer {
             risk: score,
             items,
             executions,
+            unmeasurable,
         }
     }
 
     /// The evidence the report would have gathered at these coordinates, before calibration, counting
-    /// every execution it takes to gather it.
+    /// every execution it takes to gather it and recording any channel the path could not answer.
     fn gather(
         &self,
         model: &Model,
         x: &[f64],
         engine: &mut dyn Executor,
         executions: &mut u64,
+        unmeasurable: &mut Vec<aporia_evidence::Channel>,
     ) -> Vec<Evidence> {
         if x.len() != model.params.len() {
             return Vec::new();
@@ -240,25 +281,39 @@ impl RiskScorer {
         // being minimised was made of them, because evidence the report never gathered at a point
         // cannot be what a smaller counterexample is verified against.
         if self.wants(aporia_evidence::Channel::Numerical) {
-            *executions += 1;
-            let reduced = Observation::new(
-                0,
-                x.to_vec(),
-                &engine.execute(
-                    model,
-                    x,
-                    ExecConfig {
-                        fp: FpMode::F32,
-                        max_steps: self.max_steps,
-                    },
-                ),
-            );
-            items.extend(numerical(model, &[0], &base.y, &reduced.y));
+            // Asked of the path, not of the config: `from_campaign` filters with the same flag, so
+            // reaching here with a path that cannot vary its rounding means the caller swapped the
+            // computation mid-run. That is a refusal, not a shorter question.
+            if engine.varies_with_precision() {
+                *executions += 1;
+                let reduced = Observation::new(
+                    0,
+                    x.to_vec(),
+                    &engine.execute(
+                        model,
+                        x,
+                        ExecConfig {
+                            fp: FpMode::F32,
+                            max_steps: self.max_steps,
+                        },
+                    ),
+                );
+                items.extend(numerical(model, &[0], &base.y, &reduced.y));
+            } else {
+                unmeasurable.push(aporia_evidence::Channel::Numerical);
+            }
         }
         if self.wants(aporia_evidence::Channel::Differential) {
-            *executions += 1;
-            let reference = aporia_numerics::reference::evaluate(model, x, self.max_steps);
-            items.extend(against_reference(model, &[0], &base.y, &reference.values()));
+            if engine.has_reference_path() {
+                *executions += 1;
+                let reference = aporia_numerics::reference::evaluate(model, x, self.max_steps);
+                items.extend(against_reference(model, &[0], &base.y, &reference.values()));
+            } else {
+                // No A-IR instructions to re-do: the equations live in the program. Comparing its
+                // answer against an interpreter of a model that does not describe it would be
+                // evidence about APORIA's guess at that arithmetic.
+                unmeasurable.push(aporia_evidence::Channel::Differential);
+            }
         }
         items
     }
@@ -270,8 +325,8 @@ impl RiskScorer {
     }
 }
 
-/// A [`RiskScorer`] in the shape the minimiser takes: one question per point, and the executions that
-/// question spent.
+/// A [`RiskScorer`] in the shape the minimiser takes: one question per point, the executions that
+/// question spent, and no answer at all when the path cannot measure what the finding was made of.
 ///
 /// This is a type rather than a closure at the call site because the cost is part of the answer. A
 /// closure that knew only `violating(model, x) -> bool` could report only the call count, and the
@@ -292,6 +347,14 @@ impl<'a> RiskOracle<'a> {
 impl Oracle for RiskOracle<'_> {
     fn query(&self, x: &[f64], engine: &mut dyn Executor) -> Verdict {
         let reading = self.scorer.read(self.model, x, engine);
-        Verdict::new(reading.risk >= self.scorer.threshold(), reading.executions)
+        // `violating: false` is the established spelling of "this point cannot verify a reduction" —
+        // the same answer `FailureOracle` gives for a point it cannot evaluate. Here it means the
+        // reading is missing a channel the finding was made of, so the score is not the report's
+        // question, and a reduction graded by a different question is not a smaller version of the
+        // finding. The executions are still charged: they happened.
+        Verdict::new(
+            reading.answered() && reading.risk >= self.scorer.threshold(),
+            reading.executions,
+        )
     }
 }
