@@ -172,6 +172,22 @@ impl StoredFinding {
                     .to_string(),
             ));
         }
+        // Every field below is written by `to_json` on every finding, so a file missing one is not a
+        // finding with an unknown value — it is a truncated or edited block. Zero-defaulting the
+        // identity fields was the specific harm: a `.apx` without `observation` claimed to be about
+        // execution 0 of cell c0, which is a coordinate the archive may not even have.
+        let count = |name: &str| {
+            value
+                .get(name)
+                .and_then(Json::as_u64)
+                .ok_or_else(|| StoreError::Format(format!("finding block has no {name}")))
+        };
+        let number = |name: &str| {
+            value
+                .get(name)
+                .and_then(Json::as_f64)
+                .ok_or_else(|| StoreError::Format(format!("finding block has no {name}")))
+        };
         let bounds = value
             .get("bounds")
             .and_then(Json::as_array)
@@ -187,38 +203,34 @@ impl StoredFinding {
                     })
                     .collect()
             })
-            .unwrap_or_default();
+            .ok_or_else(|| StoreError::Format("finding block has no bounds".to_string()))?;
+        let representative = value
+            .get("representative")
+            .and_then(Json::as_array)
+            .map(|items| items.iter().filter_map(Json::as_f64).collect())
+            .ok_or_else(|| StoreError::Format("finding block has no representative".to_string()))?;
+        let evidence = value
+            .get("evidence")
+            .and_then(Json::as_array)
+            .map(<[Json]>::to_vec)
+            .ok_or_else(|| StoreError::Format("finding block has no evidence".to_string()))?;
         Ok(Self {
-            index: value.get("index").and_then(Json::as_u64).unwrap_or(0),
-            cell: value.get("cell").and_then(Json::as_u64).unwrap_or(0) as u32,
+            index: count("index")?,
+            cell: count("cell")? as u32,
             bounds,
-            representative: value
-                .get("representative")
-                .and_then(Json::as_array)
-                .map(|items| items.iter().filter_map(Json::as_f64).collect())
-                .unwrap_or_default(),
-            observation: value.get("observation").and_then(Json::as_u64).unwrap_or(0),
-            online_risk: value
-                .get("online_risk")
-                .and_then(Json::as_f64)
-                .unwrap_or(0.0),
-            final_risk: value
-                .get("final_risk")
-                .and_then(Json::as_f64)
-                .unwrap_or(0.0),
-            samples: value.get("samples").and_then(Json::as_u64).unwrap_or(0),
+            representative,
+            observation: count("observation")?,
+            online_risk: number("online_risk")?,
+            final_risk: number("final_risk")?,
+            samples: count("samples")?,
             label: value
                 .get("label")
                 .and_then(Json::as_str)
-                .unwrap_or("UNKNOWN")
+                .ok_or_else(|| StoreError::Format("finding block has no label".to_string()))?
                 .to_string(),
             case: value.get("case").and_then(Json::as_str).map(str::to_string),
             evidence: Vec::new(),
-            raw_evidence: value
-                .get("evidence")
-                .and_then(Json::as_array)
-                .map(<[Json]>::to_vec)
-                .unwrap_or_default(),
+            raw_evidence: evidence,
         })
     }
 
@@ -557,7 +569,15 @@ impl Loaded {
         names.sort();
         for path in names {
             let text = fs::read_to_string(&path)?;
-            findings.push(StoredFinding::from_json(&Json::parse(&text)?)?);
+            // The finding's own fields are read strictly, and a refusal says which block refused:
+            // "malformed archive: finding block has no observation" on its own does not tell a reader
+            // which of six files to go and look at.
+            let parsed = Json::parse(&text)
+                .map_err(|e| StoreError::Format(format!("{}: {e}", path.display())))?;
+            findings.push(
+                StoredFinding::from_json(&parsed)
+                    .map_err(|e| StoreError::Format(format!("{}: {e}", path.display())))?,
+            );
         }
         let mut digests = Vec::new();
         for (path, _) in &manifest.files {

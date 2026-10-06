@@ -243,6 +243,81 @@ fn a_truncated_observation_file_is_refused_when_the_directory_is_opened() {
 }
 
 #[test]
+fn a_finding_block_missing_an_identity_field_is_refused_not_zeroed() {
+    // The archive's whole promise is that a reader is never told a number the run did not produce.
+    // `observation`, `cell` and `index` are the coordinates a finding points at, and the reader used
+    // to default all three to zero, so a truncated or edited `.apx` claimed to be about execution 0 of
+    // cell c0 — an attribution attached to bytes that may have had the field removed on purpose.
+    let cfg = ExecConfig::default();
+    let (root, _, _) = write_dir("finding-fields", cfg);
+    // Found by listing rather than by name: the file is named after the finding's own `index`, and a
+    // test that hardcodes `000000.apx` would be asserting about a fixture it no longer has.
+    let path = {
+        let mut names: Vec<_> = std::fs::read_dir(root.join("findings"))
+            .expect("the archive has a findings directory")
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|e| e == "apx"))
+            .collect();
+        names.sort();
+        names
+    };
+    assert_eq!(
+        path.len(),
+        1,
+        "the fixture writes exactly one finding block"
+    );
+    let path = &path[0];
+    let text = std::fs::read_to_string(path).unwrap();
+    for field in [
+        "observation",
+        "cell",
+        "index",
+        "label",
+        "final_risk",
+        "evidence",
+    ] {
+        let stripped = remove_field(&text, field);
+        std::fs::write(path, &stripped).unwrap();
+        let error = Loaded::open(&root)
+            .expect_err("a finding without its observation must not read")
+            .to_string();
+        assert!(
+            error.contains(&format!("no {field}")),
+            "field {field}: the refusal did not name it: {error}"
+        );
+        assert!(
+            error.contains(".apx"),
+            "field {field}: the refusal did not name the file: {error}"
+        );
+    }
+    // And the untouched block still reads, so this is a refusal of absence rather than of content.
+    std::fs::write(path, &text).unwrap();
+    let loaded = Loaded::open(&root).expect("the original block reads back");
+    assert!(!loaded.findings.is_empty());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Drop one top-level key from the finding's JSON and write the rest back.
+///
+/// Parsed and rebuilt through `Json` rather than cut out as text: the surgery is on the structure, and
+/// the point is a file this writer would never produce.
+fn remove_field(text: &str, field: &str) -> String {
+    let Json::Obj(pairs) = Json::parse(text).expect("the original block parses") else {
+        panic!("a finding block is a JSON object");
+    };
+    let had = pairs.len();
+    let kept: Vec<(String, Json)> = pairs
+        .into_iter()
+        .filter(|(name, _)| name != field)
+        .collect();
+    // The guard against a test that silently tests nothing: an absent key would leave the file
+    // unchanged and every assertion downstream would pass for the wrong reason.
+    assert_eq!(kept.len(), had - 1, "the block had no {field} to remove");
+    Json::Obj(kept).to_compact()
+}
+
+#[test]
 fn the_manifest_records_the_calibration_and_every_artefact_digest() {
     let cfg = ExecConfig::default();
     let (root, _, _) = write_dir("manifest", cfg);
