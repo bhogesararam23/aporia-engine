@@ -31,7 +31,7 @@ aporia run software/examples/beam.ap \
 
 Both produce the same Trust Atlas, because both produce the same bytes. That is the property
 `software/crates/aporia-adapter/tests/python_program.rs` asserts, and the contract behind it is
-[`../documentation/adapter-protocol.md`](../documentation/adapter-protocol.md).
+[`../../documentation/adapter-protocol.md`](../../documentation/adapter-protocol.md).
 
 ## What an example program has to get right
 

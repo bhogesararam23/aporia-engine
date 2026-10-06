@@ -11,6 +11,7 @@ as such rather than smoothed over.
 | [reproducibility.md](reproducibility.md) | the archive as an artifact: what it holds, why each field earns its place, integrity versus reproduction, what `compare` will say, how a measurement is named |
 | [portability.md](portability.md) | which platforms have been measured and which are only expected, prerequisites, and the transcendental-function caveat on cross-platform replay |
 | [developer-guide.md](developer-guide.md) | how to change this software: layout, crate edges, gates, adding a DSL construct, an evidence channel, a corpus entry or an external program, recording an experiment, commit style |
+| [prior-work.md](prior-work.md) | where APORIA sits in the published literature: the nearest work on evidence, search and output, which of its own claims that removed, and which citations were resolved to a primary record |
 | [limitations.md](limitations.md) | what APORIA does not do, does not know, and has not measured — including the questions that come up most often about it |
 
 Outside this directory, two documents carry the evidence:
@@ -25,8 +26,10 @@ Outside this directory, two documents carry the evidence:
 
 To use it: the root README, then `adapter-protocol.md` if a program is involved.
 
-To judge it: `limitations.md`, then the results README. The research claim is worth nothing except as
-measured, and the measurement file is where the negative and inconclusive results are kept.
+To judge it: `prior-work.md`, then `limitations.md`, then the results README. The literature position
+comes first because it decides which questions are worth asking at all; the research claim is worth
+nothing except as measured, and the measurement file is where the negative and inconclusive results are
+kept.
 
 To change it: `developer-guide.md`, then `architecture.md` for the reasons, then `reproducibility.md`
 before touching anything that writes a file — an archive is a byte contract, and the two most painful
