@@ -61,8 +61,18 @@ fn a_real_full_arm_and_a_real_ablated_arm_pair_end_to_end() {
         ..base.clone()
     };
     let arm_sweeps = [sweep(entry, &ablated, 1, Strategy::Adaptive).expect("the arm runs")];
-    let full_doc = results_json(&full_sweeps, &[entry.clone()], &base, &environment());
-    let arm_doc = results_json(&arm_sweeps, &[entry.clone()], &ablated, &environment());
+    let full_doc = results_json(
+        &full_sweeps,
+        std::slice::from_ref(entry),
+        &base,
+        &environment(),
+    );
+    let arm_doc = results_json(
+        &arm_sweeps,
+        std::slice::from_ref(entry),
+        &ablated,
+        &environment(),
+    );
     assert_ne!(
         full_doc.get("identity"),
         arm_doc.get("identity"),
@@ -125,8 +135,8 @@ fn arms_of_different_experiments_are_refused_rather_than_paired() {
         budgets: vec![160],
         ..full_plan.clone()
     };
-    let full = arm_of(&document(&full_plan, &[entry.clone()]));
-    let other = arm_of(&document(&other_budgets, &[entry.clone()]));
+    let full = arm_of(&document(&full_plan, std::slice::from_ref(entry)));
+    let other = arm_of(&document(&other_budgets, std::slice::from_ref(entry)));
     let err = compare(&full, &other).expect_err("different budgets are not one experiment");
     assert!(
         err.contains("budgets"),
@@ -138,7 +148,7 @@ fn arms_of_different_experiments_are_refused_rather_than_paired() {
         ablate: vec![Channel::Numerical],
         ..full_plan.clone()
     };
-    let arm = arm_of(&document(&ablated, &[entry.clone()]));
+    let arm = arm_of(&document(&ablated, std::slice::from_ref(entry)));
     let err = compare(&arm, &full).expect_err("the first document must be the full arm");
     assert!(err.contains("not the full arm"), "{err}");
 }
@@ -147,7 +157,7 @@ fn arms_of_different_experiments_are_refused_rather_than_paired() {
 
 /// A census with one field that varies and everything else fixed, for outcomes built to contain a
 /// specific comparison state.
-fn census(computed: &[u64; 5], silenced: &[bool; 5]) -> Census {
+fn census(computed: &[u64; 5], silenced: [bool; 5]) -> Census {
     Census {
         channels: Channel::ALL
             .into_iter()
@@ -202,6 +212,10 @@ fn entry(name: &str, control: bool, boundaries: usize) -> corpus::Entry {
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a fabricated outcome mirrors the real one field for field, and hiding fields behind               a second struct would make the test rows harder to read than the rows they imitate"
+)]
 fn outcome(
     entry: &corpus::Entry,
     evaluations: u64,
@@ -259,20 +273,24 @@ fn outcome(
 /// The fabricated E2 pair: three entries — one where full localises and the arm does not, one
 /// where the arm localises and full does not, and one control whose trust grows after ablation —
 /// plus a boundary one side cannot see and a channel that computed nothing on one entry.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the fixture is three entries' worth of sweeps for two arms, and collapsing it would               hide which number belongs to which entry"
+)]
 fn fabricated(entry_evaluations: u64) -> (Json, Json) {
     let region = entry("region", false, 1);
     let quiet = entry("quiet", false, 0);
     let control = entry("control", true, 0);
     let entries = vec![region.clone(), quiet.clone(), control.clone()];
 
-    let full_census = census(&[3, 5, 2, 4, 6], &[false; 5]);
+    let full_census = census(&[3, 5, 2, 4, 6], [false; 5]);
     // Physical and Sensitivity are the two this arm silences; on `quiet`, Sensitivity computed
     // nothing even on the full arm, so the arm is vacuous there and its null is a corpus fact
     // rather than a finding about the channel.
-    let arm_census = census(&[3, 0, 2, 4, 0], &[false, true, false, false, true]);
+    let arm_census = census(&[3, 0, 2, 4, 0], [false, true, false, false, true]);
     // On `quiet`, both channels this arm silences computed nothing even on the full arm, so the
     // arm is vacuous there and its null is a corpus fact rather than a finding about the channels.
-    let quiet_full_census = census(&[3, 0, 2, 4, 0], &[false; 5]);
+    let quiet_full_census = census(&[3, 0, 2, 4, 0], [false; 5]);
 
     let sweep_for =
         |e: &corpus::Entry, o: Outcome, detected: Option<u64>, localised: Option<u64>| {

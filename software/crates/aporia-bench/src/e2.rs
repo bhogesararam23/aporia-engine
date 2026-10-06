@@ -80,6 +80,10 @@ impl Arm {
     ///
     /// Refuses a document with no sweeps or no readable plan, because neither can be paired with
     /// anything: the comparison is only as honest as the refusal that keeps unlike things apart.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one document read in one place: the sweep, the outcome and the census fields are                   the shape of the file, and splitting the reader would spread that shape over                   three functions that must agree"
+    )]
     pub fn from_document(path: &str, doc: &Json) -> Result<Self, String> {
         let plan = doc
             .get("plan")
@@ -488,6 +492,10 @@ impl Comparison {
 /// Refuses, with a message naming the offender, when the two documents are not one experiment
 /// with two masks: differing plans, a sweep one side does not have, a budget one side did not
 /// run, or a pair that charged a different number of evaluations.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the comparison is one pass over the paired sweeps, and every tally it fills is a               local of that pass; extracting halves would hand the invariants between them to the               caller instead of proving them here"
+)]
 pub fn compare(full: &Arm, arm: &Arm) -> Result<Comparison, String> {
     if !full.ablate.is_empty() {
         return Err(format!(
@@ -651,7 +659,8 @@ pub fn compare(full: &Arm, arm: &Arm) -> Result<Comparison, String> {
                 suspicious: (full_outcome.suspicious, arm_outcome.suspicious),
                 trusted: (full_outcome.trusted, arm_outcome.trusted),
                 unknown: (full_outcome.unknown, arm_outcome.unknown),
-                steps: arm_outcome.instruction_steps as i64 - full_outcome.instruction_steps as i64,
+                steps: arm_outcome.instruction_steps.cast_signed()
+                    - full_outcome.instruction_steps.cast_signed(),
                 boundaries,
                 census,
             });
@@ -702,18 +711,18 @@ pub fn compare(full: &Arm, arm: &Arm) -> Result<Comparison, String> {
             // this arm silences have nothing to compute on this entry, on this seed? Every
             // region-bearing entry is present in the map (defaulting to silent), and a channel
             // that spoke on any seed makes the entry non-vacuous for this arm.
-            if !arm.ablate.is_empty() {
-                if let Some(top) = full_sweep.outcomes.last() {
-                    let spoke = arm
-                        .ablate
-                        .iter()
-                        .any(|c| top.census.of_channel(*c).is_some_and(|cc| cc.computed > 0));
-                    let slot = ever_computed
-                        .entry(arm_sweep.entry.clone())
-                        .or_insert(false);
-                    if spoke {
-                        *slot = true;
-                    }
+            if !arm.ablate.is_empty()
+                && let Some(top) = full_sweep.outcomes.last()
+            {
+                let spoke = arm
+                    .ablate
+                    .iter()
+                    .any(|c| top.census.of_channel(*c).is_some_and(|cc| cc.computed > 0));
+                let slot = ever_computed
+                    .entry(arm_sweep.entry.clone())
+                    .or_insert(false);
+                if spoke {
+                    *slot = true;
                 }
             }
         }
@@ -766,20 +775,23 @@ fn tally_event(tally: &mut Tally, full: Option<u64>, arm: Option<u64>, sweep: &A
 
 /// The whole E2 reading of a set of documents: the full arm plus its ablations, as text.
 #[must_use]
+#[expect(
+    clippy::too_many_lines,
+    reason = "a report is a sequence of sections printed in order"
+)]
 pub fn report(full: &Arm, comparisons: &[Comparison]) -> String {
     use std::fmt::Write as _;
     let mut out = String::new();
-    let budgets = full
-        .sweeps
-        .first()
-        .map(|s| {
+    let budgets = full.sweeps.first().map_or_else(
+        || "?".to_string(),
+        |s| {
             s.outcomes
                 .iter()
                 .map(|o| o.budget.to_string())
                 .collect::<Vec<_>>()
                 .join(",")
-        })
-        .unwrap_or_else(|| "?".to_string());
+        },
+    );
     let _ = writeln!(
         out,
         "full arm {} (identity {}) against {} arm(s); budgets {budgets}",
