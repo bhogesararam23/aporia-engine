@@ -1,0 +1,6235 @@
+{
+  "schema": "aporia.results/2",
+  "identity": "8a74233bf0c6",
+  "question": "can a computation-aware multi-evidence search discover and localise regions of distrust using fewer evaluations than simpler exploration strategies",
+  "plan": {
+    "budgets": [
+      60,
+      120,
+      250,
+      500
+    ],
+    "strategies": [
+      "adaptive",
+      "levelset",
+      "stratified",
+      "random"
+    ],
+    "seeds": [
+      1,
+      2
+    ],
+    "grid_per_axis": 33,
+    "minimise_budget": 4000,
+    "ablate": [],
+    "probe_every": 7,
+    "numerical_every": 11,
+    "differential_every": 0,
+    "symmetric_every": 1,
+    "refine_every": 40,
+    "calibrate_every": 25
+  },
+  "entries": [
+    {
+      "entry": "analytic/sqrt_domain",
+      "fault": "domain_assumption",
+      "method": "analytic",
+      "control": false,
+      "declared_regions": 1
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "fault": "none",
+      "method": "analytic",
+      "control": true,
+      "declared_regions": 0
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "fault": "declared_well",
+      "method": "analytic",
+      "control": false,
+      "declared_regions": 1
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "fault": "declared_well",
+      "method": "analytic",
+      "control": false,
+      "declared_regions": 1
+    }
+  ],
+  "environment": {
+    "os": "windows",
+    "arch": "x86_64",
+    "cpu_features": [],
+    "rust_channel": "1.99.0 (b940084d)",
+    "notes": {
+      "gpu": "no NVIDIA device on this machine, so no CUDA path was measured",
+      "corpus": "benchmarks"
+    }
+  },
+  "sweeps": [
+    {
+      "entry": "analytic/sqrt_domain",
+      "strategy": "adaptive",
+      "seed": 1,
+      "detected_at_budget": 60,
+      "localised_at_budget": 60,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 60,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010578515841075387,
+          "suspicious_volume": 0.47265625,
+          "trusted_volume": 0.375,
+          "unknown_volume": 0.15234375,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010491807422852162,
+          "suspicious_volume": 0.4765625,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.0546875,
+          "findings": 4,
+          "duplicate_discovery_rate": 0.75,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 250,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010666667549230624,
+          "suspicious_volume": 0.46875,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.0625,
+          "findings": 5,
+          "duplicate_discovery_rate": 0.8,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 500,
+          "wall_ms": 3,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010666667549230624,
+          "suspicious_volume": 0.46875,
+          "trusted_volume": 0.453125,
+          "unknown_volume": 0.078125,
+          "findings": 9,
+          "duplicate_discovery_rate": 0.8888888888888888,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 6,
+              "description": "x in [0.00, 0.726]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 135,
+              "minimisation_executions": 269
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000014]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 124,
+              "minimisation_executions": 124
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000012]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 116,
+              "minimisation_executions": 116
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "analytic/sqrt_domain",
+      "strategy": "levelset",
+      "seed": 1,
+      "detected_at_budget": 60,
+      "localised_at_budget": 60,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 60,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.251953125,
+          "trusted_volume": -0.0,
+          "unknown_volume": 0.748046875,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000011022605050925449,
+          "suspicious_volume": 0.45361328125,
+          "trusted_volume": 0.375,
+          "unknown_volume": 0.17138671875,
+          "findings": 3,
+          "duplicate_discovery_rate": 0.6666666666666666,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 250,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010189060706267128,
+          "suspicious_volume": 0.49072265625,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.04052734375,
+          "findings": 3,
+          "duplicate_discovery_rate": 0.6666666666666666,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 500,
+          "wall_ms": 9,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.487060546875,
+          "trusted_volume": 0.484375,
+          "unknown_volume": 0.028564453125,
+          "findings": 5,
+          "duplicate_discovery_rate": 0.8,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.000019]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 100,
+              "minimisation_executions": 100
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000024]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 121,
+              "minimisation_executions": 121
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000048]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 96,
+              "minimisation_executions": 96
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "analytic/sqrt_domain",
+      "strategy": "stratified",
+      "seed": 1,
+      "detected_at_budget": 60,
+      "localised_at_budget": 60,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 60,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0000000001000000082740371,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.375,
+          "unknown_volume": 0.125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0000000001000000082740371,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.03125,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 250,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.4921875,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.0390625,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 500,
+          "wall_ms": 3,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0000000001000000082740371,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.03125,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [0.0, 0.59]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 127,
+              "minimisation_executions": 253
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.000019]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 100,
+              "minimisation_executions": 100
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "analytic/sqrt_domain",
+      "strategy": "random",
+      "seed": 1,
+      "detected_at_budget": 60,
+      "localised_at_budget": 60,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 60,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010406508987870211,
+          "suspicious_volume": 0.48046875,
+          "trusted_volume": 0.375,
+          "unknown_volume": 0.14453125,
+          "findings": 4,
+          "duplicate_discovery_rate": 0.75,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010847456266560584,
+          "suspicious_volume": 0.4609375,
+          "trusted_volume": 0.4375,
+          "unknown_volume": 0.1015625,
+          "findings": 7,
+          "duplicate_discovery_rate": 0.8571428571428571,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 250,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0000000001050256548396078,
+          "suspicious_volume": 0.47607421875,
+          "trusted_volume": 0.4375,
+          "unknown_volume": 0.08642578125,
+          "findings": 5,
+          "duplicate_discovery_rate": 0.8,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 500,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.008667389060021624,
+          "suspicious_volume": 0.45068359375,
+          "trusted_volume": 0.484375,
+          "unknown_volume": 0.06494140625,
+          "findings": 16,
+          "duplicate_discovery_rate": 0.875,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.000013]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 125,
+              "minimisation_executions": 125
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000032]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 125,
+              "minimisation_executions": 125
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.00000083]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 125,
+              "minimisation_executions": 125
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "analytic/sqrt_domain",
+      "strategy": "adaptive",
+      "seed": 2,
+      "detected_at_budget": 60,
+      "localised_at_budget": 60,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 60,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0000000001000000082740371,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.375,
+          "unknown_volume": 0.125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010963596697166622,
+          "suspicious_volume": 0.4560546875,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.0751953125,
+          "findings": 6,
+          "duplicate_discovery_rate": 0.8333333333333334,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 250,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010556699958641502,
+          "suspicious_volume": 0.4736328125,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.0576171875,
+          "findings": 6,
+          "duplicate_discovery_rate": 0.8333333333333334,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 500,
+          "wall_ms": 3,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010666667549230624,
+          "suspicious_volume": 0.46875,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.0625,
+          "findings": 6,
+          "duplicate_discovery_rate": 0.8333333333333334,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000021]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 125,
+              "minimisation_executions": 125
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.000017]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 91,
+              "minimisation_executions": 91
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [0.0, 0.53]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 127,
+              "minimisation_executions": 253
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "analytic/sqrt_domain",
+      "strategy": "levelset",
+      "seed": 2,
+      "detected_at_budget": 60,
+      "localised_at_budget": 60,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 60,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.251953125,
+          "trusted_volume": -0.0,
+          "unknown_volume": 0.748046875,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000011022605050925449,
+          "suspicious_volume": 0.45361328125,
+          "trusted_volume": 0.375,
+          "unknown_volume": 0.17138671875,
+          "findings": 3,
+          "duplicate_discovery_rate": 0.6666666666666666,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 250,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.00000000010189060706267128,
+          "suspicious_volume": 0.49072265625,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.04052734375,
+          "findings": 3,
+          "duplicate_discovery_rate": 0.6666666666666666,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 500,
+          "wall_ms": 9,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.487060546875,
+          "trusted_volume": 0.484375,
+          "unknown_volume": 0.028564453125,
+          "findings": 5,
+          "duplicate_discovery_rate": 0.8,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.000019]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 100,
+              "minimisation_executions": 100
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000024]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 121,
+              "minimisation_executions": 121
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000048]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 96,
+              "minimisation_executions": 96
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "analytic/sqrt_domain",
+      "strategy": "stratified",
+      "seed": 2,
+      "detected_at_budget": 60,
+      "localised_at_budget": 60,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 60,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0000000001000000082740371,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.375,
+          "unknown_volume": 0.125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0000000001000000082740371,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.03125,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 250,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.4921875,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.0390625,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 500,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 2,
+          "false_positive_fraction": 0.0000000001000000082740371,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.03125,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [0.0, 0.59]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 127,
+              "minimisation_executions": 253
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.000019]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 100,
+              "minimisation_executions": 100
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "analytic/sqrt_domain",
+      "strategy": "random",
+      "seed": 2,
+      "detected_at_budget": 60,
+      "localised_at_budget": 60,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 60,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 4,
+          "false_positive_fraction": 0.00000000012549017380791838,
+          "suspicious_volume": 0.3984375,
+          "trusted_volume": 0.375,
+          "unknown_volume": 0.2265625,
+          "findings": 4,
+          "duplicate_discovery_rate": 0.75,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -9.84375,
+                10.0
+              ],
+              "error": 0.00390625,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 4,
+          "false_positive_fraction": 0.00000000011636369645628974,
+          "suspicious_volume": 0.4296875,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.1015625,
+          "findings": 5,
+          "duplicate_discovery_rate": 0.8,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 250,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 4,
+          "false_positive_fraction": 0.00000000010078737844310126,
+          "suspicious_volume": 0.49609375,
+          "trusted_volume": 0.453125,
+          "unknown_volume": 0.05078125,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "analytic/sqrt_domain",
+          "family": "analytic",
+          "fault": "domain_assumption",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 500,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 4,
+          "false_positive_fraction": 0.00000000010733758326608722,
+          "suspicious_volume": 0.4658203125,
+          "trusted_volume": 0.46875,
+          "unknown_volume": 0.0654296875,
+          "findings": 10,
+          "duplicate_discovery_rate": 0.9,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": 0.0,
+              "tolerance": 0.001,
+              "band": [
+                -10.0,
+                10.0
+              ],
+              "error": 0.0,
+              "within_tolerance": true
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000014]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 115,
+              "minimisation_executions": 115
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000017]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 125,
+              "minimisation_executions": 125
+            },
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "x in [-10, -0.0000090]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 124,
+              "minimisation_executions": 124
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "strategy": "adaptive",
+      "seed": 1,
+      "detected_at_budget": null,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": 0.003906250000000086,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 46800,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 93600,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 195000,
+          "wall_ms": 5,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 390000,
+          "wall_ms": 13,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 1.0,
+          "suspicious_volume": 0.003906250000000086,
+          "trusted_volume": 0.8125000000000002,
+          "unknown_volume": 0.1835937499999998,
+          "findings": 1,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 16,
+              "description": "dt in [0.25730314, 0.27619581]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 193,
+              "minimisation_executions": 577
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "strategy": "levelset",
+      "seed": 1,
+      "detected_at_budget": null,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": 0.007812499999999987,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 46800,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 93600,
+          "wall_ms": 3,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 195000,
+          "wall_ms": 8,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 0.9375000000000002,
+          "unknown_volume": 0.062499999999999896,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 390000,
+          "wall_ms": 24,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 1.0,
+          "suspicious_volume": 0.007812499999999987,
+          "trusted_volume": 0.8906250000000003,
+          "unknown_volume": 0.10156249999999992,
+          "findings": 1,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "dt in [0.26, 0.27]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 147,
+              "minimisation_executions": 439
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "strategy": "stratified",
+      "seed": 1,
+      "detected_at_budget": null,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": 0.007812499999999987,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 46800,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 93600,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 195000,
+          "wall_ms": 6,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 0.9375000000000002,
+          "unknown_volume": 0.062499999999999896,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 390000,
+          "wall_ms": 13,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 1.0,
+          "suspicious_volume": 0.007812499999999987,
+          "trusted_volume": 0.8906250000000003,
+          "unknown_volume": 0.10156249999999992,
+          "findings": 1,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "dt in [0.26, 0.27]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 147,
+              "minimisation_executions": 439
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "strategy": "random",
+      "seed": 1,
+      "detected_at_budget": null,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": 0.0039062499999999007,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 46800,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 93600,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 195000,
+          "wall_ms": 4,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 390000,
+          "wall_ms": 11,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 1.0,
+          "suspicious_volume": 0.0039062499999999007,
+          "trusted_volume": 0.20312500000000014,
+          "unknown_volume": 0.7929687500000001,
+          "findings": 1,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "dt in [0.26, 0.27]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 149,
+              "minimisation_executions": 297
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "strategy": "adaptive",
+      "seed": 2,
+      "detected_at_budget": null,
+      "localised_at_budget": null,
+      "clean_at_budget": 60,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 46800,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 93600,
+          "wall_ms": 3,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 195000,
+          "wall_ms": 5,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 390000,
+          "wall_ms": 12,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "strategy": "levelset",
+      "seed": 2,
+      "detected_at_budget": null,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": 0.007812499999999987,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 46800,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 93600,
+          "wall_ms": 3,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 195000,
+          "wall_ms": 8,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 0.9375000000000002,
+          "unknown_volume": 0.062499999999999896,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 390000,
+          "wall_ms": 27,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 1.0,
+          "suspicious_volume": 0.007812499999999987,
+          "trusted_volume": 0.8906250000000003,
+          "unknown_volume": 0.10156249999999992,
+          "findings": 1,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "dt in [0.26, 0.27]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 147,
+              "minimisation_executions": 439
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "strategy": "stratified",
+      "seed": 2,
+      "detected_at_budget": null,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": 0.007812499999999987,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 46800,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 93600,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": -0.0,
+          "unknown_volume": 1.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 195000,
+          "wall_ms": 7,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 0.9375000000000002,
+          "unknown_volume": 0.062499999999999896,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 390000,
+          "wall_ms": 11,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 1.0,
+          "suspicious_volume": 0.007812499999999987,
+          "trusted_volume": 0.8906250000000003,
+          "unknown_volume": 0.10156249999999992,
+          "findings": 1,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 4,
+              "description": "dt in [0.26, 0.27]",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 147,
+              "minimisation_executions": 439
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "strategy": "random",
+      "seed": 2,
+      "detected_at_budget": null,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": 0.0039062499999999935,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 46800,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 0.875,
+          "unknown_volume": 0.12499999999999997,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 93600,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 195000,
+          "wall_ms": 6,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 1.0,
+          "suspicious_volume": 0.007812499999999987,
+          "trusted_volume": 0.9140625000000002,
+          "unknown_volume": 0.07812499999999988,
+          "findings": 1,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "control/symplectic_spring",
+          "family": "control",
+          "fault": "none",
+          "control": true,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 390000,
+          "wall_ms": 12,
+          "arity": 1,
+          "declared_regions": 0,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": 1.0,
+          "suspicious_volume": 0.0039062499999999935,
+          "trusted_volume": 0.20312500000000008,
+          "unknown_volume": 0.79296875,
+          "findings": 1,
+          "duplicate_discovery_rate": null,
+          "boundaries": [],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 17,
+              "description": "dt = 0.19",
+              "verified": true,
+              "oracle": "risk",
+              "minimisation_queries": 124,
+              "minimisation_executions": 370
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "strategy": "adaptive",
+      "seed": 1,
+      "detected_at_budget": 60,
+      "localised_at_budget": 250,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.78666688,
+          "suspicious_volume": 0.09375,
+          "trusted_volume": 0.5625,
+          "unknown_volume": 0.34375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 240,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.78666688,
+          "suspicious_volume": 0.09375,
+          "trusted_volume": 0.78125,
+          "unknown_volume": 0.125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 500,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.36000064,
+          "suspicious_volume": 0.03125,
+          "trusted_volume": 0.890625,
+          "unknown_volume": 0.078125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 1000,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.37463481235772356,
+          "suspicious_volume": 0.030029296875,
+          "trusted_volume": 0.921875,
+          "unknown_volume": 0.048095703125,
+          "findings": 3,
+          "duplicate_discovery_rate": 0.6666666666666666,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 12,
+              "description": "x in [-0.0199992, 0.0199997]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 167,
+              "minimisation_executions": 167
+            },
+            {
+              "dimensions": 1,
+              "digits": 12,
+              "description": "x in [-0.0199991, 0.0199996]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 161,
+              "minimisation_executions": 161
+            },
+            {
+              "dimensions": 1,
+              "digits": 10,
+              "description": "x in [-0.019999, 0.019998]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 164,
+              "minimisation_executions": 164
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "strategy": "levelset",
+      "seed": 1,
+      "detected_at_budget": 60,
+      "localised_at_budget": 500,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.98000002,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.1875,
+          "unknown_volume": 0.3125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -0.5,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -0.5,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 240,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.84000016,
+          "suspicious_volume": 0.125,
+          "trusted_volume": 0.125,
+          "unknown_volume": 0.75,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -0.25,
+                0.375
+              ],
+              "error": 0.04125,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -0.25,
+                0.375
+              ],
+              "error": 0.021249999999999998,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 500,
+          "wall_ms": 2,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.78666688,
+          "suspicious_volume": 0.09375,
+          "trusted_volume": 0.453125,
+          "unknown_volume": 0.453125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                0.5
+              ],
+              "error": 0.115,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                0.5
+              ],
+              "error": 0.115,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 1000,
+          "wall_ms": 5,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.011962890625,
+          "trusted_volume": 0.80078125,
+          "unknown_volume": 0.187255859375,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 12,
+              "description": "x in [-0.0199997, 0.0199992]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 160,
+              "minimisation_executions": 160
+            },
+            {
+              "dimensions": 1,
+              "digits": 10,
+              "description": "x in [-0.019999, 0.019999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 166,
+              "minimisation_executions": 166
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "strategy": "stratified",
+      "seed": 1,
+      "detected_at_budget": 60,
+      "localised_at_budget": 120,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.78666688,
+          "suspicious_volume": 0.09375,
+          "trusted_volume": 0.5625,
+          "unknown_volume": 0.34375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 240,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.36000064,
+          "suspicious_volume": 0.03125,
+          "trusted_volume": 0.8125,
+          "unknown_volume": 0.15625,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 500,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.24000042666666666,
+          "suspicious_volume": 0.0234375,
+          "trusted_volume": 0.90625,
+          "unknown_volume": 0.0703125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 1000,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.14666751999999994,
+          "suspicious_volume": 0.0234375,
+          "trusted_volume": 0.9375,
+          "unknown_volume": 0.0390625,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 12,
+              "description": "x in [-0.0199992, 0.0199997]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 167,
+              "minimisation_executions": 167
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "strategy": "random",
+      "seed": 1,
+      "detected_at_budget": 60,
+      "localised_at_budget": 250,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 461,
+        "total": 461,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 53,
+          "false_positive_fraction": 0.84000016,
+          "suspicious_volume": 0.0625,
+          "trusted_volume": 0.6328125,
+          "unknown_volume": 0.3046875,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 240,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 53,
+          "false_positive_fraction": 0.68000032,
+          "suspicious_volume": 0.03125,
+          "trusted_volume": 0.78125,
+          "unknown_volume": 0.1875,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 500,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 53,
+          "false_positive_fraction": 0.544000256,
+          "suspicious_volume": 0.0390625,
+          "trusted_volume": 0.8125,
+          "unknown_volume": 0.1484375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 1000,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 53,
+          "false_positive_fraction": 0.3418191127272727,
+          "suspicious_volume": 0.021484375,
+          "trusted_volume": 0.9453125,
+          "unknown_volume": 0.033203125,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 10,
+              "description": "x in [-0.019999, 0.019998]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 164,
+              "minimisation_executions": 164
+            },
+            {
+              "dimensions": 1,
+              "digits": 12,
+              "description": "x in [-0.0199983, 0.0199999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 160,
+              "minimisation_executions": 160
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "strategy": "adaptive",
+      "seed": 2,
+      "detected_at_budget": 60,
+      "localised_at_budget": 250,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.78666688,
+          "suspicious_volume": 0.09375,
+          "trusted_volume": 0.625,
+          "unknown_volume": 0.28125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 240,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.78666688,
+          "suspicious_volume": 0.09375,
+          "trusted_volume": 0.8125,
+          "unknown_volume": 0.09375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 500,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.36000064,
+          "suspicious_volume": 0.03125,
+          "trusted_volume": 0.890625,
+          "unknown_volume": 0.078125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 1000,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.014648464225352043,
+          "suspicious_volume": 0.017333984375,
+          "trusted_volume": 0.95361328125,
+          "unknown_volume": 0.029052734375,
+          "findings": 3,
+          "duplicate_discovery_rate": 0.6666666666666666,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 10,
+              "description": "x in [-0.019999, 0.019999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 170,
+              "minimisation_executions": 170
+            },
+            {
+              "dimensions": 1,
+              "digits": 10,
+              "description": "x in [-0.019999, 0.019999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 166,
+              "minimisation_executions": 166
+            },
+            {
+              "dimensions": 1,
+              "digits": 10,
+              "description": "x in [-0.019998, 0.019999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 149,
+              "minimisation_executions": 149
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "strategy": "levelset",
+      "seed": 2,
+      "detected_at_budget": 60,
+      "localised_at_budget": 500,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.98000002,
+          "suspicious_volume": 0.5,
+          "trusted_volume": 0.1875,
+          "unknown_volume": 0.3125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -0.5,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -0.5,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 240,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.84000016,
+          "suspicious_volume": 0.125,
+          "trusted_volume": 0.125,
+          "unknown_volume": 0.75,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -0.25,
+                0.375
+              ],
+              "error": 0.04125,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -0.25,
+                0.375
+              ],
+              "error": 0.021249999999999998,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 500,
+          "wall_ms": 1,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.78666688,
+          "suspicious_volume": 0.09375,
+          "trusted_volume": 0.453125,
+          "unknown_volume": 0.453125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                0.5
+              ],
+              "error": 0.115,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                0.5
+              ],
+              "error": 0.115,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 1000,
+          "wall_ms": 5,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.011962890625,
+          "trusted_volume": 0.80078125,
+          "unknown_volume": 0.187255859375,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 12,
+              "description": "x in [-0.0199997, 0.0199992]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 160,
+              "minimisation_executions": 160
+            },
+            {
+              "dimensions": 1,
+              "digits": 10,
+              "description": "x in [-0.019999, 0.019999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 166,
+              "minimisation_executions": 166
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "strategy": "stratified",
+      "seed": 2,
+      "detected_at_budget": 60,
+      "localised_at_budget": 120,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.78666688,
+          "suspicious_volume": 0.09375,
+          "trusted_volume": 0.5625,
+          "unknown_volume": 0.34375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 240,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.36000064,
+          "suspicious_volume": 0.03125,
+          "trusted_volume": 0.8125,
+          "unknown_volume": 0.15625,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 500,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.24000042666666666,
+          "suspicious_volume": 0.0234375,
+          "trusted_volume": 0.90625,
+          "unknown_volume": 0.0703125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 1000,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 0,
+          "false_positive_fraction": 0.14666751999999994,
+          "suspicious_volume": 0.0234375,
+          "trusted_volume": 0.9375,
+          "unknown_volume": 0.0390625,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 12,
+              "description": "x in [-0.0199992, 0.0199997]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 167,
+              "minimisation_executions": 167
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "strategy": "random",
+      "seed": 2,
+      "detected_at_budget": 500,
+      "localised_at_budget": 500,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 120,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 240,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 500,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/narrow_1d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 1000,
+          "wall_ms": 0,
+          "arity": 1,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 338,
+          "false_positive_fraction": 0.0,
+          "suspicious_volume": 0.0078125,
+          "trusted_volume": 0.9609375,
+          "unknown_volume": 0.03125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            },
+            {
+              "axis": "x",
+              "declared_at": 0.02,
+              "tolerance": 0.002,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.01,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 1,
+              "digits": 12,
+              "description": "x in [-0.0199998, 0.0199993]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 165,
+              "minimisation_executions": 165
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "strategy": "adaptive",
+      "seed": 1,
+      "detected_at_budget": 250,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 467,
+        "total": 467,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 300,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 600,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 1250,
+          "wall_ms": 1,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 137,
+          "false_positive_fraction": 0.68000063999968,
+          "suspicious_volume": 0.00390625,
+          "trusted_volume": 0.71484375,
+          "unknown_volume": 0.28125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -0.75,
+                1.0
+              ],
+              "error": 0.0875,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 2500,
+          "wall_ms": 1,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 137,
+          "false_positive_fraction": 0.68000063999968,
+          "suspicious_volume": 0.00390625,
+          "trusted_volume": 0.9140625,
+          "unknown_volume": 0.08203125,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 2,
+              "digits": 22,
+              "description": "x in [-0.0499982, 0.0499997]\ny in [-0.099999, 0.099999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 507,
+              "minimisation_executions": 507
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "strategy": "levelset",
+      "seed": 1,
+      "detected_at_budget": 250,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 467,
+        "total": 467,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 300,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 600,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 1250,
+          "wall_ms": 2,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 129,
+          "false_positive_fraction": 0.96000007999996,
+          "suspicious_volume": 0.03125,
+          "trusted_volume": 0.6953125,
+          "unknown_volume": 0.2734375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -0.5,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 2500,
+          "wall_ms": 5,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 129,
+          "false_positive_fraction": 0.6000004,
+          "suspicious_volume": 0.001953125,
+          "trusted_volume": 0.750244140625,
+          "unknown_volume": 0.247802734375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -0.75,
+                1.0
+              ],
+              "error": 0.0875,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 2,
+              "digits": 22,
+              "description": "x in [-0.0499982, 0.0499996]\ny in [-0.099998, 0.099998]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 507,
+              "minimisation_executions": 507
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "strategy": "stratified",
+      "seed": 1,
+      "detected_at_budget": 250,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 467,
+        "total": 467,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 300,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 600,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 1250,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 129,
+          "false_positive_fraction": 0.84000031999984,
+          "suspicious_volume": 0.0078125,
+          "trusted_volume": 0.828125,
+          "unknown_volume": 0.1640625,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 2500,
+          "wall_ms": 1,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 129,
+          "false_positive_fraction": 0.84000031999984,
+          "suspicious_volume": 0.015625,
+          "trusted_volume": 0.8671875,
+          "unknown_volume": 0.1171875,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 2,
+              "digits": 22,
+              "description": "x in [-0.0499982, 0.0499996]\ny in [-0.099998, 0.099998]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 507,
+              "minimisation_executions": 507
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "strategy": "random",
+      "seed": 1,
+      "detected_at_budget": 250,
+      "localised_at_budget": 250,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": {
+        "reproduced": true,
+        "matched": 467,
+        "total": 467,
+        "error": null
+      },
+      "outcomes": [
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 300,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 600,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 1250,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 174,
+          "false_positive_fraction": 0.20000079999999998,
+          "suspicious_volume": 0.0009765625,
+          "trusted_volume": 0.71875,
+          "unknown_volume": 0.2802734375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 1,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 2500,
+          "wall_ms": 1,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 1,
+          "first_true_failure": 174,
+          "false_positive_fraction": 0.76888926222208,
+          "suspicious_volume": 0.0087890625,
+          "trusted_volume": 0.781494140625,
+          "unknown_volume": 0.209716796875,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 2,
+              "digits": 24,
+              "description": "x in [-0.0499999, 0.0499987]\ny in [-0.0999991, 0.0999997]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 511,
+              "minimisation_executions": 511
+            },
+            {
+              "dimensions": 2,
+              "digits": 22,
+              "description": "x in [-0.049998, 0.049998]\ny in [-0.0999991, 0.0999996]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 523,
+              "minimisation_executions": 523
+            }
+          ],
+          "replayed": true
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "strategy": "adaptive",
+      "seed": 2,
+      "detected_at_budget": 250,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 300,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 600,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 1250,
+          "wall_ms": 2,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 144,
+          "false_positive_fraction": 0.68000063999968,
+          "suspicious_volume": 0.00390625,
+          "trusted_volume": 0.76171875,
+          "unknown_volume": 0.234375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -0.5,
+                1.0
+              ],
+              "error": 0.15,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "adaptive",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 2500,
+          "wall_ms": 1,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 144,
+          "false_positive_fraction": 0.5200017599987199,
+          "suspicious_volume": 0.0009765625,
+          "trusted_volume": 0.88671875,
+          "unknown_volume": 0.1123046875,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 2,
+              "digits": 20,
+              "description": "x in [-0.049999, 0.049999]\ny in [-0.099999, 0.099999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 521,
+              "minimisation_executions": 521
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "strategy": "levelset",
+      "seed": 2,
+      "detected_at_budget": 250,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 300,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 600,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 1250,
+          "wall_ms": 2,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 129,
+          "false_positive_fraction": 0.96000007999996,
+          "suspicious_volume": 0.03125,
+          "trusted_volume": 0.6953125,
+          "unknown_volume": 0.2734375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -0.5,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "levelset",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 2500,
+          "wall_ms": 8,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 129,
+          "false_positive_fraction": 0.6000004,
+          "suspicious_volume": 0.001953125,
+          "trusted_volume": 0.750244140625,
+          "unknown_volume": 0.247802734375,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -0.75,
+                1.0
+              ],
+              "error": 0.0875,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 2,
+              "digits": 22,
+              "description": "x in [-0.0499982, 0.0499996]\ny in [-0.099998, 0.099998]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 507,
+              "minimisation_executions": 507
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "strategy": "stratified",
+      "seed": 2,
+      "detected_at_budget": 250,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 300,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 600,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 1250,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 129,
+          "false_positive_fraction": 0.84000031999984,
+          "suspicious_volume": 0.0078125,
+          "trusted_volume": 0.828125,
+          "unknown_volume": 0.1640625,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "stratified",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 2500,
+          "wall_ms": 1,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 129,
+          "false_positive_fraction": 0.84000031999984,
+          "suspicious_volume": 0.015625,
+          "trusted_volume": 0.8671875,
+          "unknown_volume": 0.1171875,
+          "findings": 1,
+          "duplicate_discovery_rate": 0.0,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 2,
+              "digits": 22,
+              "description": "x in [-0.0499982, 0.0499996]\ny in [-0.099998, 0.099998]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 507,
+              "minimisation_executions": 507
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "strategy": "random",
+      "seed": 2,
+      "detected_at_budget": 120,
+      "localised_at_budget": null,
+      "clean_at_budget": null,
+      "control_suspicious_volume": null,
+      "replay": null,
+      "outcomes": [
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 60,
+          "evaluations": 60,
+          "instruction_steps": 300,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 0,
+          "localised_regions": 0,
+          "first_true_failure": null,
+          "false_positive_fraction": null,
+          "suspicious_volume": -0.0,
+          "trusted_volume": 1.0,
+          "unknown_volume": -0.0,
+          "findings": 0,
+          "duplicate_discovery_rate": null,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": null,
+              "error": "no band on this axis",
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 120,
+          "evaluations": 120,
+          "instruction_steps": 600,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 89,
+          "false_positive_fraction": 0.89333354666656,
+          "suspicious_volume": 0.0234375,
+          "trusted_volume": 0.3154296875,
+          "unknown_volume": 0.6611328125,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -0.5,
+                1.0
+              ],
+              "error": 0.075,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 250,
+          "evaluations": 250,
+          "instruction_steps": 1250,
+          "wall_ms": 0,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 89,
+          "false_positive_fraction": 0.89333354666656,
+          "suspicious_volume": 0.0234375,
+          "trusted_volume": 0.53515625,
+          "unknown_volume": 0.44140625,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [],
+          "replayed": null
+        },
+        {
+          "entry": "synthetic/one_pct_2d",
+          "family": "synthetic",
+          "fault": "declared_well",
+          "control": false,
+          "strategy": "random",
+          "seed": 2,
+          "budget": 500,
+          "evaluations": 500,
+          "instruction_steps": 2500,
+          "wall_ms": 1,
+          "arity": 2,
+          "declared_regions": 1,
+          "detected_regions": 1,
+          "localised_regions": 0,
+          "first_true_failure": 89,
+          "false_positive_fraction": 0.8044449244441599,
+          "suspicious_volume": 0.0087890625,
+          "trusted_volume": 0.794921875,
+          "unknown_volume": 0.1962890625,
+          "findings": 2,
+          "duplicate_discovery_rate": 0.5,
+          "boundaries": [
+            {
+              "axis": "x",
+              "declared_at": -0.05,
+              "tolerance": 0.005,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.025,
+              "within_tolerance": false
+            },
+            {
+              "axis": "y",
+              "declared_at": 0.1,
+              "tolerance": 0.01,
+              "band": [
+                -1.0,
+                1.0
+              ],
+              "error": 0.05,
+              "within_tolerance": false
+            }
+          ],
+          "counterexamples": [
+            {
+              "dimensions": 2,
+              "digits": 24,
+              "description": "x in [-0.0499998, 0.0499998]\ny in [-0.0999982, 0.0999996]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 518,
+              "minimisation_executions": 518
+            },
+            {
+              "dimensions": 2,
+              "digits": 22,
+              "description": "x in [-0.0499999, 0.0499993]\ny in [-0.099999, 0.099999]",
+              "verified": true,
+              "oracle": "rule",
+              "minimisation_queries": 452,
+              "minimisation_executions": 452
+            }
+          ],
+          "replayed": null
+        }
+      ]
+    }
+  ],
+  "comparison": [
+    {
+      "entry": "analytic/sqrt_domain",
+      "adaptive": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.00000000010666667549230624
+      },
+      "levelset": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.0
+      },
+      "stratified": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.0000000001000000082740371
+      },
+      "random": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.00000000010733758326608722
+      }
+    },
+    {
+      "entry": "control/symplectic_spring",
+      "adaptive": {
+        "evaluations": 500,
+        "localised": 0,
+        "detected": 0,
+        "false_positive": 0.0
+      },
+      "levelset": {
+        "evaluations": 500,
+        "localised": 0,
+        "detected": 0,
+        "false_positive": 1.0
+      },
+      "stratified": {
+        "evaluations": 500,
+        "localised": 0,
+        "detected": 0,
+        "false_positive": 1.0
+      },
+      "random": {
+        "evaluations": 500,
+        "localised": 0,
+        "detected": 0,
+        "false_positive": 1.0
+      }
+    },
+    {
+      "entry": "synthetic/narrow_1d",
+      "adaptive": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.014648464225352043
+      },
+      "levelset": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.0
+      },
+      "stratified": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.14666751999999994
+      },
+      "random": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.0
+      }
+    },
+    {
+      "entry": "synthetic/one_pct_2d",
+      "adaptive": {
+        "evaluations": 500,
+        "localised": 0,
+        "detected": 1,
+        "false_positive": 0.5200017599987199
+      },
+      "levelset": {
+        "evaluations": 500,
+        "localised": 0,
+        "detected": 1,
+        "false_positive": 0.6000004
+      },
+      "stratified": {
+        "evaluations": 500,
+        "localised": 0,
+        "detected": 1,
+        "false_positive": 0.84000031999984
+      },
+      "random": {
+        "evaluations": 500,
+        "localised": 1,
+        "detected": 1,
+        "false_positive": 0.76888926222208
+      }
+    }
+  ]
+}
