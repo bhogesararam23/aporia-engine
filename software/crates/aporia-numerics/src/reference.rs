@@ -41,21 +41,14 @@ pub fn evaluate(model: &Model, x: &[f64], max_steps: u64) -> Reference {
         model,
         x,
         env: vec![Dd::zero(); model.instrs.len()],
-        slots: model
-            .slots
-            .iter()
-            .map(|s| {
-                Dd::from_f64(match s.init {
-                    Operand::Lit(l) => lit(l),
-                    _ => f64::NAN,
-                })
-            })
-            .collect(),
+        visited: vec![false; model.instrs.len()],
+        slots: vec![Dd::zero(); model.slots.len()],
         steps: 0,
         budget_exceeded: false,
         non_finite: false,
         max_steps,
     };
+    e.init_slots();
     e.block(0);
     let outputs = model.outputs.iter().map(|o| e.operand(&o.value)).collect();
     Reference {
@@ -70,6 +63,11 @@ struct Evaluator<'a> {
     model: &'a Model,
     x: &'a [f64],
     env: Vec<Dd>,
+    /// Which nodes have actually been evaluated. `env` cannot carry that itself: a double-double has no
+    /// spare encoding for "not yet computed", so an unvisited node and a node whose value is zero are
+    /// indistinguishable here exactly as they are in the runtime, where `Value::Unit` keeps the
+    /// difference.
+    visited: Vec<bool>,
     slots: Vec<Dd>,
     steps: u64,
     max_steps: u64,
@@ -78,6 +76,29 @@ struct Evaluator<'a> {
 }
 
 impl Evaluator<'_> {
+    /// Give every slot the value the model says it starts at, evaluated the way the runtime
+    /// evaluates it.
+    ///
+    /// This used to handle a literal initial value and produce `NaN` for everything else, which
+    /// meant a model with `state acc = k * dt` had no Differential channel at all: the reference's
+    /// outputs went non-finite, non-finite pairs are filtered before they can be compared, and the
+    /// absence was reported as agreement rather than as a missing second opinion. The two paths
+    /// share no arithmetic — that is the point of the channel — but they have to share the meaning
+    /// of the model, including where its state begins.
+    fn init_slots(&mut self) {
+        let inits: Vec<(usize, Operand)> = self
+            .model
+            .slots
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (i, s.init))
+            .collect();
+        for (slot, init) in inits {
+            let v = self.operand(&init);
+            self.slots[slot] = v;
+        }
+    }
+
     fn block(&mut self, id: BlockId) {
         let Some(block) = self.model.blocks.get(id as usize) else {
             return;
@@ -142,6 +163,9 @@ impl Evaluator<'_> {
             self.non_finite = true;
         }
         self.env[id as usize] = v;
+        if (id as usize) < self.visited.len() {
+            self.visited[id as usize] = true;
+        }
     }
 
     /// `self` is unused here, and the method shape is kept anyway so every operation in this
@@ -286,16 +310,20 @@ impl Evaluator<'_> {
         }
     }
 
-    /// A cached zero is indistinguishable from a slot write or an unrun loop, so those nodes are
-    /// re-evaluated. The runtime has the same problem and solves it with `Value::Unit`; here a
-    /// double-double has no spare encoding, and re-running a pure node is harmless because the
-    /// evaluator only reaches this for nodes it has not visited in program order.
+    /// Has this node been evaluated at all, and is the cached value therefore trustworthy?
+    ///
+    /// A node that has never run is always evaluated, because an unvisited node holds a zero here and
+    /// reading that as an answer is what made a state initialiser over an expression start at zero.
+    /// The second clause keeps the older rule for loop and write nodes, whose legitimate value can be
+    /// zero on a path that has run: re-evaluating one is harmless, and both paths count the step.
     fn needs_eval(&self, id: Id, cached: Dd) -> bool {
         let Some(instr) = self.model.instrs.get(id as usize) else {
             return false;
         };
-        matches!(instr.kind, InstrKind::For { .. } | InstrKind::Write { .. })
-            && cached == Dd::zero()
+        let unvisited = self.visited.get(id as usize).is_none_or(|v| !*v);
+        unvisited
+            || (matches!(instr.kind, InstrKind::For { .. } | InstrKind::Write { .. })
+                && cached == Dd::zero())
     }
 }
 
@@ -341,6 +369,34 @@ mod tests {
         let r = evaluate(&m, &[e], 10_000);
         assert_eq!(naive, 0.0, "the plain path has nothing left");
         assert!(r.values()[0] > 0.0, "reference keeps {}", r.values()[0]);
+    }
+
+    #[test]
+    fn a_state_that_starts_from_an_expression_starts_the_same_way_here() {
+        // The defect this pins: `state acc = <literal>` was understood and anything else became
+        // `NaN`, so a perfectly ordinary model lost its Differential channel in silence — the
+        // reference's outputs went non-finite, the pair was filtered, and the missing second
+        // opinion looked like agreement.
+        let m = model(
+            "model i \"\" {\n input k in [0, 5]\n input dt : s in [0.001, 0.2]\n \
+             state acc = k * dt\n let y = acc\n}\n",
+        );
+        let r = evaluate(&m, &[3.0, 0.25], 10_000);
+        assert!(
+            r.values()[0].is_finite(),
+            "the reference could not evaluate its own starting value: {:?}",
+            r.values()
+        );
+        assert_eq!(r.values()[0], 0.75, "k * dt at the given point");
+        assert!(!r.non_finite);
+        // A loop that advances from that start still accumulates, which is the shape of every
+        // integration model in the corpus.
+        let stepped = model(
+            "model j \"\" {\n input k in [0, 5]\n input n : count in [0, 10]\n \
+             state acc = k\n loop n {\n advance acc = acc + k\n }\n let y = acc\n}\n",
+        );
+        let r = evaluate(&stepped, &[2.0, 4.0], 10_000);
+        assert_eq!(r.values()[0], 10.0, "2 + 4*2");
     }
 
     #[test]
