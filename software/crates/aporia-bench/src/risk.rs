@@ -323,6 +323,20 @@ impl RiskScorer {
     pub fn threshold(&self) -> f64 {
         self.threshold
     }
+
+    /// Which channels this scorer is allowed to consult, in [`aporia_evidence::Channel::ALL`] order.
+    ///
+    /// Exposed because "was it consulted" and "did it emit" are different questions: a channel that
+    /// looked and found nothing produces no evidence item, so a reader cannot recover the mask from a
+    /// [`Reading`]. The mask is the thing the capability flags decide, so it is the thing a test of
+    /// those flags has to be able to see.
+    #[must_use]
+    pub fn channels(&self) -> Vec<aporia_evidence::Channel> {
+        aporia_evidence::Channel::ALL
+            .into_iter()
+            .filter(|c| self.wants(*c))
+            .collect()
+    }
 }
 
 /// A [`RiskScorer`] in the shape the minimiser takes: one question per point, the executions that

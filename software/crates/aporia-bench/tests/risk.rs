@@ -490,29 +490,15 @@ impl aporia_runtime::Executor for SinglePath {
     }
 }
 
-/// The channels a scorer actually produced readings for at one point.
-fn channels_at(
-    scorer: &RiskScorer,
-    model: &Model,
-    x: &[f64],
-    path: &mut dyn aporia_runtime::Executor,
-) -> Vec<String> {
-    let mut v: Vec<String> = scorer
-        .read(model, x, path)
-        .items
-        .iter()
-        .map(|e| e.channel.name().to_string())
-        .collect();
-    v.sort();
-    v.dedup();
-    v
-}
-
 #[test]
 fn a_scorer_inherits_the_channels_its_path_can_measure() {
     // The campaign gated its own sensors on these flags, so a scorer that ignored them would claim
     // channels the report never had — and for a program's campaign that means comparing the program
     // against itself at a precision it was never told to use, then calling the agreement evidence.
+    //
+    // Asserted against the mask, not against emitted items: a consulted channel that finds nothing
+    // emits nothing, so "no numerical item here" would pass for the wrong reason. The first run of
+    // this test made exactly that mistake and failed on a model where the reference path agrees.
     let entries = corpus::load(&benchmarks()).expect("corpus loads");
     let entry = entries
         .iter()
@@ -527,30 +513,44 @@ fn a_scorer_inherits_the_channels_its_path_can_measure() {
             ..ladder(640)
         },
     );
+    let names = |s: &RiskScorer| {
+        let mut v: Vec<String> = s
+            .channels()
+            .iter()
+            .map(|ch| ch.name().to_string())
+            .collect();
+        v.sort();
+        v
+    };
+    assert_eq!(
+        names(&RiskScorer::from_campaign(&c, &aporia_runtime::Interp)),
+        vec![
+            "differential".to_string(),
+            "numerical".to_string(),
+            "physical".to_string(),
+            "sensitivity".to_string()
+        ],
+        "the interpreter offers both path-dependent channels, so the scorer must claim both"
+    );
+    let foreign = names(&RiskScorer::from_campaign(&c, &SinglePath::default()));
+    assert_eq!(
+        foreign,
+        vec!["physical".to_string(), "sensitivity".to_string()],
+        "a single-implementation, single-precision path was handed a channel it cannot answer"
+    );
+    // And the mask is not just a claim: measured at a real finding, that path emits no item whose
+    // channel requires a second implementation or a second rounding.
     let x = &c.findings.first().expect("findings").representative;
-    let own = channels_at(
-        &RiskScorer::from_campaign(&c, &aporia_runtime::Interp),
-        &m,
-        x,
-        &mut aporia_runtime::Interp,
-    );
+    let emitted: Vec<String> = RiskScorer::from_campaign(&c, &SinglePath::default())
+        .read(&m, x, &mut SinglePath::default())
+        .items
+        .iter()
+        .map(|e| e.channel.name().to_string())
+        .collect();
     assert!(
-        own.contains(&"numerical".to_string()) && own.contains(&"differential".to_string()),
-        "the interpreter's scorer should claim both second-path channels: {own:?}"
-    );
-    let single = RiskScorer::from_campaign(&c, &SinglePath::default());
-    let foreign = channels_at(&single, &m, x, &mut SinglePath::default());
-    assert!(
-        !foreign.contains(&"numerical".to_string()),
-        "a path with one precision was asked for a numerical reading: {foreign:?}"
-    );
-    assert!(
-        !foreign.contains(&"differential".to_string()),
-        "a path with no reference was compared against an interpreter of a model it does not contain"
-    );
-    assert!(
-        foreign.contains(&"physical".to_string()),
-        "the model's own rules are answerable by any path that answers at all: {foreign:?}"
+        !emitted.contains(&"numerical".to_string())
+            && !emitted.contains(&"differential".to_string()),
+        "the foreign path produced path-dependent evidence anyway: {emitted:?}"
     );
 }
 
