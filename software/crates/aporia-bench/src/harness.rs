@@ -42,6 +42,14 @@ pub struct Plan {
     /// evaluation per firing — the reference path is several times slower per step than the runtime —
     /// so it is a rate rather than a flag, and the rate is recorded in the plan the results carry.
     pub differential_every: u64,
+    /// Evidence channels whose readings this plan drops, for an ablation arm.
+    ///
+    /// Empty by default, which is the full instrument. The list is part of `to_json`, so it is part of
+    /// the measurement identity: an ablation arm cannot overwrite the arm it was compared against, and
+    /// a results file says which channels its numbers were produced with. Recorded as names rather
+    /// than as a mask for the same reason the campaign records them as names — an archive is read by a
+    /// person too.
+    pub ablate: Vec<aporia_evidence::Channel>,
     /// Where per-entry archives go. Left empty, the harness skips archiving: the archives are the
     /// expensive part of a run and their numbers do not change the search.
     pub archive_dir: std::path::PathBuf,
@@ -78,6 +86,8 @@ impl Default for Plan {
             // ladder stays comparable with the runs before the channel existed, and the flag makes
             // the trade measurable by anyone with one command.
             differential_every: 0,
+            // The full instrument: an ablation arm names the channels it drops.
+            ablate: Vec::new(),
             archive_dir: std::path::PathBuf::new(),
         }
     }
@@ -97,7 +107,21 @@ impl Plan {
             differential_every: self.differential_every,
             refine_every: self.refine_every,
             max_steps_per_evaluation: 2_000_000,
+            // The ablation arm, applied to the campaign's configuration and nowhere else: it silences
+            // readings, never evaluations, so every arm of a comparison runs the same points at the
+            // same cost. See `aporia_search::Config::silenced`.
+            silenced: self.ablated(),
         }
+    }
+
+    /// The channel mask for this plan's ablation list.
+    #[must_use]
+    pub fn ablated(&self) -> u8 {
+        let mut mask = 0u8;
+        for channel in &self.ablate {
+            mask |= 1u8 << channel.index();
+        }
+        mask
     }
 }
 
@@ -464,6 +488,18 @@ fn plan_json(plan: &Plan) -> Json {
         ),
         ("grid_per_axis", Json::count(plan.grid as u64)),
         ("minimise_budget", Json::count(plan.minimise_budget)),
+        // Which channels this arm was blind to, by name. In the identity, so an ablation arm cannot
+        // overwrite the arm it is measured against; in the file, so a reader can tell an arm that
+        // lacked a channel from one whose channel found nothing.
+        (
+            "ablate",
+            Json::Arr(
+                plan.ablate
+                    .iter()
+                    .map(|c| Json::text(c.name()))
+                    .collect::<Vec<_>>(),
+            ),
+        ),
         // The rates that cost evaluations are part of the definition of the measurement, so
         // they travel with its results: without them a reader cannot tell a channel that
         // changed nothing from a channel that was never sampled.

@@ -72,6 +72,43 @@ pub struct Config {
     /// Relabel and refine the atlas every nth evaluation.
     pub refine_every: u64,
     pub max_steps_per_evaluation: u64,
+    /// Channels whose readings are dropped before they can influence anything, as a bitmask over
+    /// [`aporia_evidence::Channel::index`].
+    ///
+    /// This is the ablation control, and what it does *not* do is the point. It silences evidence, not
+    /// evaluations: a silenced channel's probe star still runs and is still charged, so two arms of an
+    /// ablation spend exactly the same budget on exactly the same points and differ only in what the
+    /// instrument was allowed to conclude from them. Removing the evaluations too would change which
+    /// cells the search reaches, which makes the arms incomparable — that variant is a different
+    /// experiment and is recorded as such in `docs/decisions/0029`.
+    ///
+    /// The mask is recorded in [`Config::json`], so an archive says which arm produced its numbers.
+    /// Zero, the default, consults every channel the rest of the config turns on.
+    pub silenced: u8,
+}
+
+impl Config {
+    /// Silence one channel's readings for this configuration.
+    #[must_use]
+    pub fn without(mut self, channel: aporia_evidence::Channel) -> Self {
+        self.silenced |= 1u8 << channel.index();
+        self
+    }
+
+    /// True when this configuration drops that channel's readings.
+    #[must_use]
+    pub fn is_silenced(&self, channel: aporia_evidence::Channel) -> bool {
+        self.silenced & (1u8 << channel.index()) != 0
+    }
+
+    /// Every channel this configuration is allowed to consult, in [`Channel::ALL`] order.
+    #[must_use]
+    pub fn consulted(&self) -> Vec<aporia_evidence::Channel> {
+        aporia_evidence::Channel::ALL
+            .into_iter()
+            .filter(|c| !self.is_silenced(*c))
+            .collect()
+    }
 }
 
 impl Default for Config {
@@ -88,6 +125,7 @@ impl Default for Config {
             symmetric_every: 1,
             refine_every: 64,
             max_steps_per_evaluation: 20_000_000,
+            silenced: 0,
         }
     }
 }
@@ -140,6 +178,18 @@ impl Config {
             (
                 "max_steps_per_evaluation",
                 Json::count(self.max_steps_per_evaluation),
+            ),
+            (
+                // Named channels, not the bitmask: an archive is read by a person as well as by
+                // `compare`, and `silenced: 12` says nothing about which evidence was withheld.
+                "silenced",
+                Json::Arr(
+                    aporia_evidence::Channel::ALL
+                        .into_iter()
+                        .filter(|c| self.is_silenced(*c))
+                        .map(|c| Json::text(c.name().to_string()))
+                        .collect(),
+                ),
             ),
             (
                 "atlas",
@@ -468,6 +518,12 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
         let subset = subset_records(&records, &group);
         let subset_probes = subset_probes(&probes, &group);
         fresh.extend(sensitivity(&subset, &subset_probes));
+        // Ablation drops the readings here, before calibration: a channel that is silenced must not
+        // be able to move the fitted scales or the measured correlation either, or the ablated arm
+        // would still be graded by the evidence it was supposed to be without. The executions that
+        // produced these items were charged above and stay charged — that is what makes the two arms
+        // comparable on cost.
+        fresh.retain(|e| !config.is_silenced(e.channel));
         calibrator.apply(&mut fresh);
         let risk = fuse(
             &EvidenceSet {
@@ -487,6 +543,10 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
         if probed_precision {
             measured |= 1 << aporia_evidence::Channel::Numerical.index();
         }
+        // A silenced channel ran, and its evaluation was charged, but its readings were dropped above,
+        // so it did not measure anything for this arm. Crediting it here would let the policy's
+        // `min_channels` be satisfied by evidence the ablated run was not allowed to have.
+        measured &= !config.silenced;
         atlas.record_point(aporia_boundary::Point {
             observation: 0,
             x: x.clone(),
@@ -548,6 +608,14 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
     if !log.is_empty() {
         final_log.extend(std::mem::take(&mut log));
     }
+    // The same ablation applies to the population stage: the Behavioral relations and inferred
+    // patterns are computed over the whole record set here, so filtering only the online pass would
+    // leave the report labelled by evidence the arm was supposed to be without. Silencing also keeps
+    // the fitted calibrator and correlation honest, because both are estimated from this log.
+    for set in &mut final_log {
+        set.items.retain(|e| !config.is_silenced(e.channel));
+    }
+    final_log.retain(|s| !s.items.is_empty());
     let calibrator = Calibrator::fit_from(&final_log);
     let correlation = ChannelCorrelation::estimate(&final_log);
     // Risk per record after the whole record set is available, together with the mask of channels
@@ -572,6 +640,7 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
         if precise.contains(&o.id) {
             measured |= 1 << aporia_evidence::Channel::Numerical.index();
         }
+        measured &= !config.silenced;
         let mut scored = items.clone();
         calibrator.apply(&mut scored);
         let risk = fuse(&EvidenceSet { items: scored }, &correlation).score;

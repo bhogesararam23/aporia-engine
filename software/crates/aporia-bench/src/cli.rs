@@ -62,6 +62,10 @@ pub fn usage(program: &str) -> String {
      \x20 run [--budgets a,b,..] [--strategies adaptive,random,stratified]\n\
      \x20     [--seeds n,..] [--grid N] [--out DIR] [--only family/name,..]\n\
      \x20     [--archive DIR] [--differential-every N] [--numerical-every N]\n\
+     \x20     [--ablate channel,..]  drop a channel's READINGS, not its evaluations:\n\
+     \x20        every arm still runs the same points at the same cost, so the arms are\n\
+     \x20        comparable on cost and differ only in what was concluded. Names:\n\
+     \x20        behavioral, physical, numerical, differential, sensitivity\n\
      \x20 verdict <results.json>   print the comparison from a recorded run\n\
      \x20 scan <family/name> [--samples N]  measure where the model's own rule switches\n\
      \x20 explain <family/name> [--budget N] [--strategy S] [--seed N]\n\
@@ -205,6 +209,36 @@ fn parse_grid(value: Option<String>) -> Result<usize, String> {
     }
 }
 
+/// The channel names `--ablate` accepts, refused by name rather than defaulted.
+///
+/// A typo in an ablation list is not a harmless mistake: `--ablate behaviour` accepted as "nothing"
+/// would report a full-instrument arm under an ablated arm's identity. So the vocabulary is
+/// `Channel::parse`, the type that owns it, and a refusal lists it.
+fn parse_channels(texts: &[String]) -> Result<Vec<aporia_evidence::Channel>, String> {
+    let mut out = Vec::new();
+    for text in texts {
+        let Some(channel) = aporia_evidence::Channel::parse(text) else {
+            return Err(format!(
+                "--ablate does not know the channel {text:?}; the names are {}",
+                aporia_evidence::Channel::names().join(", ")
+            ));
+        };
+        if !out.contains(&channel) {
+            out.push(channel);
+        }
+    }
+    // A repeated name is a no-op on the mask, so saying so is better than silently accepting an
+    // argument list that looks like it is doing more than it is.
+    if out.len() == aporia_evidence::Channel::ALL.len() {
+        return Err(
+            "--ablate cannot silence every channel: an instrument with no evidence has nothing to \
+             search on, and the campaign would report a domain of TRUSTED cells built on nothing"
+                .to_string(),
+        );
+    }
+    Ok(out)
+}
+
 pub fn run_run(flags: &[String]) -> Result<i32, String> {
     let mut args = Args::new(flags);
     let budgets = parse_budgets(&args.list("--budgets")?)?;
@@ -230,6 +264,8 @@ pub fn run_run(flags: &[String]) -> Result<i32, String> {
     let defaults = harness::Plan::default();
     let differential_every = rate("--differential-every", defaults.differential_every)?;
     let numerical_every = rate("--numerical-every", defaults.numerical_every)?;
+    let ablated = args.list("--ablate")?;
+    let ablate = parse_channels(&ablated)?;
     args.reject_unknown()?;
 
     let entries = load_corpus()?;
@@ -260,6 +296,7 @@ pub fn run_run(flags: &[String]) -> Result<i32, String> {
         grid,
         numerical_every,
         differential_every,
+        ablate,
         archive_dir,
         ..harness::Plan::default()
     };

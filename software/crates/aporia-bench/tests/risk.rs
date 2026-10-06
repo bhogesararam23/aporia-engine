@@ -34,6 +34,7 @@ fn ladder(budget: u64) -> Config {
         refine_every: 40,
         policy: Policy::default(),
         max_steps_per_evaluation: 2_000_000,
+        silenced: 0,
     }
 }
 
@@ -477,7 +478,6 @@ impl aporia_runtime::Executor for SinglePath {
         cfg: aporia_runtime::ExecConfig,
     ) -> aporia_runtime::Outcome {
         self.runs += 1;
-        use aporia_runtime::Executor;
         self.inner.execute(model, x, cfg)
     }
 

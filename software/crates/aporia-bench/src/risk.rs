@@ -93,14 +93,14 @@ fn bit(channel: aporia_evidence::Channel) -> u8 {
 
 impl RiskScorer {
     /// Freeze everything the finished campaign measured, and consult every channel that campaign's
-    /// path could actually measure.
+    /// path could actually measure and its configuration did not silence.
     ///
-    /// `engine` is the path the campaign ran on, and it is asked rather than assumed because two of
-    /// the five channels are statements about *paths*, not about points: the Numerical channel needs
-    /// a second rounding of the same arithmetic, and the Differential channel needs a second
-    /// implementation of the same equations. A campaign that ran an external program skipped both —
-    /// the campaign gates them on exactly these flags — so a scorer that claimed them afterwards would
-    /// be asking a candidate for evidence the report could never have had.
+    /// Three filters, each with a different reason. The *rate* says the campaign bought that sensor.
+    /// The *path's capability* says the sensor is answerable at all — a program has one precision and
+    /// one implementation. The *ablation mask* says the arm was allowed to conclude from it: a scorer
+    /// that ignored the mask would let minimisation "verify" a reduction using evidence the report
+    /// that found the region was not permitted, which is the same defect as the capability case with a
+    /// different cause.
     ///
     /// **Coverage, and it is not the whole report.** The channels scored here are the four whose
     /// measurement is defined at a single point: Physical (the model's own rules and its divergence),
@@ -118,16 +118,36 @@ impl RiskScorer {
     /// reports the absence rather than treating it as a pass.
     #[must_use]
     pub fn from_campaign(campaign: &Campaign, engine: &dyn Executor) -> Self {
-        let mut channels = bit(aporia_evidence::Channel::Physical);
-        if campaign.config.probe_every > 0 {
+        let mut channels = 0u8;
+        if !campaign
+            .config
+            .is_silenced(aporia_evidence::Channel::Physical)
+        {
+            channels = bit(aporia_evidence::Channel::Physical);
+        }
+        if campaign.config.probe_every > 0
+            && !campaign
+                .config
+                .is_silenced(aporia_evidence::Channel::Sensitivity)
+        {
             channels |= bit(aporia_evidence::Channel::Sensitivity);
         }
         // Configured *and* answerable. A rate alone used to be enough here, which meant a scorer over
         // a program's campaign claimed a precision channel that the program never offered.
-        if campaign.config.numerical_every > 0 && engine.varies_with_precision() {
+        if campaign.config.numerical_every > 0
+            && engine.varies_with_precision()
+            && !campaign
+                .config
+                .is_silenced(aporia_evidence::Channel::Numerical)
+        {
             channels |= bit(aporia_evidence::Channel::Numerical);
         }
-        if campaign.config.differential_every > 0 && engine.has_reference_path() {
+        if campaign.config.differential_every > 0
+            && engine.has_reference_path()
+            && !campaign
+                .config
+                .is_silenced(aporia_evidence::Channel::Differential)
+        {
             channels |= bit(aporia_evidence::Channel::Differential);
         }
         Self {
