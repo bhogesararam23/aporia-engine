@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "aporia-dsl",
  "aporia-ir",
+ "aporia-minimize",
  "aporia-runtime",
  "aporia-search",
  "aporia-store",
