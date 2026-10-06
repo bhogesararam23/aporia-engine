@@ -108,6 +108,26 @@ Two decisions carry the weight:
 worth trusting less. A corrupt archive on either side stops the comparison at `5` rather than
 producing a diff out of bytes that may have been edited.
 
+### The machine-readable form
+
+`aporia compare --json <a> <b>` renders the same `Comparison` object as `aporia.compare/1`: the
+verdict, the field count, a tally of `changed` / `only_a` / `only_b` / `same`, one entry per section
+with whether it was compared at all and how many of its fields differ, the full change list with both
+values, and the skipped reasons. The exit status is mapped once from the same verdict, so the two
+renderings cannot disagree about the same pair.
+
+`compared: false` exists because the text form's silence is ambiguous to a machine: a section that
+agreed and a section that was refused both print no differences, and only the counts tell them apart.
+An integrity failure prints `"verdict": "NOT COMPARED"` with the problems in `integrity` — the same
+stop as the text form, because a diff over edited bytes is not a comparison. Measured against the two
+committed fixtures: identical → `IDENTICAL`, status 0, 65 fields, 0 differences; differing →
+`DIFFERENT`, status 8, 31 changed, 3 only in A, 8 only in B.
+
+`report` deliberately has no `--json`. The archive *is* the machine-readable artifact —
+`manifest.json`, `summary.json`, `atlas.csv`, `decisions.jsonl`, the `.apx` finding blocks — and
+serialising a second copy of them through a renderer would give a reader two representations of one run
+to reconcile, which is the pattern behind several of this repository's corrected defects.
+
 ## Bench, and the identity of a measurement
 
 `aporia-bench run` will not produce numbers until the corpus has been checked: every declared region

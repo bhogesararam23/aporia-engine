@@ -166,6 +166,12 @@ but a section could not be compared. `8` is deliberately not `1`: a difference b
 claim that either found a region worth trusting less. A corrupt archive on either side stops the
 comparison at `5` rather than producing a diff out of bytes that may have been edited.
 
+`aporia compare --json` renders the same comparison for a caller rather than a reader: the verdict, a
+tally, and one entry per section saying whether it could be compared at all — because the human form
+prints only what moved, and "nothing printed" would be an ambiguous thing for a pipeline to conclude
+agreement from. `report` has no JSON flag on purpose: `manifest.json` and `summary.json` inside the
+archive already are its machine-readable form, and a third copy would be two things to reconcile.
+
 `aporia-bench run` refuses to produce numbers when a declared region does not hold against direct
 evaluation of the model's own rules, archives every top-of-ladder run, and replays each archive before
 reporting. A benchmark that cannot be replayed is not a measurement.
