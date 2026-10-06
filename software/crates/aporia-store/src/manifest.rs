@@ -76,6 +76,15 @@ pub struct Environment {
     /// repository detects them, because CPUID is exactly the kind of thing an instrument should not
     /// guess at; an empty list means "nobody looked", and a run that needs it says so.
     pub cpu_features: Vec<String>,
+    /// Which source produced the artefact: a commit, optionally suffixed `-dirty`.
+    ///
+    /// The toolchain says how the numbers were compiled; this says what was compiled. A reader of a
+    /// published result is entitled to ask "which version of the search, the evidence model and the
+    /// atlas policy ran", and before this field the answer had to come from prose beside the file.
+    /// [`Environment::current`] leaves it empty for the same reason `rust_channel` is empty there —
+    /// asking is a process call — and [`Environment::with_source_version`] fills it, with
+    /// [`SOURCE_NOT_DETECTED`] where there is no repository to ask.
+    pub source_commit: String,
     pub notes: Vec<(String, String)>,
 }
 
@@ -83,6 +92,11 @@ pub struct Environment {
 /// reported nothing, which is not a thing a compiler does, and would let `compare` call two runs equal
 /// on a field that was never filled in.
 pub const TOOLCHAIN_NOT_DETECTED: &str = "not detected";
+
+/// What is recorded when the source of a run cannot be identified: not a checkout, or a checkout whose
+/// git binary is not on PATH. Same reasoning as [`TOOLCHAIN_NOT_DETECTED`] — an empty string would be a
+/// value a repository could produce, and "unknown" must not read as "identical".
+pub const SOURCE_NOT_DETECTED: &str = "not detected";
 
 impl Environment {
     /// What `std` knows without running anything. A caller may add the compiler channel and the CPU
@@ -95,6 +109,7 @@ impl Environment {
             pointer_width: usize::BITS as u64,
             rust_channel: String::new(),
             cpu_features: Vec::new(),
+            source_commit: String::new(),
             notes: Vec::new(),
         }
     }
@@ -123,12 +138,55 @@ impl Environment {
         self
     }
 
+    /// Ask the checkout which source this run came from, and record it.
+    ///
+    /// `APORIA_SOURCE_COMMIT` wins, because a build system that exports the revision knows better than
+    /// a `git` call made from whatever the process's working directory happens to be — a packaged run,
+    /// a container, a copy of `target/` without a `.git`. Otherwise this reads `git rev-parse HEAD` and
+    /// appends `-dirty` when tracked files differ from that commit: **a measurement taken on uncommitted
+    /// source is not reproducible from the commit alone**, and a field that said `a49e20d` while the
+    /// tree held 200 uncommitted lines would be worse than a field that says it cannot be identified.
+    ///
+    /// Absent or unparseable git output records [`SOURCE_NOT_DETECTED`], never an empty string: two
+    /// runs whose provenance was never asked about must not compare equal on a field neither filled.
+    #[must_use]
+    pub fn with_source_version(mut self) -> Self {
+        if let Some(declared) = std::env::var_os("APORIA_SOURCE_COMMIT") {
+            self.source_commit = declared.to_string_lossy().into_owned();
+            return self;
+        }
+        let head = std::process::Command::new("git")
+            .args(["rev-parse", "--short", "HEAD"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .filter(|s| !s.is_empty());
+        let Some(commit) = head else {
+            self.source_commit = SOURCE_NOT_DETECTED.to_string();
+            return self;
+        };
+        let dirty = std::process::Command::new("git")
+            .args(["status", "--porcelain", "--untracked-files=no"])
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .is_some_and(|o| !String::from_utf8_lossy(&o.stdout).trim().is_empty());
+        self.source_commit = if dirty {
+            format!("{commit}-dirty")
+        } else {
+            commit
+        };
+        self
+    }
+
     fn to_json(&self) -> Json {
         Json::object(vec![
             ("os", Json::text(self.os.clone())),
             ("arch", Json::text(self.arch.clone())),
             ("pointer_width", Json::count(self.pointer_width)),
             ("rust_channel", Json::text(self.rust_channel.clone())),
+            ("source_commit", Json::text(self.source_commit.clone())),
             (
                 "cpu_features",
                 Json::Arr(
@@ -168,6 +226,16 @@ impl Environment {
                 .unwrap_or(0),
             rust_channel: value
                 .get("rust_channel")
+                .and_then(Json::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            // An empty string here means "this artefact was written before the field existed", which is
+            // a different statement from `SOURCE_NOT_DETECTED` ("a writer that has the field could not
+            // fill it"). Unlike a finding's coordinates, where a default attaches evidence to the wrong
+            // execution, a default here only records that nothing was recorded, and the committed
+            // archives predate both fields.
+            source_commit: value
+                .get("source_commit")
                 .and_then(Json::as_str)
                 .unwrap_or_default()
                 .to_string(),
@@ -446,6 +514,61 @@ mod tests {
         );
     }
 
+    #[test]
+    fn asking_for_the_source_always_leaves_something_written() {
+        // Same rule as the toolchain: a provenance field must never end up blank, because blank is
+        // what an artefact written before the field existed looks like, and `compare` would call the
+        // two equal. Whether git answers is environment-dependent, so what is asserted is that no path
+        // through the detection writes nothing.
+        let detected = Environment::current().with_source_version();
+        assert!(!detected.source_commit.is_empty());
+        assert!(
+            detected
+                .source_commit
+                .chars()
+                .any(|c| c.is_ascii_hexdigit())
+                || detected.source_commit == SOURCE_NOT_DETECTED,
+            "{}",
+            detected.source_commit
+        );
+        // Inside this repository, on a checkout, the answer is a commit — and `-dirty` when the tree
+        // carries uncommitted tracked changes, which is the case a bare hash would misrepresent.
+        let in_repo = std::path::Path::new(".git").exists()
+            || std::path::Path::new("../.git").exists()
+            || std::env::var_os("APORIA_SOURCE_COMMIT").is_some();
+        if in_repo && detected.source_commit != SOURCE_NOT_DETECTED {
+            let hash = detected.source_commit.trim_end_matches("-dirty");
+            assert!(
+                hash.len() >= 7 && hash.chars().all(|c| c.is_ascii_hexdigit()),
+                "{}",
+                detected.source_commit
+            );
+        }
+    }
+
+    #[test]
+    fn an_artefact_written_before_the_source_field_existed_still_reads() {
+        // The committed archives have no `source_commit`. Reading them must yield "nothing was
+        // recorded", which is an empty string, and must not invent a commit or a refusal.
+        let text = r#"{"os":"linux","arch":"x86_64","pointer_width":64,"notes":{}}"#;
+        let loaded = Environment::from_json(&Json::parse(text).unwrap());
+        assert_eq!(loaded.source_commit, "");
+        assert_eq!(loaded.rust_channel, "");
+        let written = Environment {
+            os: "linux".to_string(),
+            arch: "x86_64".to_string(),
+            pointer_width: 64,
+            ..Environment::current()
+        };
+        let Json::Obj(fields) = written.to_json() else {
+            panic!("an environment is an object");
+        };
+        assert!(
+            fields.iter().any(|(k, _)| k == "source_commit"),
+            "a fresh artefact always writes the field, empty or not: {fields:?}"
+        );
+    }
+
     fn manifest() -> Manifest {
         Manifest {
             schema: SCHEMA.to_string(),
@@ -477,6 +600,7 @@ mod tests {
                 pointer_width: 64,
                 rust_channel: "1.99.0".to_string(),
                 cpu_features: vec!["avx2".to_string(), "fma".to_string()],
+                source_commit: "a49e20d".to_string(),
                 notes: vec![("gpu".to_string(), "none present".to_string())],
             },
             calibration: vec![

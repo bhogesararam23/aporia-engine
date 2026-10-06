@@ -51,7 +51,9 @@ pub fn write(
             ])
         })
         .collect();
-    let mut environment = Environment::current().with_toolchain();
+    let mut environment = Environment::current()
+        .with_toolchain()
+        .with_source_version();
     environment
         .notes
         .push(("execution".to_string(), execution.to_string()));

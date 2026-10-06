@@ -48,6 +48,55 @@ fn a_stored_run_reports_without_executing_anything() {
 }
 
 #[test]
+fn the_report_says_who_computed_the_numbers_and_from_which_source() {
+    // The archive has always held its environment notes and, since the toolchain and source fields
+    // were added, the compiler and the tree the numbers came from. A reader of `report` is the person
+    // deciding whether to trust a quoted number, so the line belongs here rather than in a manifest
+    // they have to open by hand — and what it prints has to be what the archive holds, including
+    // where the archive holds nothing.
+    let dir = fixture("archive-sqrt_domain");
+    let out = aporia()
+        .arg("report")
+        .arg(&dir)
+        .output()
+        .expect("aporia runs");
+    let body = text(&out.stdout);
+    let manifest =
+        std::fs::read_to_string(dir.join("manifest.json")).expect("the manifest is there");
+    let line = body
+        .lines()
+        .find(|l| l.starts_with("build  "))
+        .unwrap_or_else(|| panic!("no build line in:\n{body}"));
+    assert!(
+        line.contains("os=windows") || line.contains("os=linux"),
+        "{line}"
+    );
+    assert!(line.contains("arch="), "{line}");
+    // report repeats what the archive says — including a field this fixture predates.
+    let quoted = |key: &str| -> Option<String> {
+        let at = manifest.find(&format!("\"{key}\""))? + key.len() + 2;
+        let rest = &manifest[at..];
+        let open = rest.find('"')?;
+        let rest = &rest[open + 1..];
+        let close = rest.find('"')?;
+        Some(rest[..close].to_string())
+    };
+    match quoted("rust_channel").as_deref() {
+        Some("") | None => assert!(!line.contains("toolchain="), "{line}"),
+        Some(value) => assert!(line.contains(&format!("toolchain={value}")), "{line}"),
+    }
+    match quoted("source_commit").as_deref() {
+        Some("") | None => assert!(!line.contains("source="), "{line}"),
+        Some(value) => assert!(line.contains(&format!("source={value}")), "{line}"),
+    }
+    // And the note that answers the question this line exists for: who did the arithmetic.
+    assert!(
+        line.contains("execution=scalar interpreter"),
+        "the archive's own execution note was not printed: {line}"
+    );
+}
+
+#[test]
 fn report_and_replay_disagree_only_about_reproducing() {
     // Same archive, two questions: the report says nothing about whether the arithmetic still agrees,
     // and the replay says nothing about the narrative. If these two outputs ever converge, one of the

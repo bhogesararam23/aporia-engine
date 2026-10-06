@@ -30,7 +30,6 @@
 //!     build is broken", and letting a campaign silently fill a map with unanswered points is how a
 //!     measurement becomes a fiction. A program that means the first thing returns `"NaN"`.
 
-
 /// A program's answer for one point.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Answer {

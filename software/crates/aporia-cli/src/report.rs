@@ -53,6 +53,12 @@ pub fn command(dir: &std::path::Path, out: &mut dyn std::io::Write) -> Exit {
         "exec  fp={}  max_steps_per_evaluation={}",
         loaded.manifest.exec_fp, loaded.manifest.exec_max_steps
     );
+    // Who computed this, and from which source. The archive has always held the notes — a
+    // program-executed run records `execution program \`…\`` there — and printed none of it, so the
+    // one command a reader runs to ask "what does this archive say" answered the question by opening
+    // manifest.json by hand. The toolchain and source commit belong on the same line for the same
+    // reason: a measurement is attributable to a compiler and a tree, or it is not attributable.
+    let _ = writeln!(out, "{}", build_line(&loaded.manifest.environment));
     let _ = writeln!(
         out,
         "calibration  {}",
@@ -124,4 +130,28 @@ fn leaf(value: &Json) -> String {
         Json::Str(s) => s.clone(),
         other => other.to_compact(),
     }
+}
+
+/// The provenance line: what environment, which compiler, which source, and whatever else the run
+/// recorded about itself.
+///
+/// Fields the archive does not carry are omitted rather than guessed. An artefact written before the
+/// toolchain and source fields existed says nothing about them, and "not recorded" is a different
+/// statement from a blank or a default — it is the same distinction `compare` draws between a field
+/// that differs and a field only one side has.
+fn build_line(environment: &aporia_store::Environment) -> String {
+    let mut parts = vec![format!(
+        "build  os={} arch={} width={}",
+        environment.os, environment.arch, environment.pointer_width
+    )];
+    if !environment.rust_channel.is_empty() {
+        parts.push(format!("toolchain={}", environment.rust_channel));
+    }
+    if !environment.source_commit.is_empty() {
+        parts.push(format!("source={}", environment.source_commit));
+    }
+    for (name, value) in &environment.notes {
+        parts.push(format!("{name}={value}"));
+    }
+    parts.join("  ")
 }

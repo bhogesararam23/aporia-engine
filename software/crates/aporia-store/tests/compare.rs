@@ -42,6 +42,7 @@ fn one() -> Manifest {
             pointer_width: 64,
             rust_channel: "1.99.0".to_string(),
             cpu_features: Vec::new(),
+            source_commit: String::new(),
             notes: vec![("execution".to_string(), "interpreter".to_string())],
         },
         calibration: vec![
