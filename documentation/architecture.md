@@ -145,16 +145,51 @@ declared domain", *not* "the failure is independent of it", and `Case::witnesses
 was executed so a reader can see the basis for the claim. Turning a drop into a proof needs symbolic
 reasoning about the model, which this project does not claim to do.
 
-The oracle is an input (`Oracle::query(x) -> Verdict`, where a `Verdict` carries the answer *and the
-model executions it cost*). Two ship: `FailureOracle` asks whether a declared rule fails — one execution
-per answer — and `aporia-bench`'s `RiskOracle` asks whether the report would still flag the point,
-against the campaign's own frozen calibrator, correlation and per-axis slope reference, restricted to
-the channels the finding was actually made of. The second costs several executions per answer, and the
-published column now reports both units rather than guessing the factor.
+The oracle is an input (`Oracle::query(x, engine) -> Verdict`, where a `Verdict` carries the answer *and
+the model executions it cost*). Two ship: `FailureOracle` asks whether a declared rule fails — one
+execution per answer — and `aporia-bench`'s `RiskOracle` asks whether the report would still flag the
+point, against the campaign's own frozen calibrator, correlation and per-axis slope reference,
+restricted to the channels the finding was actually made of. The second costs several executions per
+answer, and the published column now reports both units rather than guessing the factor.
+
+The `Executor` is a parameter of the question, not a field of the oracle, and that split is the
+design. An oracle must be a function of the point alone — `&self` is what says so — while an execution
+may be a live child process whose next answer depends on state it holds, which is why
+`Executor::execute` takes `&mut self` in the first place. So `minimize` threads the caller's path
+through every verification, and neither minimiser reaches for `interp::run` on its own. A finding
+discovered in an external program is shrunk and re-checked by that program: verified by APORIA's
+interpreter, it would be a statement about arithmetic the model's own program never performed — for a
+model declaring an `output` the A-IR does not compute, the interpreter answers NaN, NaN violates the
+declared rule everywhere, and the reduction would correctly conclude that no parameter matters about a
+computation that does have one. The adapter tests run both paths on the same finding and assert they
+disagree.
+
+Capabilities travel with the path. `varies_with_precision()` and `has_reference_path()` gate the
+Numerical and Differential channels in the campaign, and `RiskScorer` inherits the same limits from the
+executor it is handed: a program's campaign has no second rounding and no second implementation, so its
+findings are minimised against Physical and Sensitivity, which a program *can* answer. A scorer built
+from one path and asked of another answers nothing — `Reading::unmeasurable` — rather than fusing fewer
+items and returning the lower score that follows, because a reduction graded by a question the report
+never asked is not a smaller version of the finding.
 
 A finding made only of a declared relation is not minimisable by the risk oracle: a relation is judged
 over the whole record set, and rebuilding it from a candidate's three-point neighbourhood would produce
 a *louder* claim than the report made. The oracle refuses, and a test asserts it refuses.
+
+## Turning a channel off, and what that is for
+
+`Config.silenced` is a channel mask, and what it does *not* do is the point: it drops readings where
+they are produced, after the execution that would have produced them has been charged. Ablating a
+channel therefore changes what the instrument is allowed to conclude and not what it paid, which is the
+only basis on which two arms of an evidence comparison are commensurable. The mask is applied before
+calibration — a silenced channel must not move the fitted scales or the measured correlation either —
+in the online pass and in the retrospective one where the Behavioral relations are computed over the
+whole record set, and to the "which channels were applied" mask the labelling policy consults, so
+`min_channels` cannot be satisfied by evidence the arm was blind to. `aporia-bench` exposes it as
+`--ablate behavioral,differential`, records the list in the plan, and so in the measurement identity:
+an ablation arm writes its own results file and cannot overwrite the arm it is compared against.
+Silencing every channel is refused at the command line; the test for what would otherwise happen is the
+one that shows an arm blind to everything labels the domain UNKNOWN rather than trusting it.
 
 ## Where each concern lives, and why that matters
 

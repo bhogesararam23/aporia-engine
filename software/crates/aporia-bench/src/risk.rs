@@ -72,6 +72,14 @@ impl Reading {
 /// itself. Recomputing the ordinary slope from the candidate's own neighbourhood would make every
 /// candidate typical, and a calibrator refitted on candidates would grade the reduction by a standard
 /// the report never used.
+///
+/// One precision about "frozen", because it is a promise with an exception in it: the calibrator and
+/// correlation here are the ones the campaign **finished** with, not the ones in force at the round
+/// some particular finding was scored. A campaign refits every `calibrate_every` evaluations, so the
+/// two can differ. `agrees_with` is what makes that difference visible instead of assumed away — a
+/// scorer that cannot reproduce the risk the report recorded for the finding it was built from is not
+/// asking the report's question, and is not used. On the three corpus campaigns checked, the
+/// finished-model reading reproduced every finding's risk exactly.
 #[derive(Clone, Debug)]
 pub struct RiskScorer {
     calibrator: Calibrator,

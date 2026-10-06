@@ -15,25 +15,36 @@ minimiser, the archive and the replay — is implemented in this repository.
 
 ## The research question
 
-Stated as a hypothesis to be measured, not a claim:
+Stated as a hypothesis to be measured, not a claim. It was rewritten on 2026-10-06 after a prior-work
+pass ([`documentation/prior-work.md`](documentation/prior-work.md)), which found that the question this
+README used to ask — whether a multi-evidence search localises distrust regions with fewer executions
+than simpler exploration — is already the published objective of the excursion-set and
+active-learning-reliability literature (AK-MCS; Azzimonti et al.; Raghavan & Johansson). Against that
+literature, comparing against random and stratified sampling measures a strawman. Two sharper
+questions replace it:
 
-> Can a computation-aware, multi-evidence search strategy discover and localise regions of numerical
-> distrust using fewer executions than simpler exploration strategies?
+> **H1 — evidence.** Does fusing five heterogeneous signals with correlation-aware, run-fitted
+> calibration localise regions that no strict subset of them localises at the same budget?
+>
+> **H2 — artefact.** Does an atlas whose every region carries re-executable provenance change what a
+> downstream reader can *do* with a result — verify it, compare two runs, dispute a label — compared
+> with a score or a region list without provenance?
 
-Invariant detection, floating-point analysis, metamorphic testing and falsification each already own
-pieces of this. The candidate contribution is the combination plus the search objective: heterogeneous
-evidence treated as one calibrated, non-double-counting signal, and an evaluation budget spent on the
-boundary.
+H1 is answerable with the ablation the harness now supports (`aporia bench run --ablate …`, which drops
+a channel's *readings* while charging its evaluations, so the arms cost the same). H2 is a claim about
+this repository's own behaviour, checked by the replay, report and compare tests — and the honest risk
+is that H2 is engineering rather than research.
 
-The current measured answer is **partial, and the honest version is in
-[`software/benchmarks/results/README.md`](software/benchmarks/results/README.md)**. In short: on a
-21-entry measurement — 189 sweeps, 945 campaigns — adaptive localises
+Neither question is answered yet. The measured answer to the old one is **partial, and the honest
+version is in [`software/benchmarks/results/README.md`](software/benchmarks/results/README.md)**. In
+short: on a 21-entry measurement — 189 sweeps, 945 campaigns — adaptive localises
 `electromagnetics/rlc_resonance`, a band 0.088% of the domain, where neither random nor stratified
 localises anything at any budget; it *loses* on two entries where plain coverage is the right tool;
-and after the fixes that made the baselines better the advantage is one entry wide. One entry is not
-an answer. Numbers are recorded only from runs that actually happened, and `TRUSTED` never means
-*proven correct* — it means no current evidence of a problem under the tested assumptions and evidence
-model.
+and after the fixes that made the baselines better the advantage is one entry wide. One entry is not an
+answer, and the comparison that would mean something — against an adaptive-learning baseline of the
+shape the literature actually uses — has not been run. Numbers are recorded only from runs that
+actually happened, and `TRUSTED` never means *proven correct* — it means no current evidence of a
+problem under the tested assumptions and evidence model.
 
 ## What is here
 
@@ -70,8 +81,8 @@ software/examples/    external programs in other languages and the models they a
                       `beam.py` (Python 3, standard library only) and `beam.ap`
 software/scripts/     dev-env, test runner, lint gate, and the gate that build-verifies every
                       committed tree
-documentation/        architecture, adapter protocol, reproducibility, portability, contributor
-                      guide, limitations — the developer-facing docs, tracked and public
+documentation/        architecture, adapter protocol, reproducibility, portability, prior work,
+                      contributor guide, limitations — the developer-facing docs, tracked and public
 ```
 
 ## Build and run
@@ -84,7 +95,7 @@ configure. From `software/`:
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 563 tests
+cargo test --release                  # 582 tests
 cargo fmt --all --check && cargo clippy --workspace --all-targets
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
@@ -185,8 +196,17 @@ only reason the two cannot drift into reporting different numbers for one plan.
 aporia bench list                             what the corpus holds and what each entry claims
 aporia bench verify --grid 40                 check every declaration against direct evaluation
 aporia bench run --budgets 40,80 --seeds 1    sweep, archive, and write results-<identity>.json
+aporia bench run --ablate differential        same points, same cost, one channel blind
 aporia bench verdict benchmarks/results/results-1791153844.json
 ```
+
+`--ablate` silences a channel's *readings*, not its evaluations: the ablated arm is charged the same
+executions and samples the same trajectory, so a difference between two arms is a difference in what
+was concluded rather than in what was paid for. The list of silenced channels is part of the plan, so
+it is part of the measurement identity — an ablation arm writes its own results file and cannot
+overwrite the arm it was measured against. Silencing all five channels is refused at the command line;
+with no evidence a campaign has nothing to search on, and it would report a domain of cells that were
+never really assessed.
 
 For `bench` the statuses are the harness's own, so a caller can check them from either name: `0` the
 command did what was asked, `1` nothing was measured because a declared region did not hold, `2` the
@@ -252,8 +272,12 @@ come from a program the harness has no way to run.
 Not done: hand-written x86-64 kernels, which are only admissible with a measured
 advantage over compiler output and are not yet written; a CUDA backend, which cannot be compiled or
 measured on the machine this was built on because it has no NVIDIA device — stated rather than hidden,
-and the design is deferred with its trigger recorded; Julia reference implementations; a literature
-pass, which must precede any claim of novelty.
+and the design is deferred with its trigger recorded; Julia reference implementations; and the two
+experiments the revised question actually needs — the evidence ablation H1, and a search comparison
+against an adaptive-learning baseline of the shape the excursion-set literature uses rather than against
+random sampling. The prior-work pass that used to be on this list has been done and is written up in
+[`documentation/prior-work.md`](documentation/prior-work.md); it narrowed the question rather than
+answering it.
 
 Everything above is described as it is: the repository keeps its failed experiments and its corrected
 documentation in the open rather than presenting only what worked.

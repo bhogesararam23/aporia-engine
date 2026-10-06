@@ -289,21 +289,38 @@ added sweeps are the `coupled_coils` control, which detects nothing because noth
 
 ## The strategy comparison, and why it is narrower than hoped
 
-`aporia-bench verdict` says: **adaptive better on 1 entry, worse on 2, equal or unresolved on 15.** In
-the first run it was 2 better, 2 worse.
+The comparison line is printed by `aporia-bench run` at the end of a sweep — `aporia-bench verdict`
+prints the per-seed table, not the verdict, and this sentence used to credit the wrong command. The
+numbers are **adaptive better on 1 entry, worse on 2, equal or unresolved on 15**, and they are a pure
+function of the recorded sweeps under the rule written down in `harness::verdict`: skip controls and
+entries that declare no region; per strategy take the smallest localisation budget over the seeds that
+resolved; adaptive versus the better of the two baselines. Recomputed from
+`results-bb424c168dd4.json` by the rule, entry by entry, the two losses are
+`synthetic/narrow_1d` (adaptive 320 against a baseline 160) and `synthetic/one_pct_2d` (640 against
+320); `synthetic/one_pct_3d` is a **tie at 640**, which an earlier version of this paragraph named as a
+loss — the entry is the one where stratified matched adaptive's budget on three seeds against
+adaptive's one, which the rule scores as equal because it compares budgets first. Reading the outcome
+off the prose rather than off the rule got it wrong, and the correction is recorded rather than
+quietly made.
+
+In the first run it was 2 better, 2 worse.
 
 The shape of the result is what a rule like this should produce. Adaptive wins where the region is
 small relative to the space and nothing else finds it — `electromagnetics/rlc_resonance`, a resonance
 band 0.088% of the domain, localised at 640 by adaptive on one seed and by neither baseline at any
-budget — and loses where the region is large enough that plain coverage walks into it anyway:
-`synthetic/narrow_1d` and `synthetic/one_pct_3d`, both resolved by stratified at the same or a smaller
-budget. Between the first and second runs the baselines gained (`narrow_1d` went from 3 resolving seeds
-to 9, `one_pct_3d` from 0 localising sweeps to 4, `quarter_2d`'s best localising budget from 320 to
-40) and adaptive's advantage narrowed as a result.
+budget — and loses where the region is large enough that plain coverage walks into it sooner:
+`synthetic/narrow_1d` (stratified and random both localise at 160, adaptive at 320) and
+`synthetic/one_pct_2d` (random at 320, adaptive at 640). `synthetic/one_pct_3d` sits one step from a
+loss and is scored a tie: adaptive and stratified both needed the top budget, and stratified got there
+on three seeds to adaptive's one — which the rule ignores because the rule compares budgets first, and
+which is worth knowing even so. Between the first and second runs the baselines gained (`narrow_1d`
+went from 3 resolving seeds to 9, `one_pct_3d` from 0 localising sweeps to 4, `quarter_2d`'s best
+localising budget from 320 to 40) and adaptive's advantage narrowed as a result.
 
-One entry where the method shows an advantage, and two where a baseline is the right tool, is not an
-answer. It is a reason the ladder needs more entries of the resonance shape. Adding them is the next
-experiment, not a rhetorical claim that the shape does not matter.
+One entry where the method shows an advantage, two where a baseline is plainly the better tool, and
+fifteen where the ladder cannot tell them apart, is not an answer. It is a reason the ladder needs more
+entries of the resonance shape. Adding them is the next experiment, not a rhetorical claim that the
+shape does not matter.
 
 ## The controls, and a correction to this file
 

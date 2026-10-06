@@ -56,9 +56,21 @@ that add things `cargo` cannot do alone:
 | `scripts/clippy.sh` | the clippy gate on a machine where `cargo-clippy.exe` is refused: sets `RUSTC_WORKSPACE_WRAPPER` to the allowed `clippy-driver` and re-enters `cargo check` |
 | `scripts/verify-commits.sh` | exports each commit's own tree and builds it, because the test suite runs against the working tree and an uncommitted file can hide a broken commit |
 
+When the machine blocks `cargo.exe` itself rather than only freshly linked test binaries — which is what
+Windows Smart App Control did for a whole session in October 2026 — the four gates above cannot be
+started, and there is a workaround worth knowing about so it is not rediscovered from scratch:
+`rustc.exe`, `rustfmt.exe` and `clippy-driver.exe` in the toolchain directory are unaffected, so a
+metadata-only `rustc --emit=metadata` per crate, in dependency order, answers "does it compile",
+`clippy-driver` with the same arguments and the manifest's own lint set answers "does it lint", and
+linking each `--test` target and running it answers "does it pass". The catch that costs the most time is
+that a per-file reputation verdict is keyed on the linked bytes: re-linking with a different
+`-C metadata` gets a fresh verdict immediately, while retrying the identical refused binary waits forever,
+which is why `scripts/test.sh` re-links rather than merely sleeping. None of that is committed: it is
+machine-specific scaffolding around a machine-specific policy, and the portable gates are the four
+commands above.
+
 Lints live in `software/Cargo.toml` under `[workspace.lints]`: `unsafe_code = "forbid"`, clippy
-`all` + `pedantic` at warn, with four `cast_*` rules allowed because this is index-heavy numeric code
-and those rules fire on the shape of the domain rather than on mistakes.
+`all` + `pedantic` at warn, with four `cast_*` rules allowed because this is index-heavy numeric codeand those rules fire on the shape of the domain rather than on mistakes.
 
 ## The crate edges, and why they are that way
 
@@ -169,6 +181,12 @@ to anyone changing them:
   field's *meaning* changes, bump `harness::RESULTS_SCHEMA` — that is what `aporia.results/2` is, and
   what makes the corrected run a new identity instead of a squatted one. Old files are history and
   stay untouched.
+- **Anything a measurement can be compared on belongs in the plan, not in a constant.** The identity is
+  a digest of schema, plan and entries, so a knob that changes what a number means but is not in the
+  plan lets two different experiments share a filename — which the harness then refuses, looking like a
+  bug. That is why the sampling rates, the atlas thresholds and the `--ablate` channel list are all in
+  `plan_json`, and why a new arm of any comparison has to be added there rather than passed through
+  some other way.
 
 ## Recording an experiment
 

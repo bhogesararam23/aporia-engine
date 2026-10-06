@@ -38,8 +38,24 @@ written is the filesystem's answer, and the manifest's answer is what the run co
 | `exec` (`fp`, `max_steps`) | how it was executed. An f32 run is a different experiment, and a step guard is part of what stopped an evaluation |
 | `counts` | what it cost and what it saw: evaluations, instruction steps, params, outputs, constraints, relations, cells, samples, findings |
 | `calibration`, `channel_correlation`, `correlation_samples` | what "risk 0.62" means. Without the fitted scales a score is a number with no unit |
-| `environment` | OS, architecture, pointer width, detected toolchain, corpus path, GPU status |
+| `environment` | OS, architecture, pointer width, detected toolchain, **the source commit the run was built from**, corpus path, GPU status, and which execution path computed the values |
 | `files` | the digest list, in write order |
+
+Two of those answers were missing until they were asked for explicitly. `toolchain` records the
+compiler version and its commit hash, because a measurement taken on one code generator is not the
+same measurement taken on another. `source_commit` records the revision the search, the evidence model
+and the atlas policy were built from, with `-dirty` appended when tracked files differed from it — a
+hash alone would have named a commit that was not the one that ran. Both are filled by asking
+(`rustc -vV`, `git rev-parse`) with an environment override that wins, because a packaged or
+containerised build knows better than a call made from whichever directory the process happens to
+be in, and both record `not detected` rather than a blank when there is nothing to ask: two runs whose
+provenance was never recorded must not compare equal on a field neither filled.
+
+An artefact written before a field existed reads back with that field empty, which is a third state and
+the right one: "nothing was recorded by that writer" is not the same statement as "the writer could not
+record it". `aporia report` prints the difference — it emits a `build` line carrying whatever of the
+environment the archive actually holds and omits what it does not, so provenance is readable without
+opening `manifest.json`.
 
 `summary.json` carries the map's shape — coverage as fractions of the declared domain, including the
 count of measurements the partition could not place in any leaf, plus the band and finding tallies —

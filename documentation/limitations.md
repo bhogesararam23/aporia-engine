@@ -5,8 +5,24 @@ read before quoting a number from this repository.
 
 ## The research claim
 
-The question is whether a computation-aware, multi-evidence search localises regions of distrust with
-fewer executions than simpler exploration. The measured answer is **partial**:
+The question used to be whether a computation-aware, multi-evidence search localises regions of
+distrust with fewer executions than simpler exploration. A prior-work pass
+([`prior-work.md`](prior-work.md)) found that this is already the published objective of the
+excursion-set and active-learning-reliability literature — AK-MCS labels a domain safe / failure /
+uncertain under a simulation budget, and Azzimonti et al. produce an inside / outside / inconclusive
+partition with error control and a stopping rule. Against that work, beating random and stratified
+sampling is not the interesting comparison.
+
+The question has therefore been split in two, and neither part is answered:
+
+- **H1 — evidence.** Does fusing five heterogeneous signals, calibrated and correlation-discounted
+  against the same run, localise regions that no strict subset of them localises at the same budget?
+  This is now expressible as an experiment (`aporia bench run --ablate …`) and has not been run.
+- **H2 — artefact.** Does an atlas whose every region carries re-executable provenance change what a
+  reader can do with a result? Parts of this are tested in this repository; whether it counts as
+  research rather than engineering is open.
+
+The measured answer to the *old* question is **partial**:
 
 - Adaptive localises `electromagnetics/rlc_resonance`, a band 0.088% of the domain, at a budget where
   neither random nor stratified localises anything at any budget tested.
@@ -14,11 +30,12 @@ fewer executions than simpler exploration. The measured answer is **partial**:
 - After the fixes that made the baselines better rather than worse, the advantage is **one entry wide**
   out of 21 swept entries, 189 sweeps, 945 campaigns.
 
-One entry is not an answer, and the larger claim — that this combination is novel — cannot be made at
-all before a literature pass, which has not happened. Numerical testing, metamorphic testing,
-floating-point analysis, falsification, adaptive sampling and boundary discovery each already own a
-piece of this; the candidate contribution is the combination and the search objective, and that word
-"candidate" is doing real work.
+One entry is not an answer. And since the pass, no claim of novelty appears anywhere in this
+repository: the metamorphic relations are standard, minimisation is standard, dependence-aware fusion
+is standard outside testing, calibrated scores are standard, and the three-label map is a known shape.
+What survives is narrower and is listed at the end of
+[`prior-work.md`](prior-work.md) — a five-signal score fitted from the run it grades, provenance under
+every labelled region, a minimised case re-executed at its own witnesses, and honest refusals.
 
 ## Scientific limits that are part of the design
 
@@ -72,34 +89,41 @@ Not done, and not faked:
 - A CUDA backend: the machine this was built on has no NVIDIA device, so it can be neither compiled nor
   measured here. Deferred with its trigger recorded.
 - Julia reference implementations: same status.
-- A literature pass: must precede any novelty claim.
+- A literature pass: done on 2026-10-06, and published as
+  [`prior-work.md`](prior-work.md). It removed four claims this repository had been making about
+  itself and replaced the research question with two narrower ones. What it did *not* do is produce a
+  comparison against any named tool: no experiment against an adaptive-learning baseline has been run,
+  and the pass is a positioning of the question, not an answer to it.
 - CI: no workflow exists. Deliberate — a hosted configuration nobody has executed is documentation
   pretending to be a gate. The gates are the four commands in the developer guide, plus
   `scripts/verify-commits.sh`.
 
 Known defects still open, each recorded with how it was found:
 
-1. `aporia-bench`'s `RiskScorer` hard-wires the interpreter and the reference evaluator instead of
-   asking the `Executor` whose run it is scoring. Latent, because the harness only archives interpreted
-   runs — and it will bite the first time a program-executed finding is minimised, in the execution
-   accounting specifically, because a `Program` answers without ever running the interpreter.
-2. An archive reports two irreconcilable instruction-step totals: the manifest's (the campaign's,
-   including charged reference and f32 evaluations) and `observations.bin`'s header (recorded
-   observations only). Nothing compares them; `compare` diffs only the manifest copy.
-3. `aporia-numerics::reference` has no `state` initialisation pass, so `state q = <expression>` reads
-   NaN/zero there while the runtime initialises it. Non-finite pairs are filtered, so this is a silent
-   coverage gap in the Differential channel rather than a wrong number. Its own `budget_exceeded` and
-   `non_finite` flags are computed and never read.
-4. The batch evaluator zero-seeds its environment, so a node that was never computed reads as a
+1. The batch evaluator zero-seeds its environment, so a node that was never computed reads as a
    plausible `0.0` where the scalar path yields NaN, and its lane padding writes a literal NaN that no
-   input produced. Latent because `run_batch` has no production caller — which is itself the older
-   "built and never wired" defect.
-5. A list of smaller silent defaults with no input that reaches them today: zero-defaults for missing
-   finding fields, a zero-defaulted calibration scale in a manifest, an invented `tol = 1e-9` when a
-   `within` tolerance is written as 0, a `u16::MAX` sentinel that leaks `p65535` into report keys, a
-   domain-centre default for a missing axis coordinate, `method` defaulting to `"analytic"`.
-6. Some public functions exist only because a test calls them. Each one is a place where the crate
-   advertises a capability nothing in production uses.
+   input produced. It is dormant rather than wrong-in-production: `run_batch` has no caller, and the
+   Differential channel compares the scalar runtime against the independent double-double evaluator,
+   not against the batch path, so no published number depends on it. Closing it means either wiring it
+   into a channel that would actually want a second path sharing the interpreter's arithmetic — it
+   would not — or removing it.
+2. Smaller silent defaults that are still there, each with no input that reaches it today: a
+   zero-defaulted calibration scale in a manifest reader, `method` defaulting to `"analytic"` when a
+   `truth.json` omits it, and a `u16::MAX` sentinel in one inferred-pattern subject that leaks
+   `p65535` into a report key (harmless to calibration, which cannot collide with 65,535 parameters,
+   and unreadable to a human). The finding-block defaults were the dangerous ones — they attached
+   evidence to execution 0 of cell 0 — and are closed: a `.apx` missing a field it always writes is now
+   refused with the file and the field named.
+3. `aporia-numerics`' reference evaluator computes `budget_exceeded` and `non_finite` and no caller
+   reads them, so a reference path that ran out of its step guard is currently indistinguishable from a
+   clean one where it happens to produce finite values.
+
+Closed since, each with its own commit and its own test: the minimiser now asks the execution path that
+produced the finding rather than the interpreter, and a program's finding is verified by that program
+end to end; a risk scorer inherits the channels its path can measure and *refuses* rather than answers
+less when it cannot; the observation header is parsed once and checked against the records it
+summarises; a finding block missing an identity field is refused by name; and the public functions
+nothing in production called have been removed.
 
 ## Questions that come up
 
