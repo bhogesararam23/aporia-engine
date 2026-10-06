@@ -44,6 +44,8 @@ fn usage() -> &'static str {
      \x20 replay <archive-dir>        check an archive's integrity and reproduce its run\n\
      \x20 report <archive-dir>        print a stored run without executing anything\n\
      \x20 compare <dir-a> <dir-b>     say what differs between two stored runs\n\
+     \x20     [--json] for the machine-readable form: every section, whether it could be\n\
+     \x20     compared, and the counts — the text form prints only what moved\n\
      \x20 bench <command> [flags]    the measurement harness: list, verify, run, verdict, scan,\n\
      \x20                            explain (bare `bench` shows its own usage)\n\
      \x20 help                        show this text\n\
@@ -65,7 +67,23 @@ fn main() {
         Some("run") => run_command(&args[1..]),
         Some("replay") => one_directory("replay", &args[1..], replay::command),
         Some("report") => one_directory("report", &args[1..], report::command),
-        Some("compare") => two_directories("compare", &args[1..], compare::command),
+        Some("compare") => {
+            // `--json` selects the rendering, not the comparison: one `Comparison` object, two
+            // documents. It is stripped here rather than passed to the reader because the arity of a
+            // comparison is its meaning, and a flag must not be counted as a third archive.
+            let json = args[1..].iter().any(|a| a == "--json");
+            let positional: Vec<String> = args[1..]
+                .iter()
+                .filter(|a| *a != "--json")
+                .cloned()
+                .collect();
+            let read_it = if json {
+                compare::command_json
+            } else {
+                compare::command
+            };
+            two_directories("compare", &positional, read_it)
+        }
         Some("bench") => {
             let stdout = std::io::stdout();
             let mut out = stdout.lock();
@@ -231,6 +249,13 @@ where
 {
     if help_requested(flags) {
         return show_help();
+    }
+    // `--json` has already been taken out by the caller, so anything still shaped like a flag was not
+    // understood. Refusing beats reading it as a directory name.
+    if let Some(flag) = flags.iter().find(|a| a.starts_with('-')) {
+        eprintln!("aporia: unknown flag {flag}");
+        eprint!("{}", usage());
+        return Exit::Usage;
     }
     let [first, second] = flags else {
         eprintln!(

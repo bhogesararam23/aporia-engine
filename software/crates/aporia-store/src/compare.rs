@@ -709,6 +709,102 @@ impl Comparison {
         );
         out
     }
+
+    /// The comparison as a machine-readable document.
+    ///
+    /// `aporia compare --json` exists because a pipeline wants the structured answer, and the text
+    /// form above is written for a person: it prints only the fields there is something to say about,
+    /// which is exactly what a caller parsing it would then mis-count as "everything agreed". This is
+    /// the same `Comparison` object rendered a second way, not a second comparison — one place decides
+    /// what differs, and no caller has to read prose to find out.
+    ///
+    /// Deterministic by the same construction as the text: sections in [`Section::ORDER`], fields in
+    /// the order they were produced, no timestamps, no paths canonicalised. The verdict token is
+    /// [`Verdict::name`], the same string the text prints, so one vocabulary describes an outcome.
+    #[must_use]
+    pub fn to_json(&self, a: &Path, b: &Path) -> Json {
+        Json::object(vec![
+            ("schema", Json::text("aporia.compare/1")),
+            ("a", Json::text(a.display().to_string())),
+            ("b", Json::text(b.display().to_string())),
+            ("verdict", Json::text(self.verdict().name())),
+            ("fields", Json::count(self.fields.len() as u64)),
+            (
+                "tally",
+                Json::object({
+                    let (changed, only_a, only_b) = self.tally();
+                    vec![
+                        ("changed", Json::count(changed as u64)),
+                        ("only_a", Json::count(only_a as u64)),
+                        ("only_b", Json::count(only_b as u64)),
+                        (
+                            "same",
+                            Json::count(
+                                self.fields
+                                    .iter()
+                                    .filter(|f| f.change == Change::Same)
+                                    .count() as u64,
+                            ),
+                        ),
+                    ]
+                }),
+            ),
+            (
+                "sections",
+                Json::Arr(
+                    Section::ORDER
+                        .iter()
+                        .map(|section| {
+                            let total =
+                                self.fields.iter().filter(|f| f.section == *section).count();
+                            let differences = self
+                                .fields
+                                .iter()
+                                .filter(|f| f.section == *section && f.change != Change::Same)
+                                .count();
+                            Json::object(vec![
+                                ("name", Json::text(section.name())),
+                                // Zero fields means the section was refused, not that it agreed, and
+                                // `compared` is how a reader tells those two apart without counting.
+                                ("compared", Json::Bool(total > 0)),
+                                ("fields", Json::count(total as u64)),
+                                ("differences", Json::count(differences as u64)),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
+            (
+                "changes",
+                Json::Arr(
+                    self.differences()
+                        .iter()
+                        .map(|f| {
+                            Json::object(vec![
+                                ("section", Json::text(f.section.name())),
+                                ("path", Json::text(f.path.clone())),
+                                ("change", Json::text(f.change.name())),
+                                (
+                                    "a",
+                                    f.a.as_deref()
+                                        .map_or(Json::Null, |v| Json::text(v.to_string())),
+                                ),
+                                (
+                                    "b",
+                                    f.b.as_deref()
+                                        .map_or(Json::Null, |v| Json::text(v.to_string())),
+                                ),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
+            (
+                "skipped",
+                Json::Arr(self.skipped.iter().map(|r| Json::text(r.clone())).collect()),
+            ),
+        ])
+    }
 }
 
 /// How a pair of archives ended up.

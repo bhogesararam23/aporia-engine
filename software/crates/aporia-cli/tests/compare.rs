@@ -340,3 +340,231 @@ fn copy_dir(from: &Path, to: &Path) {
         }
     }
 }
+
+/// Parse the `--json` rendering with the repository's own reader, so a test asserts on structure
+/// rather than on substring matches against a document that is allowed to reformat.
+fn compare_json(args: &[&str]) -> (i32, aporia_store::Json) {
+    let out = aporia().args(args).output().expect("aporia runs");
+    let body = text(&out.stdout);
+    let parsed = aporia_store::Json::parse(&body).unwrap_or_else(|e| {
+        panic!(
+            "`aporia {}` did not print JSON: {e}\n{body}",
+            args.join(" ")
+        )
+    });
+    (out.status.code().unwrap_or(-1), parsed)
+}
+
+#[test]
+fn the_json_form_carries_every_section_including_the_ones_that_agreed() {
+    // The reason `--json` exists. The text rendering prints only what moved, which is right for a
+    // person and wrong for a caller: an automation that read the text would have to infer
+    // "everything agreed" from the absence of a line. Here each section reports its own field count
+    // and difference count, and a section that could not be compared says so.
+    let a = fixtures("archive-sqrt_domain");
+    let b = fixtures("archive-sqrt_domain");
+    let (status, doc) = compare_json(&[
+        "compare",
+        "--json",
+        &a.display().to_string(),
+        &b.display().to_string(),
+    ]);
+    assert_eq!(
+        status, 0,
+        "an archive compared with itself should be identical"
+    );
+    assert_eq!(
+        doc.get("schema").and_then(aporia_store::Json::as_str),
+        Some("aporia.compare/1")
+    );
+    assert_eq!(
+        doc.get("verdict").and_then(aporia_store::Json::as_str),
+        Some("IDENTICAL")
+    );
+    let sections = doc
+        .get("sections")
+        .and_then(aporia_store::Json::as_array)
+        .expect("sections");
+    assert_eq!(sections.len(), 7, "one entry per compared section");
+    for section in sections {
+        let name = section
+            .get("name")
+            .and_then(aporia_store::Json::as_str)
+            .unwrap_or("?");
+        assert_eq!(
+            section
+                .get("differences")
+                .and_then(aporia_store::Json::as_u64),
+            Some(0),
+            "an identical pair reported differences in {name}"
+        );
+        assert_eq!(
+            section
+                .get("compared")
+                .and_then(aporia_store::Json::as_bool),
+            Some(true),
+            "{name}"
+        );
+    }
+    assert_eq!(
+        doc.get("changes")
+            .and_then(aporia_store::Json::as_array)
+            .map(<[aporia_store::Json]>::len),
+        Some(0),
+        "the change list should be empty"
+    );
+    let fields = doc
+        .get("fields")
+        .and_then(aporia_store::Json::as_u64)
+        .unwrap_or_default();
+    assert!(
+        fields > 20,
+        "the document reports {fields} fields, which is not a comparison"
+    );
+    assert_eq!(
+        doc.get("tally")
+            .and_then(|t| t.get("same"))
+            .and_then(aporia_store::Json::as_u64),
+        Some(fields),
+        "every field of an identical pair is the same, so the tally must say so"
+    );
+}
+
+#[test]
+fn the_json_and_text_renderings_agree_on_the_verdict_and_the_status() {
+    // The two forms are one `Comparison` rendered twice, so they must not develop separate opinions.
+    // `archive-bench-sqrt_domain` differs from `archive-sqrt_domain` in configuration, counts and
+    // findings, which exercises the differing branch and its status.
+    let a = fixtures("archive-sqrt_domain");
+    let b = fixtures("archive-bench-sqrt_domain");
+    let (status, doc) = compare_json(&[
+        "compare",
+        "--json",
+        &a.display().to_string(),
+        &b.display().to_string(),
+    ]);
+    assert_eq!(
+        status, 8,
+        "a differing pair must exit 8, the same as the text form"
+    );
+    assert_eq!(
+        doc.get("verdict").and_then(aporia_store::Json::as_str),
+        Some("DIFFERENT")
+    );
+    let changed = doc
+        .get("tally")
+        .and_then(|t| t.get("changed"))
+        .and_then(aporia_store::Json::as_u64)
+        .unwrap_or_default();
+    assert!(changed > 0, "these two archives are not identical");
+    let listed = doc
+        .get("changes")
+        .and_then(aporia_store::Json::as_array)
+        .map(<[aporia_store::Json]>::len)
+        .unwrap_or_default();
+    let same = doc
+        .get("tally")
+        .and_then(|t| t.get("same"))
+        .and_then(aporia_store::Json::as_u64)
+        .unwrap_or_default();
+    let fields = doc
+        .get("fields")
+        .and_then(aporia_store::Json::as_u64)
+        .unwrap_or_default();
+    assert_eq!(
+        listed,
+        usize::try_from(fields - same).unwrap_or(listed),
+        "every field that is not `same` must appear in `changes`"
+    );
+
+    let text_out = aporia()
+        .args([
+            "compare",
+            &a.display().to_string(),
+            &b.display().to_string(),
+        ])
+        .output()
+        .expect("aporia runs");
+    assert_eq!(text_out.status.code(), Some(8));
+    let body = text(&text_out.stdout);
+    assert!(body.contains("DIFFERENT"), "{body}");
+}
+
+#[test]
+fn a_json_comparison_is_the_same_bytes_twice() {
+    // Determinism is a property of the artifact, not a hope: same two archives, same document.
+    let a = fixtures("archive-sqrt_domain");
+    let b = fixtures("archive-bench-sqrt_domain");
+    let args = ["compare", "--json"];
+    let first = aporia()
+        .arg(args[0])
+        .arg(args[1])
+        .arg(&a)
+        .arg(&b)
+        .output()
+        .expect("aporia runs");
+    let second = aporia()
+        .arg(args[0])
+        .arg(args[1])
+        .arg(&a)
+        .arg(&b)
+        .output()
+        .expect("aporia runs");
+    assert_eq!(
+        text(&first.stdout),
+        text(&second.stdout),
+        "the machine-readable comparison is not deterministic"
+    );
+}
+
+#[test]
+fn an_edited_archive_answers_with_integrity_not_with_a_diff() {
+    // The stop condition is the same in both renderings, and in JSON it has to be a token rather than
+    // a line of prose: `verdict: "NOT COMPARED"` plus the reasons, never a verdict about content that
+    // cannot be trusted.
+    let dir = scratch("json-integrity");
+    let a = dir.join("a");
+    let b = dir.join("b");
+    std::fs::create_dir_all(&a).expect("scratch");
+    std::fs::create_dir_all(&b).expect("scratch");
+    copy_dir(&fixtures("archive-sqrt_domain"), &a);
+    copy_dir(&fixtures("archive-bench-sqrt_domain"), &b);
+    let bands = a.join("bands.csv");
+    let mut body = std::fs::read_to_string(&bands).expect("read the copy");
+    body.push_str("tampered\n");
+    std::fs::write(&bands, body).expect("tamper with the copy");
+
+    let (status, doc) = compare_json(&[
+        "compare",
+        "--json",
+        &a.display().to_string(),
+        &b.display().to_string(),
+    ]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(status, 5, "an edited archive must not produce a diff");
+    assert_eq!(
+        doc.get("verdict").and_then(aporia_store::Json::as_str),
+        Some("NOT COMPARED")
+    );
+    let problems = doc
+        .get("integrity")
+        .and_then(aporia_store::Json::as_array)
+        .expect("integrity");
+    assert!(
+        !problems.is_empty(),
+        "the reasons must travel with the refusal"
+    );
+}
+
+#[test]
+fn a_flag_that_is_not_the_json_one_is_still_refused_by_compare() {
+    // `--json` is stripped before the arity check, so every other flag now has to be refused rather
+    // than quietly counted as a third archive directory.
+    let out = aporia()
+        .args(["compare", "--brief", "a", "b"])
+        .output()
+        .expect("aporia runs");
+    assert_eq!(out.status.code(), Some(2));
+    let err = text(&out.stderr);
+    assert!(err.contains("unknown flag --brief"), "{err}");
+}
