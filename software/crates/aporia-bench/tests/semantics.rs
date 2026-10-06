@@ -105,6 +105,9 @@ fn outcome(entry: &str, strategy: &'static str) -> aporia_bench::metrics::Outcom
         duplicates: Some(0.0),
         boundaries: Vec::new(),
         counterexamples: Vec::new(),
+        census: aporia_bench::metrics::Census {
+            channels: Vec::new(),
+        },
         replay: None,
         replay_error: None,
     }

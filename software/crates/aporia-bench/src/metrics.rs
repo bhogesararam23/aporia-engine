@@ -100,6 +100,131 @@ impl CaseSize {
     }
 }
 
+/// One channel's record in one outcome: the four counts that make an ablation's nulls
+/// interpretable, plus the mask bit that says who removed what.
+///
+/// `applied` is how many executions the channel's measurements ran on, `computed` how many items
+/// it produced before this arm's mask dropped anything, `readings` how many the arm kept,
+/// `strong` how many of those calibrate to the loudness bar, and `findings` how many findings
+/// carry the channel. From these, and never from anything else, the five states a channel can be
+/// in are read: structurally unavailable (`applied = 0`), available but clean (`applied > 0`,
+/// `computed = 0`), silenced after computing (`silenced`, `computed > 0`, `readings = 0`), weak
+/// versus strong readings, and evidence-producing but not finding-producing (`readings > 0`,
+/// `findings = 0`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChannelCensus {
+    pub channel: aporia_evidence::Channel,
+    pub applied: u64,
+    pub computed: u64,
+    pub readings: u64,
+    /// Kept readings whose strength, under this campaign's own final calibrator, reaches the bar
+    /// that lets a claim sign a finding (0.5 — the same number `signature` uses, so "strong" here
+    /// means the same thing it means everywhere else in a report).
+    pub strong: u64,
+    pub findings: u64,
+    pub silenced: bool,
+}
+
+impl ChannelCensus {
+    fn to_json(&self) -> Json {
+        Json::object(vec![
+            ("channel", Json::text(self.channel.name())),
+            ("applied", Json::count(self.applied)),
+            ("computed", Json::count(self.computed)),
+            ("readings", Json::count(self.readings)),
+            ("strong", Json::count(self.strong)),
+            ("findings", Json::count(self.findings)),
+            ("silenced", Json::Bool(self.silenced)),
+        ])
+    }
+
+    fn from_json(value: &Json) -> Option<Self> {
+        let channel = aporia_evidence::Channel::parse(value.get("channel")?.as_str()?)?;
+        let count = |k: &str| value.get(k).and_then(Json::as_u64);
+        Some(Self {
+            channel,
+            applied: count("applied")?,
+            computed: count("computed")?,
+            readings: count("readings")?,
+            strong: count("strong")?,
+            findings: count("findings")?,
+            silenced: value.get("silenced")?.as_bool()?,
+        })
+    }
+}
+
+/// What each of the five channels did on one campaign, in [`Channel::ALL`] order.
+///
+/// Derived from the campaign's own records — its evidence, its findings, its per-channel counters
+/// and the mask it actually ran with — never from the plan that requested the run: the census
+/// exists to say, per entry and per arm, whether a channel had anything to say, and that is a
+/// fact about the execution rather than about the configuration.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Census {
+    pub channels: Vec<ChannelCensus>,
+}
+
+impl Census {
+    #[must_use]
+    pub fn of(campaign: &Campaign) -> Self {
+        let channels = aporia_evidence::Channel::ALL
+            .into_iter()
+            .map(|c| {
+                let readings: Vec<&aporia_evidence::Evidence> = campaign
+                    .evidence
+                    .iter()
+                    .filter(|e| e.channel == c)
+                    .collect();
+                let strong = readings
+                    .iter()
+                    .filter(|e| {
+                        // The final calibrator, applied to a copy, is what the report's own
+                        // loudness bar was measured against — reusing it here is what keeps
+                        // "strong" from meaning one thing in a finding and another in a census.
+                        let mut scored = (**e).clone();
+                        campaign.calibrator.apply(std::slice::from_mut(&mut scored));
+                        scored.strength >= 0.5
+                    })
+                    .count() as u64;
+                ChannelCensus {
+                    channel: c,
+                    applied: campaign.applied[c.index()],
+                    computed: campaign.computed[c.index()],
+                    readings: readings.len() as u64,
+                    strong,
+                    findings: campaign
+                        .findings
+                        .iter()
+                        .filter(|f| f.evidence.iter().any(|e| e.channel == c))
+                        .count() as u64,
+                    silenced: campaign.config.is_silenced(c),
+                }
+            })
+            .collect();
+        Self { channels }
+    }
+
+    /// The record for one channel, when present.
+    #[must_use]
+    pub fn of_channel(&self, channel: aporia_evidence::Channel) -> Option<&ChannelCensus> {
+        self.channels.iter().find(|c| c.channel == channel)
+    }
+
+    fn to_json(&self) -> Json {
+        Json::Arr(self.channels.iter().map(ChannelCensus::to_json).collect())
+    }
+
+    fn from_json(value: &Json) -> Option<Self> {
+        Some(Self {
+            channels: value
+                .as_array()?
+                .iter()
+                .map(ChannelCensus::from_json)
+                .collect::<Option<Vec<_>>>()?,
+        })
+    }
+}
+
 /// One (entry, strategy, budget, seed) measurement.
 #[derive(Clone, Debug)]
 pub struct Outcome {
@@ -126,6 +251,8 @@ pub struct Outcome {
     pub duplicates: Option<f64>,
     pub boundaries: Vec<BoundaryHit>,
     pub counterexamples: Vec<CaseSize>,
+    /// What each channel did on this outcome. See [`Census`].
+    pub census: Census,
     /// `(reproduced, matched, total)` when this run was archived and replayed.
     pub replay: Option<(bool, u64, u64)>,
     pub replay_error: Option<String>,
@@ -254,6 +381,7 @@ impl Outcome {
             findings: campaign.findings.len() as u64,
             duplicates,
             boundaries,
+            census: Census::of(campaign),
             replay: None,
             replay_error: None,
             // Filled in by the harness at the largest budget only: minimisation costs evaluations
@@ -305,6 +433,7 @@ impl Outcome {
                 "counterexamples",
                 Json::Arr(self.counterexamples.iter().map(CaseSize::to_json).collect()),
             ),
+            ("census", self.census.to_json()),
             (
                 "replayed",
                 self.replay
@@ -607,4 +736,130 @@ pub fn compare(outcomes: &[Outcome]) -> Vec<Json> {
             Json::object(row)
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aporia_dsl::lower::compile;
+    use aporia_evidence::Channel;
+    use aporia_search::{Config, run};
+
+    /// A model whose slope grows along its only axis, so the Sensitivity channel certainly has
+    /// something to say wherever probes run.
+    fn slope_model() -> aporia_ir::Model {
+        let c = compile(
+            "t.ap",
+            "model census_slope \"\" {\n input x in [0, 1]\n let y = x * x\n}\n",
+        );
+        assert!(!c.diagnostics.has_errors());
+        c.model
+    }
+
+    fn campaign_config() -> Config {
+        Config {
+            budget: 240,
+            probe_every: 2,
+            ..Config::default()
+        }
+    }
+
+    #[test]
+    fn the_census_reads_the_campaign_not_the_requested_mask() {
+        // Three campaigns, one model. A census computed from the mask could only distinguish the
+        // first two; only a census computed from what ran can say the third one silenced a channel
+        // that had readings waiting, which is the fact E2's nulls are read against.
+        let m = slope_model();
+
+        // No mask and no probes: the channel never ran. Structurally unavailable.
+        let unprobed = run(
+            &m,
+            Config {
+                budget: 240,
+                probe_every: 0,
+                ..Config::default()
+            },
+        );
+        let quiet = Census::of(&unprobed)
+            .of_channel(Channel::Sensitivity)
+            .expect("every channel has a census entry")
+            .clone();
+        assert_eq!((quiet.applied, quiet.computed, quiet.readings), (0, 0, 0));
+        assert!(
+            !quiet.silenced,
+            "nothing was silenced; the channel never ran"
+        );
+
+        // No mask, probes on: the channel ran and spoke.
+        let full = Census::of(&run(&m, campaign_config()))
+            .of_channel(Channel::Sensitivity)
+            .expect("every channel has a census entry")
+            .clone();
+        assert!(full.applied > 0, "the probe star was never applied");
+        assert!(full.computed > 0, "y = x*x produced no atypical slopes");
+        assert_eq!(full.computed, full.readings, "nothing dropped the readings");
+        assert!(!full.silenced);
+
+        // Mask on, probes on: the probe star still ran and still computed readings — the records
+        // say so — and only the keeping was withheld. That is "silenced", not "silent", and it is
+        // the distinction a mask-derived census cannot make.
+        let arm = run(&m, campaign_config().without(Channel::Sensitivity));
+        let silenced = Census::of(&arm)
+            .of_channel(Channel::Sensitivity)
+            .expect("every channel has a census entry")
+            .clone();
+        assert!(
+            silenced.applied > 0,
+            "silencing must not skip the probe star"
+        );
+        assert!(
+            silenced.computed > 0,
+            "the silenced arm recorded no computed readings, so the mask changed the work"
+        );
+        assert_eq!(silenced.readings, 0, "a silenced channel kept readings");
+        assert_eq!(
+            silenced.strong, 0,
+            "a silenced channel kept strong readings"
+        );
+        assert!(silenced.silenced);
+    }
+
+    #[test]
+    fn the_census_counts_strong_readings_with_the_campaigns_own_bar() {
+        // Physical carries the census's loudest case: a rule that fires is an absolute fact, so
+        // every Physical reading on this model is strong by the campaign's own calibration.
+        let c = compile(
+            "t.ap",
+            "model census_rule \"\" {\n input x in [0, 1]\n let y = sqrt(x - 0.5)\n require finite(y)\n}\n",
+        );
+        assert!(!c.diagnostics.has_errors());
+        let campaign = run(&c.model, Config::default());
+        let physical = Census::of(&campaign)
+            .of_channel(Channel::Physical)
+            .expect("every channel has a census entry")
+            .clone();
+        assert!(physical.readings > 0, "the NaN region produced no readings");
+        assert_eq!(physical.strong, physical.readings);
+        assert!(physical.findings > 0, "a firing rule produced no finding");
+    }
+
+    #[test]
+    fn the_census_survives_a_round_trip_through_the_results_file() {
+        let campaign = run(&slope_model(), campaign_config());
+        let census = Census::of(&campaign);
+        let text = census.to_json().to_compact();
+        let parsed = aporia_store::Json::parse(&text).expect("the census JSON parses");
+        let back = Census::from_json(&parsed).expect("the census JSON reads back");
+        assert_eq!(back.channels.len(), Channel::ALL.len());
+        assert_eq!(back, census);
+        // Every channel is present even when it did nothing, in the enum's order: an absent row
+        // would read as "not measured on this path" and a reordered one as somebody else's census.
+        assert_eq!(
+            back.channels.iter().map(|c| c.channel).collect::<Vec<_>>(),
+            Channel::ALL.to_vec()
+        );
+        // And a document without the field — every results file written before the census existed —
+        // simply has no census, which is absence rather than a zero.
+        assert!(Census::from_json(&Json::Null).is_none());
+    }
 }
