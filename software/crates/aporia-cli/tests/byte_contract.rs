@@ -172,7 +172,89 @@ fn an_archive_reassembled_from_gits_own_bytes_opens_and_passes_its_integrity_che
     }
 }
 
-/// The failure mode this file exists for, demonstrated rather than described: a text artefact written
+/// Every tracked file has a declared line-ending behaviour, or a checkout may rewrite it.
+///
+/// This is the rule that would have caught decision 0022's bug by reasoning alone rather than by
+/// exporting a worktree: `decisions.jsonl` and `findings/*.apx` were tracked, digested, and had no
+/// `.gitattributes` line, so `core.autocrlf=true` rewrote them on clone and every committed archive
+/// failed its own integrity check.
+///
+/// The question is put to git rather than answered by a hand-written glob matcher, because matching an
+/// attributes file correctly is not a small problem and getting it wrong here would mean a test that
+/// passes while the repository is broken.
+#[test]
+fn no_tracked_file_is_left_to_a_checkouts_idea_of_line_endings() {
+    let Some(repo) = repo_root() else {
+        eprintln!("SKIP: no git metadata, so the tracked file list cannot be asked for.");
+        return;
+    };
+    let listed = Command::new("git")
+        .current_dir(&repo)
+        .arg("ls-files")
+        .output()
+        .expect("git ls-files");
+    assert!(listed.status.success(), "git ls-files failed");
+    let paths = String::from_utf8_lossy(&listed.stdout).replace('\\', "/");
+    let asked = Command::new("git")
+        .current_dir(&repo)
+        .arg("check-attr")
+        .arg("--stdin")
+        .arg("text")
+        .arg("eol")
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .and_then(|mut child| {
+            use std::io::Write;
+            child
+                .stdin
+                .take()
+                .expect("a pipe to git")
+                .write_all(paths.as_bytes())?;
+            child.wait_with_output()
+        })
+        .expect("git check-attr");
+    assert!(asked.status.success(), "git check-attr failed");
+    let report = String::from_utf8_lossy(&asked.stdout).to_string();
+
+    // Two lines per path: `<path>: text: …` and `<path>: eol: …`. Splitting from the right keeps a
+    // path intact. A file is declared when either attribute is specified — `binary` sets `text` to
+    // `unset`, `text eol=lf` sets both — and unspecified on both means the checkout decides, which is
+    // the case this rule exists to forbid.
+    let mut text: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    let mut eol: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+    for line in report.lines() {
+        let parts: Vec<&str> = line.rsplitn(3, ": ").collect();
+        if parts.len() != 3 {
+            continue;
+        }
+        let (value, attribute, path) = (parts[0], parts[1], parts[2]);
+        match attribute {
+            "text" => {
+                text.insert(path.to_string(), value.to_string());
+            }
+            "eol" => {
+                eol.insert(path.to_string(), value.to_string());
+            }
+            _ => {}
+        }
+    }
+    let undeclared: Vec<&String> = text
+        .keys()
+        .filter(|p| text[*p] == "unspecified" && eol.get(*p).is_none_or(|v| v == "unspecified"))
+        .collect();
+    assert!(
+        !text.is_empty(),
+        "git answered no attributes at all, so this test checked nothing"
+    );
+    assert!(
+        undeclared.is_empty(),
+        "{} tracked file(s) have no line-ending rule and a checkout with core.autocrlf will rewrite \
+         them: {:?}",
+        undeclared.len(),
+        undeclared
+    );
+}
 /// with CRLF is a different digest, and the only thing between that and a silently broken clone is the
 /// rule in `.gitattributes`.
 #[test]

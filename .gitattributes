@@ -12,6 +12,7 @@
 *.cuh text eol=lf
 *.ptx text eol=lf
 *.jl  text eol=lf
+*.py  text eol=lf
 *.asm text eol=lf
 *.s   text eol=lf
 *.h   text eol=lf
@@ -34,3 +35,6 @@
 Cargo.lock text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
+LICENSE text eol=lf
+documentation/*.md text eol=lf
+software/examples/* text eol=lf
