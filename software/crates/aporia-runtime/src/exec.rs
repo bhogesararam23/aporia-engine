@@ -59,6 +59,13 @@ pub trait Executor {
 /// campaign that discovers that halfway through reports a domain full of divergence instead of the
 /// one sentence "this model needs its program", which is a worse outcome for the reader and a wasted
 /// run for everyone.
+///
+/// **Where that refusal lives: the input boundaries, and only them.** `aporia run` asks before it
+/// spends a budget, and `aporia-bench` refuses such a corpus entry during its ground-truth gate.
+/// `aporia_search::run` does not check, deliberately: it is a driver rather than a front door, it
+/// takes an `Executor` it cannot inspect for this property (the capability flags describe the path, not
+/// the model), and a driver that returned a half-budget campaign to signal a refusal would be inventing
+/// a result — which is the thing this function exists to stop.
 #[must_use]
 pub fn needs_adapter(model: &Model) -> bool {
     model

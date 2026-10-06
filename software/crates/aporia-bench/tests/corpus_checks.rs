@@ -93,3 +93,46 @@ fn a_region_naming_an_axis_the_model_does_not_have_is_refused_too() {
         "a region on a nonexistent axis was not refused: {text:?}"
     );
 }
+
+#[test]
+fn no_published_measurement_came_from_a_model_this_command_cannot_execute() {
+    // The corpus is the set the published numbers were produced from. If any entry declared a value
+    // that only a program can supply, the harness would have sampled it to death for NaN and reported
+    // the resulting divergence as a finding — so the claim worth testing on the committed corpus is
+    // that every entry is interpretable.
+    let entries = corpus::load(&corpus_root()).expect("the corpus loads");
+    let external: Vec<String> = entries
+        .iter()
+        .filter(|e| e.model.as_ref().is_some_and(aporia_runtime::needs_adapter))
+        .map(corpus::Entry::id)
+        .collect();
+    assert!(
+        external.is_empty(),
+        "the harness has no --program, so these entries cannot be measured here: {external:?}"
+    );
+}
+
+#[test]
+fn a_declared_external_entry_is_refused_before_any_budget_is_spent() {
+    let mut e = entry("analytic/sqrt_domain");
+    e.model = Some(
+        aporia_dsl::lower::compile(
+            "beam.ap",
+            "model beam \"\" {\n input load : N in [0, 100]\n output deflection : mm\n \
+             require deflection >= 0\n}\n",
+        )
+        .model,
+    );
+    e.truth.regions = vec![aporia_bench::truth::Declared {
+        reason: "the program goes negative".to_string(),
+        axes: vec![("load".to_string(), [60.0, 100.0])],
+    }];
+    let text: Vec<String> = corpus::verify(&[e], 12)
+        .iter()
+        .map(|p| p.detail.clone())
+        .collect();
+    assert!(
+        text.iter().any(|t| t.contains("no --program")),
+        "an external model was accepted for measurement: {text:?}"
+    );
+}

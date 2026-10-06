@@ -167,6 +167,33 @@ pub fn verify(entries: &[Entry], per_axis: usize) -> Vec<Problem> {
         .collect()
 }
 
+/// Why this entry cannot be measured at all, in one sentence, or `None` if it can.
+///
+/// Both reasons are about the *input*, not about the model's behaviour: an entry that does not compile
+/// has no model to sample, and an entry whose values come from a program has no program in this
+/// command. Checking them before the grid is what stops a missing input being reported as a finding — a
+/// declared-external model sampled by the interpreter diverges everywhere, faithfully, and the atlas
+/// would be a picture of the harness's own absent `--program`. Refusing at this boundary is the same
+/// decision `aporia run` makes at its own; `aporia_search::run` does not check, because a driver is not
+/// an input boundary and has no way to decline a budget it was handed.
+fn unmeasurable(e: &Entry) -> Option<String> {
+    let model = e.model.as_ref();
+    let Some(model) = model else {
+        return Some(format!(
+            "does not compile: {}",
+            e.diagnostics.first().cloned().unwrap_or_default()
+        ));
+    };
+    if aporia_runtime::needs_adapter(model) {
+        return Some(
+            "declares a value computed by a program; the benchmark harness has no --program to give \
+             it, so this entry cannot be measured here"
+                .to_string(),
+        );
+    }
+    None
+}
+
 /// One entry's declarations against one grid of the model's own behaviour.
 fn verify_entry(e: &Entry, per_axis: usize) -> Vec<Problem> {
     let mut out = Vec::new();
@@ -184,16 +211,19 @@ fn verify_entry(e: &Entry, per_axis: usize) -> Vec<Problem> {
         }
         return out;
     }
-    let Some(model) = &e.model else {
+    if let Some(detail) = unmeasurable(e) {
         out.push(Problem {
             entry: e.id(),
-            detail: format!(
-                "does not compile: {}",
-                e.diagnostics.first().cloned().unwrap_or_default()
-            ),
+            detail,
         });
         return out;
-    };
+    }
+    // `unmeasurable` refused the case where there is no model at all, so the rest of this function has
+    // one to sample. Reaching `unwrap` would mean those two checks disagree about the same field.
+    let model = e
+        .model
+        .as_ref()
+        .unwrap_or_else(|| panic!("{} was measured without a model", e.id()));
     if e.truth.control && !e.truth.regions.is_empty() {
         out.push(Problem {
             entry: e.id(),
