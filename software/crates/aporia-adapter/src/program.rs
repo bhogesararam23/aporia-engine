@@ -23,7 +23,13 @@ use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+/// How long a stopped program gets to finish what its end of input started.
+///
+/// Bounded and short: a program that means to exit at EOF does so in milliseconds, and a program that
+/// ignores EOF is the case `AdapterError::Timeout` already exists for. See [`Program::stop`].
+const FINALIZE_GRACE_MS: u64 = 250;
 
 /// How to launch a program, and how long to wait for it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -267,10 +273,25 @@ impl Program {
 
     /// Stop the process and release the pipes. Idempotent, and safe to call from `Drop`.
     fn stop(&mut self) {
-        // Dropping the writer first is what actually unblocks a program waiting on input.
+        // Dropping the writer first is what actually unblocks a program waiting on input, and it is
+        // the signal a well-behaved program treats as the end of the run.
         self.stdin = None;
         self.answers = None;
         if let Some(mut child) = self.child.take() {
+            // Then give it that end-of-input to act on. Measured, not assumed: a program that
+            // checkpoints, flushes a log or releases a lock when stdin closes had no chance to,
+            // because the kill below landed first — a probe that reported its request tally at EOF
+            // printed nothing at all across an entire run. Waiting is bounded, because a program that
+            // ignores EOF is exactly the case `Timeout` exists for, and the caller must not be made to
+            // hang for a child APORIA has already given up on.
+            let deadline = Instant::now() + Duration::from_millis(FINALIZE_GRACE_MS);
+            while Instant::now() < deadline {
+                match child.try_wait() {
+                    Ok(Some(_)) => return,
+                    Ok(None) => thread::sleep(Duration::from_millis(5)),
+                    Err(_) => break,
+                }
+            }
             let _ = child.kill();
             let _ = child.wait();
         }
