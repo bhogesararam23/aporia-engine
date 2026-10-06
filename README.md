@@ -84,7 +84,7 @@ configure. From `software/`:
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 562 tests
+cargo test --release                  # 563 tests
 cargo fmt --all --check && cargo clippy --workspace --all-targets
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
