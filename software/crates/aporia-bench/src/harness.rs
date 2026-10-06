@@ -194,9 +194,24 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
         if archiving {
             // Named per entry, not per family: two entries in one family otherwise overwrite each
             // other's archive, and the point of keeping them is that a reported number can be
-            // opened later.
+            // opened later. The ablated arm suffix exists for the same reason: E2's eleven arms
+            // share entry, strategy and seed, and without it every arm would overwrite the
+            // previous arm's archive — the last one standing would be the only one a reported
+            // number could later be opened from. Canonical order (the enum's, not the flags'),
+            // so `--ablate physical,behavioral` and `--ablate behavioral,physical` are the same
+            // arm with the same directory.
+            let silenced: Vec<&str> = aporia_evidence::Channel::ALL
+                .iter()
+                .filter(|c| plan.ablate.contains(c))
+                .map(|c| c.name())
+                .collect();
+            let arm = if silenced.is_empty() {
+                String::new()
+            } else {
+                format!("-ablated-{}", silenced.join("+"))
+            };
             let dir = plan.archive_dir.join(format!(
-                "{}-{}-{strategy}-seed{seed}",
+                "{}-{}-{strategy}-seed{seed}{arm}",
                 entry.family,
                 entry.name,
                 strategy = strategy.name()

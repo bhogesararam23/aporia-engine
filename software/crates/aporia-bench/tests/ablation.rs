@@ -234,6 +234,63 @@ fn the_ablation_vocabulary_is_refused_by_name() {
 }
 
 #[test]
+fn two_arms_of_one_experiment_keep_separate_archives() {
+    // E2's arms share entry, strategy and seed, so an archive directory named only by those three
+    // is one directory eleven arms overwrite in turn — and the only archive a reported number could
+    // later be opened from would be the last arm's, wearing the last arm's mask. The directory name
+    // carries the arm, in the enum's canonical order rather than the order the flags were typed,
+    // because `--ablate physical,behavioral` and `--ablate behavioral,physical` are one arm.
+    let entries = corpus::load(&benchmarks()).expect("corpus loads");
+    let entry = entries
+        .iter()
+        .find(|e| e.id() == "analytic/sqrt_domain")
+        .expect("sqrt_domain is in the corpus");
+    let root = std::env::temp_dir().join(format!(
+        "aporia-ablation-archives-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("the clock runs")
+            .as_nanos()
+    ));
+    let plan_for = |ablate: Vec<Channel>| Plan {
+        budgets: vec![80],
+        strategies: vec![Strategy::Adaptive],
+        seeds: vec![1],
+        ablate,
+        archive_dir: root.clone(),
+        ..Plan::default()
+    };
+    let full = plan_for(Vec::new());
+    let arm = plan_for(vec![Channel::Physical, Channel::Behavioral]);
+    aporia_bench::harness::sweep(entry, &full, 1, Strategy::Adaptive)
+        .expect("the full arm sweeps and archives");
+    aporia_bench::harness::sweep(entry, &arm, 1, Strategy::Adaptive)
+        .expect("the ablated arm sweeps and archives");
+    let names: Vec<String> = std::fs::read_dir(&root)
+        .expect("both archives were written")
+        .filter_map(std::result::Result::ok)
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(
+        names.len(),
+        2,
+        "the arms shared a directory: {names:?} under {}",
+        root.display()
+    );
+    assert!(
+        names
+            .iter()
+            .any(|n| n.ends_with("-ablated-behavioral+physical")),
+        "the arm's directory does not name its mask in canonical order: {names:?}"
+    );
+    assert!(
+        names.iter().any(|n| n.ends_with("-adaptive-seed1")),
+        "the full arm's directory changed, and it must not: {names:?}"
+    );
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
 fn an_arm_blind_to_everything_labels_the_domain_unknown_not_trusted() {
     // The failure mode the `--ablate` refusal exists to prevent, shown from the other side. An arm
     // with no channels was run anyway, and the atlas came back with nothing suspicious — which is
