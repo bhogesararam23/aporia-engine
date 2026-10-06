@@ -67,15 +67,6 @@ impl Probes {
         self.pairs.is_empty()
     }
 
-    /// Pairs along one axis.
-    pub fn on_axis(&self, axis: u16) -> impl Iterator<Item = (&Pair, ProbeKind)> {
-        self.pairs
-            .iter()
-            .zip(self.kinds.iter())
-            .filter(move |(p, _)| p.axis == axis)
-            .map(|(p, k)| (p, *k))
-    }
-
     #[must_use]
     pub fn step_of(&self, axis: u16) -> f64 {
         self.axis_step.get(axis as usize).copied().unwrap_or(0.0)
@@ -99,14 +90,12 @@ mod tests {
         assert_eq!(p.len(), 1);
         assert_eq!(p.step_of(2), 0.01);
         assert_eq!(p.step_of(9), 0.0, "an unknown axis has no step");
-        assert_eq!(p.on_axis(2).count(), 1);
-        assert_eq!(p.on_axis(1).count(), 0);
     }
 
     #[test]
     fn an_empty_probe_set_answers_emptily() {
         let p = Probes::new();
         assert!(p.is_empty());
-        assert_eq!(p.on_axis(0).count(), 0);
+        assert_eq!(p.len(), 0);
     }
 }

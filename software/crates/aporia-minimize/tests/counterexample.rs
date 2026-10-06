@@ -8,7 +8,7 @@
 
 use aporia_dsl::lower::compile;
 use aporia_ir::{Dimension, Domain, Model, NumType, Param, Ty};
-use aporia_minimize::{AxisState, Case, Config, FailureOracle, Oracle, Verdict, minimize, reason};
+use aporia_minimize::{AxisState, Case, Config, FailureOracle, Oracle, Verdict, minimize};
 
 /// A model of `arity` dimensionless parameters over `[-2, 2]`, with no computation at all.
 fn synthetic(arity: usize) -> Model {
@@ -368,11 +368,6 @@ fn a_declared_rule_violation_minimises_to_the_parameter_that_breaks_it() {
     };
     assert!(lo < -19.0, "lower edge {lo} did not reach the domain bound");
     assert!(hi.abs() < 0.01, "upper edge {hi} is not near the boundary");
-    let why = reason(&m, &out.case, &mut aporia_runtime::Interp);
-    assert!(
-        !why.is_empty(),
-        "a report needs the reason, not only the numbers"
-    );
 }
 
 #[test]

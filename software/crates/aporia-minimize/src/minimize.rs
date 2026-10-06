@@ -479,21 +479,3 @@ fn reduce_digits(
         }
     }
 }
-
-/// The physical reason the final case fails, for a report.
-///
-/// Empty when the model's physical channel does not fire at the representative point, which is the
-/// truth for a case minimised against some other oracle — a risk threshold, say. A report should
-/// print that as "no declared rule is violated here" rather than inventing a reason.
-///
-/// `engine` is the path the case was minimised against: the reason a case fails is a fact about the
-/// computation that produced it, so asking a different one would be reporting someone else's reason.
-#[must_use]
-pub fn reason(model: &Model, case: &Case, engine: &mut dyn Executor) -> Vec<String> {
-    let oracle = crate::oracle::FailureOracle::new(model);
-    oracle
-        .evidence_at(&case.representative(), engine)
-        .iter()
-        .map(|e| e.detail.clone())
-        .collect()
-}

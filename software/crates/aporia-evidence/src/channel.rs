@@ -252,21 +252,6 @@ impl Evidence {
         self
     }
 
-    /// True when this finding and `other` were computed from at least one execution in common.
-    ///
-    /// Correlation between channels is mostly a consequence of this: a sensitivity spike and a
-    /// monotonicity violation found on the same pair of observations are one event seen twice, not
-    /// two events.
-    #[must_use]
-    pub fn shares_observation_with(&self, other: &Self) -> bool {
-        if self.observations.is_empty() || other.observations.is_empty() {
-            return false;
-        }
-        self.observations
-            .iter()
-            .any(|a| other.observations.contains(a))
-    }
-
     /// Evidence whose strength is a fact rather than a measurement.
     ///
     /// A rule that fired is fired; it must not be diluted because every other violation in the
@@ -426,23 +411,6 @@ mod tests {
         assert_eq!(a, "require3");
         assert_ne!(b, c, "the kind has to be part of the key");
         assert_ne!(Constraint(3).key(), Relation(3).key());
-    }
-
-    #[test]
-    fn shared_provenance_is_detected_and_empty_never_counts() {
-        let a = ev(
-            Channel::Sensitivity,
-            LocalSlope { output: 0, axis: 0 },
-            0.6,
-            &[7, 8],
-        );
-        let b = ev(Channel::Behavioral, Relation(1), 0.7, &[8, 9]);
-        let c = ev(Channel::Physical, Constraint(0), 0.9, &[]);
-        assert!(a.shares_observation_with(&b));
-        assert!(
-            !a.shares_observation_with(&c),
-            "no provenance cannot overlap"
-        );
     }
 
     #[test]

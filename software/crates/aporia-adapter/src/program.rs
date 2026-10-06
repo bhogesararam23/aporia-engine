@@ -226,11 +226,6 @@ impl Program {
         self.served
     }
 
-    #[must_use]
-    pub fn spec(&self) -> &ProgramSpec {
-        &self.spec
-    }
-
     fn ask(&mut self, x: &[f64]) -> Result<Answer, AdapterError> {
         let line = protocol::encode_request(x);
         {

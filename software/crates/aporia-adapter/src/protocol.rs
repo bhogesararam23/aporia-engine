@@ -30,7 +30,6 @@
 //!     build is broken", and letting a campaign silently fill a map with unanswered points is how a
 //!     measurement becomes a fiction. A program that means the first thing returns `"NaN"`.
 
-use std::fmt::Write as _;
 
 /// A program's answer for one point.
 #[derive(Clone, Debug, PartialEq)]
@@ -235,20 +234,6 @@ fn kind_of(value: &aporia_store::Json) -> &'static str {
         aporia_store::Json::Arr(_) => "an array",
         aporia_store::Json::Obj(_) => "an object",
     }
-}
-
-/// A short, single-line description of the protocol for a `--help` output or a manifest note.
-#[must_use]
-pub fn describe() -> String {
-    let mut s = String::new();
-    let _ = write!(
-        s,
-        "one JSON object per line, request then response: {}\n\
-         response fields: y (one value per declared output; NaN, Infinity and -Infinity are written \
-         as strings), steps (optional work count), error (a refusal, which voids the run)",
-        encode_request(&[0.0]),
-    );
-    s
 }
 
 #[cfg(test)]

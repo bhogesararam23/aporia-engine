@@ -29,5 +29,5 @@ pub mod minimize;
 pub mod oracle;
 
 pub use case::{Axis, AxisState, Case, Span, Verify, round_sig};
-pub use minimize::{Config, Minimal, minimize, reason};
+pub use minimize::{Config, Minimal, minimize};
 pub use oracle::{FailureOracle, Oracle, Verdict};

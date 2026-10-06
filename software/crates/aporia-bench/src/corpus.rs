@@ -430,17 +430,3 @@ pub fn scan_axis(model: &Model, axis: usize, samples: usize, tolerance: f64) -> 
     }
     crossings
 }
-
-/// Which parameters are held at their centre while one axis is scanned, for the report line.
-#[must_use]
-pub fn centre_line(model: &Model) -> Vec<f64> {
-    use aporia_ir::Domain;
-    model
-        .params
-        .iter()
-        .map(|p| match &p.domain {
-            Domain::Interval { lo, hi } => lo + (hi - lo) / 2.0,
-            Domain::Choices(v) => v.first().copied().unwrap_or(0.0),
-        })
-        .collect()
-}

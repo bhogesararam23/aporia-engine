@@ -24,7 +24,7 @@
 
 use crate::corpus::Entry;
 use crate::truth::Boundary;
-use aporia_boundary::{Atlas, Label};
+use aporia_boundary::Label;
 use aporia_search::{Campaign, Finding, Strategy};
 use aporia_store::Json;
 
@@ -599,10 +599,4 @@ pub fn compare(outcomes: &[Outcome]) -> Vec<Json> {
             ])
         })
         .collect()
-}
-
-/// The atlas's own leaf list, as a check that a measurement used the real partition.
-#[must_use]
-pub fn leaf_count(atlas: &Atlas) -> usize {
-    atlas.leaf_ids().len()
 }

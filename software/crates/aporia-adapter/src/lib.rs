@@ -35,6 +35,6 @@ pub mod protocol;
 
 pub use program::{AdapterError, Program, ProgramSpec};
 pub use protocol::{
-    Answer, ProtocolError, decode_request, decode_response, describe, encode_refusal,
-    encode_request, encode_response,
+    Answer, ProtocolError, decode_request, decode_response, encode_refusal, encode_request,
+    encode_response,
 };
