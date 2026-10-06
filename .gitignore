@@ -8,7 +8,13 @@
 # Working scratch this project's own sessions create: a staged copy of a built binary so a long
 # measurement can run while the tree keeps being rebuilt, and the log it prints. Nothing in here is
 # an artefact -- the artefacts it produces land under software/benchmarks/.
+#
+# Anchored at every level, not just the repository root. This session a helper working inside
+# `software/` created `software/.scratch/` for its own cache, and a root-only `/.scratch/` rule left
+# it showing up as untracked repository content. A directory named `.scratch` is never project content,
+# wherever it appears.
 /.scratch/
+/**/.scratch/
 
 # Rust build artifacts
 /software/target/
