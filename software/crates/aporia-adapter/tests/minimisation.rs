@@ -141,10 +141,7 @@ fn the_program_that_made_the_finding_is_the_one_that_shrinks_it() {
         minimal.case.describe()
     );
     let AxisState::Band { lo, hi, .. } = minimal.case.axes[0].state else {
-        panic!(
-            "expected an interval, got {:?}",
-            minimal.case.axes[0].state
-        );
+        panic!("expected an interval, got {:?}", minimal.case.axes[0].state);
     };
     assert!(
         lo > 60.0 && lo < 60.001,
@@ -163,8 +160,7 @@ fn the_program_that_made_the_finding_is_the_one_that_shrinks_it() {
     assert!(minimal.queries > 0);
     let asked = engine.asked.len() - before;
     assert_eq!(
-        asked,
-        minimal.queries as usize,
+        asked, minimal.queries as usize,
         "the points sent down the pipe are not the points minimisation counted"
     );
     assert_eq!(
@@ -202,7 +198,8 @@ fn every_witness_of_the_minimised_case_was_answered_by_the_program() {
         "the reduced case did not survive its own witnesses: {check:?}"
     );
     assert_eq!(
-        engine.asked[mark..], witnesses,
+        engine.asked[mark..],
+        witnesses,
         "the points re-asked of the program are not the points the case claims"
     );
     assert_eq!(
@@ -265,7 +262,10 @@ fn a_program_path_offers_no_second_precision_and_no_reference() {
     // agreement a conditioning signal.
     let m = beam();
     let mut engine = Counted::new(&m);
-    assert!(!engine.varies_with_precision(), "one program, one precision");
+    assert!(
+        !engine.varies_with_precision(),
+        "one program, one precision"
+    );
     assert!(
         !engine.has_reference_path(),
         "no A-IR instructions for a reference evaluator to re-do"
