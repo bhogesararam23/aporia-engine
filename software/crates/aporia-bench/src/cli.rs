@@ -34,10 +34,11 @@ pub fn dispatch(program: &str, command: &str, flags: &[String]) -> Result<i32, S
     match command {
         "list" => run_list(flags),
         "verify" => run_verify(flags),
-        "run" => run_run(flags),
+        "run" => run_run(program, flags),
         "verdict" => run_verdict(flags),
         "scan" => run_scan(flags),
         "explain" => run_explain(flags),
+        "e2" => run_e2(flags),
         "help" | "--help" | "-h" => {
             print!("{}", usage(program));
             Ok(0)
@@ -51,7 +52,7 @@ pub fn dispatch(program: &str, command: &str, flags: &[String]) -> Result<i32, S
 }
 
 /// The commands this module implements, in the order the usage text lists them.
-pub const COMMANDS: [&str; 6] = ["list", "verify", "run", "verdict", "scan", "explain"];
+pub const COMMANDS: [&str; 7] = ["list", "verify", "run", "verdict", "scan", "explain", "e2"];
 
 #[must_use]
 pub fn usage(program: &str) -> String {
@@ -72,7 +73,10 @@ pub fn usage(program: &str) -> String {
      \x20 verdict <results.json>   print the comparison from a recorded run\n\
      \x20 scan <family/name> [--samples N]  measure where the model's own rule switches\n\
      \x20 explain <family/name> [--budget N] [--strategy S] [--seed N]\n\
-     \x20     one run opened up: the atlas, the bands, the findings and where the risk landed\n"
+     \x20     one run opened up: the atlas, the bands, the findings and where the risk landed\n\
+     \x20 e2 <full.json> <arm.json> [arm.json...] [--json]\n\
+     \x20     compare ablation arms against the full arm, from committed results files;\n\
+     \x20     refuses to pair documents that were not one experiment with two masks\n"
     )
 }
 
@@ -114,6 +118,17 @@ impl Args {
                 .map(str::to_string)
                 .collect()),
             None => Ok(Vec::new()),
+        }
+    }
+
+    /// A flag that stands alone, with no value. Its presence is the whole question, so it is
+    /// consumed and reported rather than reaching for a value it never takes.
+    fn flag(&mut self, name: &str) -> bool {
+        if let Some(at) = self.items.iter().position(|a| a == name) {
+            self.items.remove(at);
+            true
+        } else {
+            false
         }
     }
 
@@ -242,7 +257,7 @@ fn parse_channels(texts: &[String]) -> Result<Vec<aporia_evidence::Channel>, Str
     Ok(out)
 }
 
-pub fn run_run(flags: &[String]) -> Result<i32, String> {
+pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
     let mut args = Args::new(flags);
     let budgets = parse_budgets(&args.list("--budgets")?)?;
     let strategies = parse_strategies(&args.list("--strategies")?)?;
@@ -311,15 +326,34 @@ pub fn run_run(flags: &[String]) -> Result<i32, String> {
         println!("{}", s.row());
     }
     println!();
-    print!(
-        "{}",
-        harness::verdict(&sweeps, &|id: &str| {
-            selected
-                .iter()
-                .find(|e| e.id() == id)
-                .map(|e| e.truth.clone())
-        })
-    );
+    if plan.ablate.is_empty() {
+        print!(
+            "{}",
+            harness::verdict(&sweeps, &|id: &str| {
+                selected
+                    .iter()
+                    .find(|e| e.id() == id)
+                    .map(|e| e.truth.clone())
+            })
+        );
+    } else {
+        // The strategy verdict is the wrong sentence for an arm whose only difference from the run
+        // beside it is the evidence it was allowed to keep: it would read "adaptive resolved,
+        // neither baseline did" about an experiment with one arm. The ablation-aware line says
+        // what this file is and how to compare it, which is the question the caller actually has.
+        let silenced = plan
+            .ablate
+            .iter()
+            .copied()
+            .map(aporia_evidence::Channel::name)
+            .collect::<Vec<_>>()
+            .join(",");
+        println!(
+            "ablation arm: silenced {silenced}. This file is one arm of E2, not a strategy \
+             comparison — compare it against the full arm's results with `{program} e2 \
+             <full-results.json> <this file>`"
+        );
+    }
 
     write_results(&sweeps, &selected, &plan, out_dir)
 }
@@ -584,4 +618,42 @@ pub fn run_explain(flags: &[String]) -> Result<i32, String> {
 
 fn text_of(value: Option<u64>) -> String {
     value.map_or_else(|| "-".to_string(), |v| v.to_string())
+}
+
+/// Compare ablation arms against the full arm, from committed results files.
+///
+/// The files are the source of truth rather than the console: every number printed here was read
+/// back out of a document the harness wrote, so the comparison a researcher quotes months later is
+/// the one the files support. The first path is the full arm; every later path is paired against
+/// it, and a document that was not the same experiment with a different mask is refused.
+pub fn run_e2(flags: &[String]) -> Result<i32, String> {
+    let mut args = Args::new(flags);
+    let machine = args.flag("--json");
+    args.reject_unknown()?;
+    let paths = args.items.clone();
+    if paths.len() < 2 {
+        return Err(
+            "e2 needs the full arm's results file and at least one arm to compare with it"
+                .to_string(),
+        );
+    }
+    let mut arms = Vec::new();
+    for path in &paths {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
+        let value = aporia_store::Json::parse(&text).map_err(|e| format!("{path}: {e}"))?;
+        arms.push(crate::e2::Arm::from_document(path, &value)?);
+    }
+    let (full, rest) = arms
+        .split_first()
+        .expect("at least two paths were checked above");
+    let mut comparisons = Vec::new();
+    for arm in rest {
+        comparisons.push(crate::e2::compare(full, arm)?);
+    }
+    if machine {
+        println!("{}", crate::e2::to_json(&comparisons).to_pretty());
+    } else {
+        print!("{}", crate::e2::report(full, &comparisons));
+    }
+    Ok(0)
 }

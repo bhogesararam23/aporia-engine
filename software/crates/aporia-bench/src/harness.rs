@@ -442,19 +442,23 @@ pub fn results_json(
 ) -> Json {
     let plan_value = plan_json(plan);
     let entries_value = entries_json(entries);
+    // A results document says which question its plan can answer, so an ablation arm carries H1's
+    // question rather than the strategy question its single arm cannot address. The question is
+    // not part of the identity — the plan is — so this is a reading aid, not a rename.
+    let question = if plan.ablate.is_empty() {
+        "can a computation-aware multi-evidence search discover and localise regions of distrust \
+         using fewer evaluations than simpler exploration strategies"
+    } else {
+        "does the five-channel evidence model localise regions that no strict subset of the \
+         channels localises at the same charged cost"
+    };
     Json::object(vec![
         ("schema", Json::text(RESULTS_SCHEMA)),
         (
             "identity",
             Json::text(identity_of(RESULTS_SCHEMA, &plan_value, &entries_value)),
         ),
-        (
-            "question",
-            Json::text(
-                "can a computation-aware multi-evidence search discover and localise regions of \
-                 distrust using fewer evaluations than simpler exploration strategies",
-            ),
-        ),
+        ("question", Json::text(question)),
         ("plan", plan_value),
         ("entries", entries_value),
         ("environment", environment_json(environment)),
@@ -657,6 +661,7 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
     let model = entry.model.as_ref()?;
     let budget = *plan.budgets.last().unwrap_or(&200);
     let cfg = plan.config(strategy, budget, seed);
+    let silenced_mask = cfg.silenced;
     let campaign = run(model, cfg);
     let mut out = String::new();
     let _ = writeln!(
@@ -687,6 +692,32 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
         campaign.probes.pairs.len(),
         campaign.probes.swaps.len()
     );
+    // What each channel did on this run, and — when this is an ablation arm — what was withheld.
+    // The census is the question an ablation exists to answer, so an explain without it would
+    // print every other number and omit the one the arm was built to vary.
+    let silenced: Vec<&str> = aporia_evidence::Channel::ALL
+        .into_iter()
+        .filter(|c| silenced_mask & (1 << c.index()) != 0)
+        .map(aporia_evidence::Channel::name)
+        .collect();
+    if !silenced.is_empty() {
+        let _ = writeln!(out, "ablation: silenced {}", silenced.join(", "));
+    }
+    let census = crate::metrics::Census::of(&campaign);
+    for c in &census.channels {
+        let _ = writeln!(
+            out,
+            "channel {:<12} applied {:>5}  computed {:>5}  readings {:>5}  strong {:>5}  \
+             findings {:>3}  {}",
+            c.channel.name(),
+            c.applied,
+            c.computed,
+            c.readings,
+            c.strong,
+            c.findings,
+            if c.silenced { "silenced" } else { "" }
+        );
+    }
     let _ = writeln!(
         out,
         "calibration fitted: {}",

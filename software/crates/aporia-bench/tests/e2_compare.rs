@@ -504,3 +504,119 @@ fn a_pair_that_charged_a_different_cost_is_refused() {
         "the refusal must name the cost: {err}"
     );
 }
+
+#[test]
+fn the_e2_command_reads_committed_files_and_prints_a_comparison() {
+    use aporia_bench::cli;
+    let (full_doc, arm_doc) = fabricated(320);
+    let dir = std::env::temp_dir();
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("the clock runs")
+        .as_nanos();
+    let full = dir.join(format!("e2-full-{stamp}.json"));
+    let arm = dir.join(format!("e2-arm-{stamp}.json"));
+    std::fs::write(&full, full_doc.to_pretty()).expect("the full arm's file is written");
+    std::fs::write(&arm, arm_doc.to_pretty()).expect("the arm's file is written");
+    let path = |p: &std::path::Path| p.display().to_string();
+
+    // One file is not a comparison, and the refusal says what the command needs.
+    let err = cli::dispatch("aporia-bench", "e2", &[path(&full)])
+        .expect_err("one file cannot be compared with itself");
+    assert!(err.contains("needs the full arm"), "{err}");
+
+    // Full first, arm second: the comparison prints.
+    let status = cli::dispatch("aporia-bench", "e2", &[path(&full), path(&arm)]);
+    assert_eq!(status.ok(), Some(0), "the paired files compare");
+
+    // Arm first: refused, because the first document must be the full instrument's own results.
+    let err = cli::dispatch("aporia-bench", "e2", &[path(&arm), path(&full)])
+        .expect_err("an ablation arm cannot stand in for the full arm");
+    assert!(err.contains("not the full arm"), "{err}");
+
+    // And the machine-readable form is the same comparison, deterministic.
+    let status = cli::dispatch(
+        "aporia-bench",
+        "e2",
+        &[path(&full), path(&arm), "--json".to_string()],
+    );
+    assert_eq!(status.ok(), Some(0), "the JSON form prints");
+    std::fs::remove_file(&full).ok();
+    std::fs::remove_file(&arm).ok();
+}
+
+#[test]
+fn a_results_document_carries_the_question_its_plan_can_answer() {
+    // An ablation arm cannot address the strategy question — it has one arm — so its document
+    // carries H1's question instead. The question is not part of the identity, so this changes no
+    // measurement's name; it changes what a reader is told the file is about.
+    let entries = corpus::load(&benchmarks()).expect("corpus loads");
+    let base = Plan {
+        budgets: vec![320],
+        strategies: vec![Strategy::Adaptive],
+        seeds: vec![1],
+        archive_dir: PathBuf::new(),
+        ..Plan::default()
+    };
+    let full = document(&base, &entries);
+    let strategy_question = full
+        .get("question")
+        .and_then(Json::as_str)
+        .expect("the question is recorded");
+    assert!(
+        strategy_question.contains("simpler exploration strategies"),
+        "{strategy_question}"
+    );
+    let ablated = Plan {
+        ablate: vec![Channel::Differential],
+        ..base
+    };
+    let arm = document(&ablated, &entries);
+    let h1_question = arm
+        .get("question")
+        .and_then(Json::as_str)
+        .expect("the question is recorded");
+    assert!(h1_question.contains("strict subset"), "{h1_question}");
+}
+
+#[test]
+fn explain_names_what_an_ablation_arm_withheld_and_what_each_channel_did() {
+    // The census is the one number an ablation arm exists to vary, so an explain that printed
+    // everything else and not it would answer every question except the caller's.
+    let entries = corpus::load(&benchmarks()).expect("corpus loads");
+    let entry = entries
+        .iter()
+        .find(|e| e.id() == "analytic/sqrt_domain")
+        .expect("sqrt_domain is in the corpus");
+    let plan = Plan {
+        budgets: vec![80],
+        strategies: vec![Strategy::Adaptive],
+        seeds: vec![1],
+        ablate: vec![Channel::Physical],
+        archive_dir: PathBuf::new(),
+        ..Plan::default()
+    };
+    let text = aporia_bench::harness::explain(entry, &plan, Strategy::Adaptive, 1)
+        .expect("the ablated arm explains");
+    assert!(
+        text.contains("ablation: silenced physical"),
+        "the mask line is missing:\n{text}"
+    );
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("channel ") {
+            assert!(
+                rest.contains("applied") && rest.contains("computed") && rest.contains("readings"),
+                "a census line without its counts:\n{line}"
+            );
+        }
+    }
+    assert!(
+        text.lines()
+            .any(|l| l.starts_with("channel physical") && l.ends_with("silenced")),
+        "the silenced channel must be the one marked:\n{}",
+        text.lines()
+            .filter(|l| l.starts_with("channel"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+}
