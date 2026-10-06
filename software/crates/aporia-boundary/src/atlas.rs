@@ -241,6 +241,16 @@ impl Policy {
     /// Classify one cell from its accumulated statistics.
     #[must_use]
     pub fn classify(&self, cell: &Cell) -> Label {
+        // A reading that is not a number is not a clean bill either. Every comparison below is false
+        // against NaN, so a poisoned cell used to fall through the bottom of this function labelled
+        // `Trusted` — the one outcome this instrument must never hand out for want of information.
+        // `fuse` keeps scores finite, so this guards a caller that did not.
+        //
+        // Only NaN is refused here. An infinite risk is an extreme *value*, which the ordinary
+        // comparison reads as flagged, and calling it unmeasurable would be the opposite mistake.
+        if cell.mean_risk().is_nan() || cell.risk_max.is_nan() {
+            return Label::Unknown;
+        }
         let flagged =
             cell.risk_max >= self.suspicious_peak || cell.mean_risk() >= self.suspicious_mean;
         if flagged {
@@ -914,6 +924,60 @@ mod tests {
                 .sum::<u32>(),
             1,
             "a point must land in exactly one child"
+        );
+    }
+
+    #[test]
+    fn an_unmeasurable_reading_is_never_reported_as_trusted() {
+        // The trap: every comparison against NaN is false, so a cell whose `risk_sum` was poisoned by
+        // one non-finite score failed the `flagged` test, passed the sample and channel tests, and fell
+        // out of the bottom of `classify` as `Trusted` — a clean bill of health issued for want of
+        // information. `fuse` keeps scores finite, so this is the guard for a caller that did not.
+        let p = Policy::default();
+        let mut c = a_cell(vec![[0.0, 1.0]]);
+        c.samples = 8;
+        c.measured = 0b11111;
+        c.channels = 0b11111;
+        c.risk_sum = 8.0 * 0.01;
+        c.risk_max = 0.01;
+        assert_eq!(p.classify(&c), Label::Trusted, "the clean case first");
+        c.risk_sum = f64::NAN;
+        assert_eq!(
+            p.classify(&c),
+            Label::Unknown,
+            "a cell that cannot state its mean was called clean"
+        );
+        // The same through the atlas itself, because the label a reader sees is assigned by `relabel`
+        // walking real recorded points.
+        let mut a = Atlas::new(&model1d(0.0, 1.0), Policy::default());
+        for i in 0..8 {
+            a.record(&[i as f64 / 7.0], f64::NAN, 0b11111);
+        }
+        a.relabel();
+        assert_eq!(
+            a.cell(0).map(|c| c.label),
+            Some(Label::Unknown),
+            "the atlas trusted a domain it could not score"
+        );
+        // An infinite risk is a different thing: an extreme value, read as flagged.
+        let mut c = a_cell(vec![[0.0, 1.0]]);
+        c.samples = 8;
+        c.measured = 0b11111;
+        c.channels = 0b11111;
+        c.risk_sum = f64::INFINITY;
+        c.risk_max = f64::INFINITY;
+        c.points = vec![Point {
+            observation: 0,
+            x: vec![0.5],
+            risk: f64::INFINITY,
+            channels: 0b11111,
+            measured: 0b11111,
+            fact: true,
+        }];
+        assert_eq!(
+            p.classify(&c),
+            Label::Suspicious,
+            "an infinite risk is a loud one, not a missing one"
         );
     }
 
