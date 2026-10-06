@@ -214,7 +214,10 @@ impl Census {
         Json::Arr(self.channels.iter().map(ChannelCensus::to_json).collect())
     }
 
-    fn from_json(value: &Json) -> Option<Self> {
+    /// Read a census back out of the JSON a results file carries, in the order it was written.
+    /// Absent when the file predates the field, which is absence rather than a zero.
+    #[must_use]
+    pub fn from_json(value: &Json) -> Option<Self> {
         Some(Self {
             channels: value
                 .as_array()?

@@ -9,6 +9,7 @@
 //! - [`truth`] — the declaration format and the geometry it needs
 //! - [`metrics`] — the metric definitions, each next to the code that computes it
 //! - [`harness`] — the budget sweep across strategies, and the results document
+//! - [`e2`] — the ablation comparison: arms against the full instrument, from committed files
 //!
 //! The ordering matters: verification runs before measurement, because a detection rate against a
 //! wrong ground truth is worse than no number at all. `aporia-bench verify` is not a convenience —
@@ -16,6 +17,7 @@
 
 pub mod cli;
 pub mod corpus;
+pub mod e2;
 pub mod harness;
 pub mod metrics;
 pub mod risk;
