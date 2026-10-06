@@ -117,6 +117,20 @@ impl Channel {
             Self::Sensitivity => "sensitivity",
         }
     }
+
+    /// The channel a caller named, or nothing. Derived from [`Channel::name`] rather than written out
+    /// beside it, so a refusal can never list a vocabulary this type has stopped producing — the same
+    /// rule `Strategy::parse` was put under when the two readers of one enum disagreed.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|c| c.name() == text)
+    }
+
+    /// Every name a caller may use, in [`Channel::ALL`] order.
+    #[must_use]
+    pub fn names() -> Vec<&'static str> {
+        Self::ALL.iter().map(|c| c.name()).collect()
+    }
 }
 
 impl fmt::Display for Channel {
@@ -363,6 +377,25 @@ mod tests {
     fn ev(channel: Channel, subject: Subject, strength: f64, obs: &[u64]) -> Evidence {
         Evidence::new(channel, subject, strength, obs.to_vec(), String::new())
             .with_strength(strength)
+    }
+
+    #[test]
+    fn the_channel_vocabulary_round_trips_and_refuses_anything_else() {
+        // The ablation flag in `aporia-bench` parses these words. A name that parses here and is
+        // refused there, or the reverse, is the defect that `Strategy::parse` was made the single
+        // vocabulary for: two readers of one enum disagreeing.
+        for c in Channel::ALL {
+            assert_eq!(Channel::parse(c.name()), Some(c), "{}", c.name());
+        }
+        assert_eq!(
+            Channel::names(),
+            Channel::ALL.iter().map(|c| c.name()).collect::<Vec<_>>()
+        );
+        // Refused rather than defaulted: `--ablate behaviour` would otherwise silence nothing while
+        // reading to the caller as if it had silenced the Behavioral channel.
+        for text in ["behaviour", "Behavioral", "behavioral ", "numerics", ""] {
+            assert_eq!(Channel::parse(text), None, "{text:?} must not parse");
+        }
     }
 
     #[test]
