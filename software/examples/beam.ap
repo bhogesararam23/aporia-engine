@@ -1,0 +1,15 @@
+model beam "a cantilever's tip deflection, computed by a program APORIA did not parse" {
+  # The value comes from outside: `output` declares a quantity with no A-IR instruction computing it.
+  # Nothing can be said about it by reading the model, which is the entire point of the boundary — the
+  # arithmetic lives in another program, and APORIA still has to find where it stops being trustworthy.
+  #
+  # Answering it is `beam.py` beside this file:
+  #
+  #   aporia run software/examples/beam.ap --program "python3 software/examples/beam.py"
+  #
+  # The program's beam goes negative beyond 60 N, so `require deflection >= 0` has a region to find,
+  # and the region is the program's behaviour rather than anything written here.
+  input load : N in [0, 100]
+  output deflection : mm
+  require deflection >= 0
+}
