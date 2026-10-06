@@ -24,7 +24,7 @@
 
 use crate::plan::{Acquisition, Family, Strategy, to_parameters};
 use aporia_boundary::{Atlas, FACE_EPS, Label, Policy};
-use aporia_evidence::{Calibrator, ChannelCorrelation, Evidence, EvidenceSet, fuse};
+use aporia_evidence::{Calibrator, Channel, ChannelCorrelation, Evidence, EvidenceSet, fuse};
 use aporia_ir::{Model, RelationKind};
 use aporia_numerics::Rng;
 use aporia_properties::{Pair, Probes, constraints, divergence, level, numerical, sensitivity};
@@ -283,6 +283,21 @@ pub struct Campaign {
     /// `aporia-bench`, is the quantity the research question asks for.
     pub first_flagged: Option<usize>,
     pub evidence: Vec<Evidence>,
+    /// How many executions each channel's measurements were applied to, indexed by
+    /// [`aporia_evidence::Channel::index`]: every record for Physical, every probe pair for
+    /// Sensitivity, pairs plus swaps for Behavioral, f32 re-runs for Numerical, reference
+    /// evaluations for Differential.
+    ///
+    /// Counted where the work runs, so it is a fact about this campaign rather than about the
+    /// configuration that was requested: a rate of zero, an execution path that cannot answer, and
+    /// a channel that ran and stayed quiet are three different situations, and `applied = 0` is
+    /// the first two while `applied > 0` with no readings is the third.
+    pub applied: [u64; 5],
+    /// Evidence items each channel computed, before the ablation mask dropped anything, indexed
+    /// the same way. On a full arm this equals the channel's count in [`Self::evidence`]; on an
+    /// ablated arm the gap between the two is what the mask removed, which is the difference
+    /// between a channel that was silent here and a channel that was silenced here.
+    pub computed: [u64; 5],
 }
 
 impl Campaign {
@@ -364,6 +379,12 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
     let mut correlation = ChannelCorrelation::none();
     let mut evaluations = 0u64;
     let mut steps = 0u64;
+    // The per-channel counters the census reads: what each channel's machinery was applied to, and
+    // what it computed before the silenced mask dropped anything. Counted here because this is
+    // where the work happens — a census derived from the requested mask instead could not tell a
+    // channel that never ran from one that ran and found nothing.
+    let mut applied = [0u64; 5];
+    let mut computed = [0u64; 5];
 
     let allowed: Vec<Family> = match config.strategy {
         Strategy::Random => vec![Family::Random],
@@ -505,6 +526,7 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
             evaluations += 1;
             steps += c;
             numerical_pairs.push((id, o.y.clone()));
+            applied[Channel::Numerical.index()] += 1;
         }
 
         // Online evidence: everything knowable from this point and its probes.
@@ -529,6 +551,7 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
                 );
                 evaluations += 1;
                 steps += reference.steps;
+                applied[Channel::Differential.index()] += 1;
                 fresh.extend(aporia_properties::against_reference(
                     model,
                     &[id],
@@ -540,6 +563,9 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
         let subset = subset_records(&records, &group);
         let subset_probes = subset_probes(&probes, &group);
         fresh.extend(sensitivity(&subset, &subset_probes));
+        for e in &fresh {
+            computed[e.channel.index()] += 1;
+        }
         // Ablation drops the readings here, before calibration: a channel that is silenced must not
         // be able to move the fitted scales or the measured correlation either, or the ablated arm
         // would still be graded by the evidence it was supposed to be without. The executions that
@@ -627,6 +653,14 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
 
     // ----------------------------------------------------------- retrospective pass
     let mut final_log = retrospective(model, &records, &probes, &numerical_pairs);
+    // Counted before the mask applies below, for the same reason the online pass counts before its
+    // retain: `computed` is what the channels had to say, and an ablated arm's own record of that
+    // is the fact that separates "silenced" from "silent" on its entry.
+    for set in &final_log {
+        for e in &set.items {
+            computed[e.channel.index()] += 1;
+        }
+    }
     if !log.is_empty() {
         final_log.extend(std::mem::take(&mut log));
     }
@@ -701,6 +735,12 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
         &online_risk,
         &calibrator,
     );
+    // The channels that cost no extra evaluation are applied to material the campaign already
+    // holds: every record for the pointwise checks, every probe comparison for the relation,
+    // pattern and slope analyses.
+    applied[Channel::Physical.index()] = records.items.len() as u64;
+    applied[Channel::Sensitivity.index()] = probes.pairs.len() as u64;
+    applied[Channel::Behavioral.index()] = (probes.pairs.len() + probes.swaps.len()) as u64;
 
     Campaign {
         model_name: model.name.clone(),
@@ -718,6 +758,8 @@ pub fn run_with(model: &Model, config: Config, engine: &mut dyn Executor) -> Cam
         findings,
         first_flagged,
         evidence: final_log.into_iter().flat_map(|s| s.items).collect(),
+        applied,
+        computed,
     }
 }
 
@@ -1263,6 +1305,131 @@ mod tests {
             samples: 1,
             evidence: Vec::new(),
         }
+    }
+
+    #[test]
+    fn the_campaign_counts_what_ran_and_what_was_computed_per_channel() {
+        // The cancellation makes f64 lose the `+ 1` while the double-double reference keeps it, so
+        // this model certainly produces Physical (the rule fails) and Differential (the paths
+        // disagree) readings; the f32 re-run agrees with f64 here, which is exactly the case
+        // `applied` exists for — the channel ran and had nothing to say.
+        let m = model(
+            "model census_cancel \"\" {\n input x in [0, 100]\n let big = x * x * 1.0e16\n let y = (big + 1.0) - big\n require y > 0.5\n}\n",
+        );
+        let cfg = Config {
+            budget: 200,
+            probe_every: 2,
+            numerical_every: 3,
+            differential_every: 3,
+            ..Config::default()
+        };
+        let c = run(&m, cfg);
+        assert_eq!(
+            c.applied[Channel::Physical.index()],
+            c.records.len() as u64,
+            "Physical is applied to every record"
+        );
+        assert_eq!(
+            c.applied[Channel::Sensitivity.index()],
+            c.probes.pairs.len() as u64
+        );
+        assert_eq!(
+            c.applied[Channel::Behavioral.index()],
+            (c.probes.pairs.len() + c.probes.swaps.len()) as u64
+        );
+        assert!(
+            c.applied[Channel::Numerical.index()] > 0,
+            "the f32 re-runs were never counted: {:?}",
+            c.applied
+        );
+        assert!(
+            c.applied[Channel::Differential.index()] > 0,
+            "the reference evaluations were never counted: {:?}",
+            c.applied
+        );
+        assert!(
+            c.computed[Channel::Physical.index()] > 0,
+            "the failing rule produced no Physical items"
+        );
+        assert!(
+            c.computed[Channel::Differential.index()] > 0,
+            "the two paths agreed exactly where they cannot: {:?}",
+            c.computed
+        );
+        // Nothing is silenced, so what was computed is what the report holds, channel by channel.
+        for ch in Channel::ALL {
+            let readings = c.evidence.iter().filter(|e| e.channel == ch).count() as u64;
+            assert_eq!(
+                c.computed[ch.index()],
+                readings,
+                "{ch:?}: computed must equal the kept readings on a full run"
+            );
+        }
+        // The rates off, and `applied` says so from the campaign's own records — a mask reading the
+        // configuration could not tell this run from one whose execution path could not answer.
+        let quiet = run(
+            &m,
+            Config {
+                budget: 200,
+                probe_every: 0,
+                numerical_every: 0,
+                differential_every: 0,
+                ..Config::default()
+            },
+        );
+        assert_eq!(quiet.applied[Channel::Sensitivity.index()], 0);
+        assert_eq!(quiet.applied[Channel::Behavioral.index()], 0);
+        assert_eq!(quiet.applied[Channel::Numerical.index()], 0);
+        assert_eq!(quiet.applied[Channel::Differential.index()], 0);
+        assert_eq!(
+            quiet.applied[Channel::Physical.index()],
+            quiet.records.len() as u64,
+            "Physical applies to every record whatever the rates"
+        );
+    }
+
+    #[test]
+    fn a_silenced_channel_is_computed_then_dropped_not_silent() {
+        // `y = x*x` has slopes that grow along the axis, so Sensitivity certainly has something to
+        // say. Silencing it must leave the record of *what it would have said* — `computed` — while
+        // the readings it kept say nothing: that difference is the whole distinction between a
+        // channel that was silent on this entry and one that was silenced by this arm.
+        let m = model("model census_slope \"\" {\n input x in [0, 1]\n let y = x * x\n}\n");
+        let cfg = || Config {
+            budget: 240,
+            probe_every: 2,
+            ..Config::default()
+        };
+        let full = run(&m, cfg());
+        assert!(
+            full.computed[Channel::Sensitivity.index()] > 0,
+            "the slope channel found nothing to say on y = x*x: {:?}",
+            full.computed
+        );
+        let arm = run(&m, cfg().without(Channel::Sensitivity));
+        assert!(
+            arm.computed[Channel::Sensitivity.index()] > 0,
+            "the silenced arm computed no Sensitivity items, so the mask changed the work rather \
+             than the conclusions: {:?}",
+            arm.computed
+        );
+        assert!(
+            arm.evidence
+                .iter()
+                .all(|e| e.channel != Channel::Sensitivity),
+            "a silenced channel kept readings"
+        );
+        // And on this model the quiet case is genuinely distinct: with no probes at all the
+        // channel never ran, which `applied = 0` says and a silenced-but-run arm never says.
+        let unprobed = run(
+            &m,
+            Config {
+                budget: 240,
+                probe_every: 0,
+                ..Config::default()
+            },
+        );
+        assert_eq!(unprobed.applied[Channel::Sensitivity.index()], 0);
     }
 
     #[test]
