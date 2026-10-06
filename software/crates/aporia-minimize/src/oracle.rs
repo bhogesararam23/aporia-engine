@@ -3,7 +3,7 @@
 //! Minimisation is only trustworthy if the thing being preserved is the same claim the report makes,
 //! so the predicate is an input rather than something the algorithm assumes. Two implementations ship
 //! here: a closure, which is what a test or a caller with its own definition uses, and
-//! [`FailureOracle`], which asks the model itself. A caller whose question costs more than one
+//! [`FailureOracle`], which asks the model itself. A caller whose question needs more than one
 //! execution brings its own [`Oracle`] type — `aporia-bench` does, for the risk threshold — because
 //! the cost is part of what an oracle knows.
 //!
@@ -11,11 +11,17 @@
 //! population, minimising changes the population and the answer stops meaning what it meant before —
 //! which is why [`crate::minimize`] takes the physical-channel form by default and why the risk-based
 //! form is handed in by the caller, with its calibrator already fixed.
+//!
+//! The *execution path* is a separate argument for exactly that reason. An oracle stays `&self`, so
+//! the type system keeps saying it is a rule and not a process; asking a point runs something, and
+//! whatever runs it may be a live child process whose next answer depends on state it holds. A
+//! minimiser therefore carries the same [`Executor`] the campaign carried, and a finding discovered
+//! through a program is verified by that program rather than by an interpreter that never computed it.
 
 use aporia_evidence::Channel;
 use aporia_ir::Model;
 use aporia_properties::{constraints, divergence};
-use aporia_runtime::{ExecConfig, Observation, interp};
+use aporia_runtime::{ExecConfig, Executor, Observation};
 
 /// What one answer cost.
 ///
@@ -44,19 +50,24 @@ impl Verdict {
 }
 
 /// Decides whether a point still counts as a failure, and reports what deciding it cost.
+///
+/// `engine` is the path the finding was found on. Nothing here defaults it to the interpreter: an
+/// oracle that could silently run a model by a different path than the campaign did would be able to
+/// answer "yes, this smaller case still fails" about a computation nobody performed.
 pub trait Oracle {
-    fn query(&self, x: &[f64]) -> Verdict;
+    fn query(&self, x: &[f64], engine: &mut dyn Executor) -> Verdict;
 }
 
 /// Closures are oracles, so a caller can minimise against its own definition without a wrapper type.
-/// A closure states its own cost because the alternative — assuming one execution per call — would
-/// put a number in the column that nothing measured.
+/// A closure states its own cost because the alternative — assuming one execution per call — would put
+/// a number in the column that nothing measured. A predicate that reads only the coordinates takes the
+/// path and does not use it, which is what its zero cost then means.
 impl<F> Oracle for F
 where
-    F: Fn(&[f64]) -> Verdict,
+    F: Fn(&[f64], &mut dyn Executor) -> Verdict,
 {
-    fn query(&self, x: &[f64]) -> Verdict {
-        self(x)
+    fn query(&self, x: &[f64], engine: &mut dyn Executor) -> Verdict {
+        self(x, engine)
     }
 }
 
@@ -86,8 +97,12 @@ impl<'a> FailureOracle<'a> {
     /// The physical evidence at one point, with nothing filtered. Exposed because a report should
     /// print *why* the minimal case is a failure, not only that it is.
     #[must_use]
-    pub fn evidence_at(&self, x: &[f64]) -> Vec<aporia_evidence::Evidence> {
-        let outcome = interp::run(self.model, x, self.cfg);
+    pub fn evidence_at(
+        &self,
+        x: &[f64],
+        engine: &mut dyn Executor,
+    ) -> Vec<aporia_evidence::Evidence> {
+        let outcome = engine.execute(self.model, x, self.cfg);
         let o = Observation::new(0, x.to_vec(), &outcome);
         let mut out = constraints(self.model, &o);
         out.extend(divergence(self.model, &o));
@@ -96,9 +111,9 @@ impl<'a> FailureOracle<'a> {
 }
 
 impl Oracle for FailureOracle<'_> {
-    fn query(&self, x: &[f64]) -> Verdict {
-        // A point that cannot be evaluated at all — the budget ran out, the interpreter refused the
-        // shape — is not a preserved failure, it is missing information, and the difference matters
+    fn query(&self, x: &[f64], engine: &mut dyn Executor) -> Verdict {
+        // A point that cannot be evaluated at all — the budget ran out, the path refused the shape —
+        // is not a preserved failure, it is missing information, and the difference matters
         // when the case is reported. Refusing on arity runs nothing, so it is charged nothing.
         if x.len() != self.model.params.len() {
             return Verdict::new(false, 0);
@@ -107,9 +122,11 @@ impl Oracle for FailureOracle<'_> {
         // comparison rule's strength is still zero until calibration runs, so testing strength here
         // would silently ignore every `require` violation that is not a NaN.
         let violating = self
-            .evidence_at(x)
+            .evidence_at(x, engine)
             .iter()
             .any(|e| e.channel == Channel::Physical && e.magnitude > 0.0);
+        // One answer, one execution of the path that answered it. The number is not claimed to be an
+        // interpreter run: a program's answer is exactly as much work as the campaign's were.
         Verdict::new(violating, 1)
     }
 }

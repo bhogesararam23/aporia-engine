@@ -17,8 +17,15 @@
 //! Every reduction is accepted only after the resulting case is re-verified against the oracle, so
 //! the output is a description that still fails, or nothing at all. When the budget runs out the
 //! result says so instead of reporting an unverified case as a minimal one.
+//!
+//! The oracle is asked through an [`aporia_runtime::Executor`] that the run threads through every
+//! stage, and it is the caller's: the same execution path that produced the finding is the only one
+//! allowed to say whether a smaller case still fails it. A minimiser that reached for the interpreter
+//! by itself would be able to shrink a failure found in someone else's program by asking arithmetic
+//! that program never performed.
 
 use aporia_ir::Model;
+use aporia_runtime::Executor;
 
 use crate::case::{Axis, AxisState, Case, Span, round_sig};
 use crate::oracle::Oracle;
@@ -81,12 +88,18 @@ struct Cost {
 }
 
 impl Cost {
-    fn verify(&mut self, oracle: &dyn Oracle, case: &Case, budget: u64) -> bool {
+    fn verify(
+        &mut self,
+        oracle: &dyn Oracle,
+        engine: &mut dyn Executor,
+        case: &Case,
+        budget: u64,
+    ) -> bool {
         if self.queries >= budget {
             self.over_budget = true;
             return false;
         }
-        let v = case.verify(oracle, budget - self.queries);
+        let v = case.verify(oracle, engine, budget - self.queries);
         self.queries += v.queries;
         self.executions += v.executions;
         if v.over_budget {
@@ -102,13 +115,24 @@ impl Cost {
 }
 
 /// Minimise the failure at `x0` down to a case.
+///
+/// `engine` is the execution path the finding came from, and every one of the hundreds of checks below
+/// is asked of it. It is a separate argument from the oracle rather than a field of it because the two
+/// have different contracts: the oracle must stay a function of the point alone, and an execution may
+/// be a live process with state.
 #[must_use]
-pub fn minimize(oracle: &dyn Oracle, model: &Model, x0: &[f64], cfg: Config) -> Minimal {
+pub fn minimize(
+    oracle: &dyn Oracle,
+    engine: &mut dyn Executor,
+    model: &Model,
+    x0: &[f64],
+    cfg: Config,
+) -> Minimal {
     let mut cost = Cost::default();
     let start = x0.to_vec();
     let mut case = Case::from_model(model, x0);
 
-    if !cost.verify(oracle, &case, cfg.budget) {
+    if !cost.verify(oracle, engine, &case, cfg.budget) {
         // Nothing to minimise: either the point is not a failure under this oracle, or the very
         // first verification could not be afforded. Reporting a "minimal case" here would be
         // inventing a finding.
@@ -123,12 +147,12 @@ pub fn minimize(oracle: &dyn Oracle, model: &Model, x0: &[f64], cfg: Config) -> 
         };
     }
 
-    ddmin(oracle, &mut case, &cfg, &mut cost);
-    narrow(oracle, &mut case, &cfg, &mut cost);
-    drop_singles(oracle, &mut case, &cfg, &mut cost);
-    reduce_digits(oracle, &mut case, &cfg, &mut cost);
+    ddmin(oracle, engine, &mut case, &cfg, &mut cost);
+    narrow(oracle, engine, &mut case, &cfg, &mut cost);
+    drop_singles(oracle, engine, &mut case, &cfg, &mut cost);
+    reduce_digits(oracle, engine, &mut case, &cfg, &mut cost);
 
-    let verified = cost.verify(oracle, &case, cfg.budget);
+    let verified = cost.verify(oracle, engine, &case, cfg.budget);
     let dropped = case
         .axes
         .iter()
@@ -153,7 +177,13 @@ pub fn minimize(oracle: &dyn Oracle, model: &Model, x0: &[f64], cfg: Config) -> 
 /// minimal. Here the "set" is the parameters the case names, and removing one means sampling its
 /// whole declared domain instead: [`Case::witnesses`] defines exactly what was executed, and a drop
 /// is only accepted when every one of those samples failed too.
-fn ddmin(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
+fn ddmin(
+    oracle: &dyn Oracle,
+    engine: &mut dyn Executor,
+    case: &mut Case,
+    cfg: &Config,
+    cost: &mut Cost,
+) {
     // The interesting corner: a failure that needs no parameter at all. Checked first because it
     // terminates the whole algorithm, and because it is a finding in its own right.
     let free = Case {
@@ -167,7 +197,7 @@ fn ddmin(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
             })
             .collect(),
     };
-    if cost.verify(oracle, &free, cfg.budget) {
+    if cost.verify(oracle, engine, &free, cfg.budget) {
         *case = free;
         return;
     }
@@ -180,7 +210,7 @@ fn ddmin(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
         let mut progressed = false;
         for chunk in partitions(&keep, n) {
             let candidate = without(case, &chunk);
-            if cost.verify(oracle, &candidate, cfg.budget) {
+            if cost.verify(oracle, engine, &candidate, cfg.budget) {
                 *case = candidate;
                 keep.retain(|i| !chunk.contains(i));
                 n = 2;
@@ -212,10 +242,11 @@ fn without(case: &Case, drop: &[usize]) -> Case {
     next
 }
 
-/// One stage's worth of context for the interval search, kept together because the alternative is
-/// a nine-argument function.
+/// One stage's worth of context for the interval search, kept together because the alternative is a
+/// ten-argument function.
 struct Narrow<'a> {
     oracle: &'a dyn Oracle,
+    engine: &'a mut dyn Executor,
     cfg: &'a Config,
     cost: &'a mut Cost,
 }
@@ -246,7 +277,10 @@ impl Narrow<'_> {
                     },
                 )
             };
-            if self.cost.verify(self.oracle, &candidate, self.cfg.budget) {
+            if self
+                .cost
+                .verify(self.oracle, self.engine, &candidate, self.cfg.budget)
+            {
                 good = mid;
             } else {
                 bad = mid;
@@ -263,7 +297,13 @@ impl Narrow<'_> {
 /// not *the* boundary: the predicate is only assumed monotone between the value and the edge, and a
 /// failure region with a hole in it is reported as the interval the samples support. That is stated
 /// rather than hidden, because the alternative is a claim about a shape nobody evaluated.
-fn narrow(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
+fn narrow(
+    oracle: &dyn Oracle,
+    engine: &mut dyn Executor,
+    case: &mut Case,
+    cfg: &Config,
+    cost: &mut Cost,
+) {
     let arity = case.axes.len();
     for i in 0..arity {
         if cost.spent(cfg.budget) {
@@ -286,10 +326,16 @@ fn narrow(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
                 digits: None,
             },
         );
-        let left = if cost.verify(oracle, &left_all, cfg.budget) {
+        let left = if cost.verify(oracle, engine, &left_all, cfg.budget) {
             lo_edge
         } else {
-            Narrow { oracle, cfg, cost }.edge(&left_all, i, v, lo_edge, tol)
+            Narrow {
+                oracle,
+                engine,
+                cfg,
+                cost,
+            }
+            .edge(&left_all, i, v, lo_edge, tol)
         };
 
         let right_all = case.with(
@@ -300,10 +346,16 @@ fn narrow(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
                 digits: None,
             },
         );
-        let right = if cost.verify(oracle, &right_all, cfg.budget) {
+        let right = if cost.verify(oracle, engine, &right_all, cfg.budget) {
             hi_edge
         } else {
-            Narrow { oracle, cfg, cost }.edge(&right_all, i, v, hi_edge, tol)
+            Narrow {
+                oracle,
+                engine,
+                cfg,
+                cost,
+            }
+            .edge(&right_all, i, v, hi_edge, tol)
         };
 
         let both = case.with(
@@ -314,7 +366,7 @@ fn narrow(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
                 digits: None,
             },
         );
-        let accepted = if cost.verify(oracle, &both, cfg.budget) {
+        let accepted = if cost.verify(oracle, engine, &both, cfg.budget) {
             both
         } else {
             let only_left = case.with(
@@ -325,7 +377,7 @@ fn narrow(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
                     digits: None,
                 },
             );
-            if cost.verify(oracle, &only_left, cfg.budget) {
+            if cost.verify(oracle, engine, &only_left, cfg.budget) {
                 only_left
             } else {
                 let only_right = case.with(
@@ -336,7 +388,7 @@ fn narrow(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
                         digits: None,
                     },
                 );
-                if cost.verify(oracle, &only_right, cfg.budget) {
+                if cost.verify(oracle, engine, &only_right, cfg.budget) {
                     only_right
                 } else {
                     // The pinned value stands: no wider claim survived verification. That is the
@@ -364,14 +416,20 @@ fn normalise(mut case: Case, axis: usize) -> Case {
 }
 
 /// Re-check every remaining axis for irrelevance, now that the others are intervals.
-fn drop_singles(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
+fn drop_singles(
+    oracle: &dyn Oracle,
+    engine: &mut dyn Executor,
+    case: &mut Case,
+    cfg: &Config,
+    cost: &mut Cost,
+) {
     let arity = case.axes.len();
     for i in 0..arity {
         if cost.spent(cfg.budget) || matches!(case.axes[i].state, AxisState::Dropped) {
             continue;
         }
         let candidate = case.with(i, AxisState::Dropped);
-        if cost.verify(oracle, &candidate, cfg.budget) {
+        if cost.verify(oracle, engine, &candidate, cfg.budget) {
             *case = candidate;
         }
     }
@@ -384,7 +442,13 @@ fn drop_singles(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut C
 /// shorter than what was actually executed, and never claims an interval wider than the one the
 /// samples support. Discrete axes are skipped: rounding `1.0` and `1.4` both to `1` would merge two
 /// different solver settings and call the result a smaller failure.
-fn reduce_digits(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut Cost) {
+fn reduce_digits(
+    oracle: &dyn Oracle,
+    engine: &mut dyn Executor,
+    case: &mut Case,
+    cfg: &Config,
+    cost: &mut Cost,
+) {
     let arity = case.axes.len();
     for i in 0..arity {
         if cost.spent(cfg.budget) {
@@ -408,7 +472,7 @@ fn reduce_digits(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut 
                 AxisState::Dropped => break,
             };
             let candidate = normalise(case.with(i, state), i);
-            if cost.verify(oracle, &candidate, cfg.budget) {
+            if cost.verify(oracle, engine, &candidate, cfg.budget) {
                 *case = candidate;
                 break;
             }
@@ -421,11 +485,14 @@ fn reduce_digits(oracle: &dyn Oracle, case: &mut Case, cfg: &Config, cost: &mut 
 /// Empty when the model's physical channel does not fire at the representative point, which is the
 /// truth for a case minimised against some other oracle — a risk threshold, say. A report should
 /// print that as "no declared rule is violated here" rather than inventing a reason.
+///
+/// `engine` is the path the case was minimised against: the reason a case fails is a fact about the
+/// computation that produced it, so asking a different one would be reporting someone else's reason.
 #[must_use]
-pub fn reason(model: &Model, case: &Case) -> Vec<String> {
+pub fn reason(model: &Model, case: &Case, engine: &mut dyn Executor) -> Vec<String> {
     let oracle = crate::oracle::FailureOracle::new(model);
     oracle
-        .evidence_at(&case.representative())
+        .evidence_at(&case.representative(), engine)
         .iter()
         .map(|e| e.detail.clone())
         .collect()

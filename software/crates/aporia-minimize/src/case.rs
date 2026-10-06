@@ -180,8 +180,16 @@ impl Case {
     /// Check every witness. `budget` caps the number of oracle *calls*, because verification cost is
     /// part of what a minimiser has to be judged on — and the calls are not the executions, which is
     /// why a [`Verify`] reports both.
+    ///
+    /// `engine` is threaded to every call rather than held here: the witnesses of one case are asked
+    /// of the same execution path that produced the finding they came from.
     #[must_use]
-    pub fn verify(&self, oracle: &dyn Oracle, budget: u64) -> Verify {
+    pub fn verify(
+        &self,
+        oracle: &dyn Oracle,
+        engine: &mut dyn aporia_runtime::Executor,
+        budget: u64,
+    ) -> Verify {
         let mut queries = 0;
         let mut executions = 0;
         for x in self.witnesses() {
@@ -197,7 +205,7 @@ impl Case {
                 };
             }
             queries += 1;
-            let verdict = oracle.query(&x);
+            let verdict = oracle.query(&x, engine);
             executions += verdict.executions;
             if !verdict.violating {
                 return Verify {
@@ -517,7 +525,7 @@ mod tests {
     fn verification_stops_at_the_first_witness_that_does_not_fail() {
         use std::cell::Cell;
         let seen = Cell::new(0u64);
-        let oracle = move |_x: &[f64]| {
+        let oracle = move |_x: &[f64], _path: &mut dyn aporia_runtime::Executor| {
             let n = seen.get() + 1;
             seen.set(n);
             // One query, no model execution: this predicate reads a counter, not a model, and the
@@ -525,7 +533,7 @@ mod tests {
             Verdict::new(n < 3, 0)
         };
         let c = case(vec![(C, AxisState::Dropped)]);
-        let v = c.verify(&oracle, 100);
+        let v = c.verify(&oracle, &mut aporia_runtime::Interp, 100);
         assert!(!v.holds);
         assert!(!v.over_budget);
         assert_eq!(v.queries, 3);
@@ -535,7 +543,11 @@ mod tests {
     #[test]
     fn a_budget_refusal_is_not_the_same_answer_as_a_passing_case() {
         let c = case(vec![(C, AxisState::Dropped)]);
-        let v = c.verify(&|_x: &[f64]| Verdict::new(true, 1), 2);
+        let v = c.verify(
+            &|_x: &[f64], _path: &mut dyn aporia_runtime::Executor| Verdict::new(true, 1),
+            &mut aporia_runtime::Interp,
+            2,
+        );
         assert!(v.over_budget);
         assert_eq!(v.executions, 2, "the two calls it could afford did run");
         assert!(
@@ -550,8 +562,66 @@ mod tests {
         // oracle that measures a star of three executions around each one cost fifteen runs, and a
         // reader of the cost column has to be able to tell the two apart.
         let c = case(vec![(C, AxisState::Dropped)]);
-        let v = c.verify(&|_x: &[f64]| Verdict::new(true, 3), 100);
+        let v = c.verify(
+            &|_x: &[f64], _path: &mut dyn aporia_runtime::Executor| Verdict::new(true, 3),
+            &mut aporia_runtime::Interp,
+            100,
+        );
         assert!(v.holds);
         assert_eq!((v.queries, v.executions), (5, 15));
+    }
+
+    #[test]
+    fn a_case_is_asked_of_the_path_it_is_handed_and_no_other() {
+        // The architectural half of the routing change. Nothing in this crate can reach the
+        // interpreter by itself any more, so the only way a witness gets answered is through the
+        // `Executor` the caller brings — which is what makes it impossible for a finding discovered
+        // in an external program to be "verified" by arithmetic that program never ran. The predicate
+        // here charges nothing for its answer, so any execution counted by `Verify` would have to have
+        // come from the path, and the path counts what it was asked to do.
+        use std::cell::RefCell;
+        #[derive(Default)]
+        struct Counting {
+            asks: usize,
+            seen: RefCell<Vec<f64>>,
+        }
+        impl aporia_runtime::Executor for Counting {
+            fn execute(
+                &mut self,
+                _model: &aporia_ir::Model,
+                x: &[f64],
+                _cfg: aporia_runtime::ExecConfig,
+            ) -> aporia_runtime::Outcome {
+                self.asks += 1;
+                self.seen.borrow_mut().extend_from_slice(x);
+                aporia_runtime::Outcome {
+                    outputs: vec![1.0],
+                    traces: Vec::new(),
+                    flags: aporia_runtime::Flags::default(),
+                    steps: 0,
+                    rule_values: Vec::new(),
+                }
+            }
+        }
+        // A predicate that does consult the path: it asks the model and calls the answer a failure
+        // when the path returns the value this stand-in program always returns.
+        let model = aporia_ir::Model::new("t");
+        let oracle = move |x: &[f64], path: &mut dyn aporia_runtime::Executor| {
+            let out = path.execute(&model, x, aporia_runtime::ExecConfig::default());
+            Verdict::new(out.outputs.first() == Some(&1.0), 1)
+        };
+        let c = case(vec![(C, AxisState::Dropped)]);
+        let asked = c.witnesses();
+        let mut path = Counting::default();
+        let v = c.verify(&oracle, &mut path, 100);
+        assert!(v.holds, "every witness was answered by the path");
+        assert_eq!(path.asks, 5, "one execution per witness");
+        assert_eq!(v.executions, 5, "and each of them charged");
+        assert_eq!(v.queries, 5);
+        assert_eq!(
+            path.seen.into_inner(),
+            asked.concat(),
+            "the points the path was asked are the case's own witnesses"
+        );
     }
 }

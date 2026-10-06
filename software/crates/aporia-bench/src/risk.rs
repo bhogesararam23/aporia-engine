@@ -19,7 +19,7 @@ use aporia_properties::{
     SlopeReference, against_reference, constraints, divergence, numerical, sensitivity_at,
     slope_reference,
 };
-use aporia_runtime::interp::run as evaluate;
+use aporia_runtime::Executor;
 use aporia_runtime::observe::Observation;
 use aporia_runtime::value::{ExecConfig, FpMode};
 use aporia_search::{Campaign, campaign::perturb};
@@ -138,7 +138,12 @@ impl RiskScorer {
     /// report flagged, it is not asking the report's question and must not be used to decide what a
     /// smaller counterexample may drop.
     #[must_use]
-    pub fn agrees_with(&self, model: &Model, finding: &aporia_search::Finding) -> bool {
+    pub fn agrees_with(
+        &self,
+        model: &Model,
+        finding: &aporia_search::Finding,
+        engine: &mut dyn Executor,
+    ) -> bool {
         if finding
             .evidence
             .iter()
@@ -146,7 +151,7 @@ impl RiskScorer {
         {
             return false;
         }
-        self.read(model, &finding.representative).risk >= self.threshold
+        self.read(model, &finding.representative, engine).risk >= self.threshold
     }
 
     #[must_use]
@@ -159,10 +164,16 @@ impl RiskScorer {
     /// Identifiers are local to the query (0 for the point itself, 1.. per probe) because the point
     /// is not one of the campaign's records; the numbers they name are the candidate's own
     /// executions, and that is what a replayable claim needs.
+    ///
+    /// `engine` is the execution path the campaign ran the model on, and it is required rather than
+    /// defaulted. A scorer that reached for the scalar interpreter instead would be able to confirm a
+    /// counterexample of an external program by arithmetic that program never performed — the values
+    /// would come from APORIA's reading of a model whose arithmetic lives elsewhere, and the finding
+    /// would be *verified* against a computation nobody ran.
     #[must_use]
-    pub fn read(&self, model: &Model, x: &[f64]) -> Reading {
+    pub fn read(&self, model: &Model, x: &[f64], engine: &mut dyn Executor) -> Reading {
         let mut executions = 0;
-        let mut items = self.gather(model, x, &mut executions);
+        let mut items = self.gather(model, x, engine, &mut executions);
         // Calibrated exactly as the report calibrates: the fitted scales are the campaign's, so a
         // candidate is unusual against the same ordinary values the finding was.
         self.calibrator.apply(&mut items);
@@ -182,7 +193,13 @@ impl RiskScorer {
 
     /// The evidence the report would have gathered at these coordinates, before calibration, counting
     /// every execution it takes to gather it.
-    fn gather(&self, model: &Model, x: &[f64], executions: &mut u64) -> Vec<Evidence> {
+    fn gather(
+        &self,
+        model: &Model,
+        x: &[f64],
+        engine: &mut dyn Executor,
+        executions: &mut u64,
+    ) -> Vec<Evidence> {
         if x.len() != model.params.len() {
             return Vec::new();
         }
@@ -191,7 +208,7 @@ impl RiskScorer {
             max_steps: self.max_steps,
         };
         *executions += 1;
-        let base = Observation::new(0, x.to_vec(), &evaluate(model, x, cfg));
+        let base = Observation::new(0, x.to_vec(), &engine.execute(model, x, cfg));
         let mut items = Vec::new();
         if self.wants(aporia_evidence::Channel::Physical) {
             items.extend(constraints(model, &base));
@@ -210,7 +227,7 @@ impl RiskScorer {
                 let o = Observation::new(
                     1 + moved.len() as u64,
                     point.clone(),
-                    &evaluate(model, &point, cfg),
+                    &engine.execute(model, &point, cfg),
                 );
                 moved.push((axis as u16, o));
             }
@@ -227,7 +244,7 @@ impl RiskScorer {
             let reduced = Observation::new(
                 0,
                 x.to_vec(),
-                &evaluate(
+                &engine.execute(
                     model,
                     x,
                     ExecConfig {
@@ -273,8 +290,8 @@ impl<'a> RiskOracle<'a> {
 }
 
 impl Oracle for RiskOracle<'_> {
-    fn query(&self, x: &[f64]) -> Verdict {
-        let reading = self.scorer.read(self.model, x);
+    fn query(&self, x: &[f64], engine: &mut dyn Executor) -> Verdict {
+        let reading = self.scorer.read(self.model, x, engine);
         Verdict::new(reading.risk >= self.scorer.threshold(), reading.executions)
     }
 }

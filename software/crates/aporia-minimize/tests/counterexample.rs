@@ -37,8 +37,10 @@ fn model(text: &str) -> Model {
 /// A synthetic failure lives in the predicate, not in the model, so it executed nothing to answer.
 /// Wrapping is two lines and keeps the distinction the crate is careful about — queries against
 /// executions — visible in these tests instead of papered over by an assumed cost of one.
-fn predicate(f: impl Fn(&[f64]) -> bool) -> impl Fn(&[f64]) -> Verdict {
-    move |x: &[f64]| Verdict::new(f(x), 0)
+fn predicate(
+    f: impl Fn(&[f64]) -> bool,
+) -> impl Fn(&[f64], &mut dyn aporia_runtime::Executor) -> Verdict {
+    move |x: &[f64], _engine| Verdict::new(f(x), 0)
 }
 
 #[test]
@@ -47,7 +49,13 @@ fn a_failure_needing_three_of_eleven_parameters_minimises_to_three() {
     let m = synthetic(11);
     let oracle = predicate(|x: &[f64]| x[0] > 1.0 && x[3] < -1.0 && x[7].abs() > 0.5);
     let start = vec![1.9, 0.4, -0.2, -1.8, 0.0, 1.1, -0.7, 1.4, 0.3, -0.9, 1.2];
-    let out = minimize(&oracle, &m, &start, Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &start,
+        Config::default(),
+    );
 
     assert!(out.verified, "the final case was not re-verified");
     assert_eq!(out.case.dimensions(), 3, "{}", out.case.describe());
@@ -66,13 +74,22 @@ fn a_failure_needing_three_of_eleven_parameters_minimises_to_three() {
 fn a_parameter_the_failure_needs_is_never_dropped() {
     let m = synthetic(2);
     let oracle = predicate(|x: &[f64]| x[0] > 0.0);
-    let out = minimize(&oracle, &m, &[1.0, 0.0], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[1.0, 0.0],
+        Config::default(),
+    );
     assert!(out.verified);
     assert!(!matches!(out.case.axes[0].state, AxisState::Dropped));
     assert!(matches!(out.case.axes[1].state, AxisState::Dropped));
     // The drop is only a claim because every sample behind it actually failed.
     assert!(
-        out.case.witnesses().iter().all(|x| oracle(x).violating),
+        out.case
+            .witnesses()
+            .iter()
+            .all(|x| oracle(x, &mut aporia_runtime::Interp).violating),
         "{:?}",
         out.case.witnesses()
     );
@@ -82,7 +99,13 @@ fn a_parameter_the_failure_needs_is_never_dropped() {
 fn narrowing_finds_the_edge_of_a_one_sided_failure() {
     let m = synthetic(1);
     let oracle = predicate(|x: &[f64]| x[0].abs() < 0.4);
-    let out = minimize(&oracle, &m, &[0.1], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[0.1],
+        Config::default(),
+    );
     let AxisState::Band { lo, hi, .. } = out.case.axes[0].state else {
         panic!("expected an interval, got {:?}", out.case.axes[0].state);
     };
@@ -99,6 +122,7 @@ fn digits_shrink_to_the_shortest_interval_that_still_fails() {
     let oracle = predicate(|x: &[f64]| (x[0] - 0.25).abs() < 0.061);
     let out = minimize(
         &oracle,
+        &mut aporia_runtime::Interp,
         &m,
         &[0.249_999_999_999_999_97],
         Config {
@@ -127,7 +151,13 @@ fn digits_shrink_to_the_shortest_interval_that_still_fails() {
 fn a_failure_that_needs_no_parameters_reports_zero_dimensions() {
     let m = synthetic(4);
     let oracle = predicate(|_x: &[f64]| true);
-    let out = minimize(&oracle, &m, &[1.0, 1.0, 1.0, 1.0], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[1.0, 1.0, 1.0, 1.0],
+        Config::default(),
+    );
     assert_eq!(out.case.dimensions(), 0, "{}", out.case.describe());
     assert!(out.verified);
     // The description still says which parameters were checked and found irrelevant, because that
@@ -139,7 +169,13 @@ fn a_failure_that_needs_no_parameters_reports_zero_dimensions() {
 fn a_start_that_is_not_a_failure_is_said_so_rather_than_minimised() {
     let m = synthetic(2);
     let oracle = predicate(|x: &[f64]| x[0] > 5.0);
-    let out = minimize(&oracle, &m, &[1.0, 1.0], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[1.0, 1.0],
+        Config::default(),
+    );
     assert!(!out.verified);
     assert!(!out.over_budget);
     assert_eq!(out.case.dimensions(), 2, "nothing should have been removed");
@@ -151,6 +187,7 @@ fn running_out_of_budget_is_reported_instead_of_claiming_a_result() {
     let oracle = predicate(|x: &[f64]| x[0] > 0.0);
     let out = minimize(
         &oracle,
+        &mut aporia_runtime::Interp,
         &m,
         &[1.0, 0.0, 0.0],
         Config {
@@ -168,12 +205,18 @@ fn cost_is_attributed_to_oracle_calls_and_nothing_else() {
     use std::cell::Cell;
     let m = synthetic(2);
     let calls = Cell::new(0u64);
-    let oracle = |x: &[f64]| {
+    let oracle = |x: &[f64], _engine: &mut dyn aporia_runtime::Executor| {
         calls.set(calls.get() + 1);
         // Nothing executed: the budget and the reported query count are both stated in calls.
         Verdict::new(x[0] > 0.0, 0)
     };
-    let out = minimize(&oracle, &m, &[1.0, 0.0], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[1.0, 0.0],
+        Config::default(),
+    );
     assert_eq!(
         out.queries,
         calls.get(),
@@ -193,7 +236,8 @@ fn an_expensive_oracle_is_charged_for_every_execution_its_answers_used() {
     // executions are twice the calls — so a cost read from `queries` alone understates the work.
     let m = synthetic(2);
     let out = minimize(
-        &|x: &[f64]| Verdict::new(x[0] > 0.0, 2),
+        &|x: &[f64], _engine: &mut dyn aporia_runtime::Executor| Verdict::new(x[0] > 0.0, 2),
+        &mut aporia_runtime::Interp,
         &m,
         &[1.0, 0.0],
         Config::default(),
@@ -211,7 +255,8 @@ fn a_budget_is_spent_in_calls_even_when_a_call_costs_several_executions() {
     // call count while the executions are still reported for what they were.
     let m = synthetic(2);
     let out = minimize(
-        &|_: &[f64]| Verdict::new(true, 5),
+        &|_: &[f64], _engine: &mut dyn aporia_runtime::Executor| Verdict::new(true, 5),
+        &mut aporia_runtime::Interp,
         &m,
         &[1.0, 0.0],
         Config {
@@ -232,7 +277,13 @@ fn minimisation_never_adds_a_parameter_to_the_description() {
     let m = synthetic(5);
     let oracle = predicate(|x: &[f64]| x[1] > 0.0 && x[4] > 1.0);
     let start = vec![0.0, 1.5, 0.0, 0.0, 1.9];
-    let out = minimize(&oracle, &m, &start, Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &start,
+        Config::default(),
+    );
     assert!(out.case.dimensions() <= Case::from_model(&m, &start).dimensions());
 }
 
@@ -241,8 +292,20 @@ fn the_same_failure_minimises_the_same_way_twice() {
     let m = synthetic(4);
     let oracle = predicate(|x: &[f64]| x[0] < -1.0 && x[2].abs() > 0.5);
     let start = vec![-1.9, 0.0, 1.4, 0.0];
-    let a = minimize(&oracle, &m, &start, Config::default());
-    let b = minimize(&oracle, &m, &start, Config::default());
+    let a = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &start,
+        Config::default(),
+    );
+    let b = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &start,
+        Config::default(),
+    );
     assert_eq!(a.case, b.case, "minimisation is not deterministic");
     assert_eq!(a.queries, b.queries);
     assert_eq!(a.executions, b.executions);
@@ -256,14 +319,20 @@ fn the_rule_oracle_charges_exactly_one_execution_per_answer() {
     let m =
         model("model s \"\" {\n input x in [-10, 10]\n let y = sqrt(x)\n require finite(y)\n}\n");
     let oracle = FailureOracle::new(&m);
-    let out = minimize(&oracle, &m, &[-9.0], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[-9.0],
+        Config::default(),
+    );
     assert!(out.verified, "{}", out.case.describe());
     assert_eq!(
         out.executions, out.queries,
         "one question per point means one execution per point"
     );
     // And a point the model cannot be asked about at all is refused without spending anything.
-    let refused = oracle.query(&[1.0, 2.0]);
+    let refused = oracle.query(&[1.0, 2.0], &mut aporia_runtime::Interp);
     assert!(
         !refused.violating && refused.executions == 0,
         "an arity mismatch ran the model: {refused:?}"
@@ -276,7 +345,13 @@ fn a_declared_rule_violation_minimises_to_the_parameter_that_breaks_it() {
         "model g \"\" {\n input v : m/s in [0, 1000]\n input g : m/s^2 in [-20, 20]\n let r = v * v / g\n require g > 0\n}\n",
     );
     let oracle = FailureOracle::new(&m);
-    let out = minimize(&oracle, &m, &[100.0, -5.0], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[100.0, -5.0],
+        Config::default(),
+    );
     assert!(out.verified, "the minimal case stopped failing");
     assert_eq!(
         out.dropped,
@@ -293,7 +368,7 @@ fn a_declared_rule_violation_minimises_to_the_parameter_that_breaks_it() {
     };
     assert!(lo < -19.0, "lower edge {lo} did not reach the domain bound");
     assert!(hi.abs() < 0.01, "upper edge {hi} is not near the boundary");
-    let why = reason(&m, &out.case);
+    let why = reason(&m, &out.case, &mut aporia_runtime::Interp);
     assert!(
         !why.is_empty(),
         "a report needs the reason, not only the numbers"
@@ -310,7 +385,13 @@ fn a_failure_that_needs_a_parameter_to_be_nonzero_keeps_that_parameter() {
         "model h \"\" {\n input v : m/s in [0, 1000]\n input g : m/s^2 in [-20, 20]\n let r = v * v / g\n require r >= 0\n}\n",
     );
     let oracle = FailureOracle::new(&m);
-    let out = minimize(&oracle, &m, &[100.0, -5.0], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[100.0, -5.0],
+        Config::default(),
+    );
     assert!(out.verified, "{}", out.case.describe());
     assert!(
         out.dropped.is_empty(),
@@ -331,7 +412,13 @@ fn a_divergence_minimises_to_the_interval_where_the_model_leaves_the_reals() {
     let m =
         model("model s \"\" {\n input x in [-10, 10]\n let y = sqrt(x)\n require finite(y)\n}\n");
     let oracle = FailureOracle::new(&m);
-    let out = minimize(&oracle, &m, &[-9.0], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[-9.0],
+        Config::default(),
+    );
     assert!(out.verified);
     let AxisState::Band { lo, hi, .. } = out.case.axes[0].state else {
         panic!("expected an interval, got {:?}", out.case.axes[0].state);
@@ -350,7 +437,13 @@ fn a_discrete_parameter_is_dropped_by_testing_every_choice() {
     );
     let oracle = FailureOracle::new(&m);
     // dt = 0.05 gives y = 0.0025, which violates; the scheme has nothing to do with it.
-    let out = minimize(&oracle, &m, &[2.0, 0.05], Config::default());
+    let out = minimize(
+        &oracle,
+        &mut aporia_runtime::Interp,
+        &m,
+        &[2.0, 0.05],
+        Config::default(),
+    );
     assert!(out.verified, "{}", out.case.describe());
     assert!(
         matches!(out.case.axes[0].state, AxisState::Dropped),
@@ -375,6 +468,7 @@ fn an_interval_that_collapsed_is_printed_as_a_value() {
     let oracle = predicate(|x: &[f64]| (x[0] - 0.4).abs() < 1e-12);
     let out = minimize(
         &oracle,
+        &mut aporia_runtime::Interp,
         &m,
         &[0.4],
         Config {

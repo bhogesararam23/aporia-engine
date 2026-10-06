@@ -66,13 +66,20 @@ fn the_scorer_reproduces_the_risk_that_made_each_finding() {
     let missed: Vec<String> = c
         .findings
         .iter()
-        .filter(|f| scorer.read(&m, &f.representative).risk < scorer.threshold())
+        .filter(|f| {
+            scorer
+                .read(&m, &f.representative, &mut aporia_runtime::Interp)
+                .risk
+                < scorer.threshold()
+        })
         .map(|f| {
             format!(
                 "cell {} final risk {:.3} scorer risk at representative: {}",
                 f.cell,
                 f.final_risk,
-                scorer.read(&m, &f.representative).risk
+                scorer
+                    .read(&m, &f.representative, &mut aporia_runtime::Interp)
+                    .risk
             )
         })
         .collect();
@@ -97,11 +104,14 @@ fn a_frozen_scorer_answers_the_same_question_in_any_order() {
         .take(24)
         .map(|o| o.x.clone())
         .collect();
-    let forward: Vec<f64> = points.iter().map(|x| scorer.read(&m, x).risk).collect();
+    let forward: Vec<f64> = points
+        .iter()
+        .map(|x| scorer.read(&m, x, &mut aporia_runtime::Interp).risk)
+        .collect();
     let reverse: Vec<f64> = points
         .iter()
         .rev()
-        .map(|x| scorer.read(&m, x).risk)
+        .map(|x| scorer.read(&m, x, &mut aporia_runtime::Interp).risk)
         .rev()
         .collect();
     assert_eq!(
@@ -112,7 +122,10 @@ fn a_frozen_scorer_answers_the_same_question_in_any_order() {
     // campaign agree even if one has already been asked about other points.
     let other = RiskScorer::from_campaign(&c);
     for x in &points {
-        assert_eq!(scorer.read(&m, x).risk, other.read(&m, x).risk);
+        assert_eq!(
+            scorer.read(&m, x, &mut aporia_runtime::Interp).risk,
+            other.read(&m, x, &mut aporia_runtime::Interp).risk
+        );
     }
 }
 
@@ -126,7 +139,7 @@ fn the_scorer_only_consults_channels_the_campaign_actually_ran() {
     let x = &c.findings[0].representative;
     let kinds = |s: &RiskScorer| -> Vec<String> {
         let mut v: Vec<String> = s
-            .read(&m, x)
+            .read(&m, x, &mut aporia_runtime::Interp)
             .items
             .iter()
             .map(|e| e.channel.name().to_string())
@@ -181,7 +194,7 @@ fn a_model_the_report_trusted_everywhere_gives_the_scorer_nothing_to_flag() {
         let a = 1.0 + 39.0 * (i as f64) / 40.0;
         let b = 1.0 + 39.0 * ((i * 7) % 40) as f64 / 40.0;
         let x = vec![a, b];
-        let risk = scorer.read(&m, &x).risk;
+        let risk = scorer.read(&m, &x, &mut aporia_runtime::Interp).risk;
         if risk >= scorer.threshold() {
             flagged.push((x, risk));
         }
@@ -204,7 +217,7 @@ fn a_sensitivity_finding_can_now_be_made_smaller_and_verified() {
         .expect("entry present");
     let model = entry.model.clone().expect("entry compiles");
     let c = run(&model, ladder(640));
-    let rows = aporia_bench::metrics::counterexamples(entry, &c, 4000);
+    let rows = aporia_bench::metrics::counterexamples(entry, &c, 4000, &mut aporia_runtime::Interp);
     assert!(!rows.is_empty(), "the campaign produced no findings");
     let risk_rows: Vec<&_> = rows.iter().filter(|r| r.oracle == "risk").collect();
     assert!(
@@ -258,12 +271,13 @@ fn a_risk_verified_reduction_is_rechecked_at_every_witness_it_claims() {
     let mut reduced = 0usize;
     for f in c.findings.iter().take(3) {
         let scorer = RiskScorer::for_finding(&c, f);
-        if !scorer.agrees_with(&model, f) {
+        if !scorer.agrees_with(&model, f, &mut aporia_runtime::Interp) {
             continue;
         }
         let risk_oracle = RiskOracle::new(&model, &scorer);
         let minimal = aporia_minimize::minimize(
             &risk_oracle,
+            &mut aporia_runtime::Interp,
             &model,
             &f.representative,
             aporia_minimize::Config {
@@ -286,7 +300,9 @@ fn a_risk_verified_reduction_is_rechecked_at_every_witness_it_claims() {
             start.describe(),
             minimal.case.describe()
         );
-        let check = minimal.case.verify(&risk_oracle, 4000);
+        let check = minimal
+            .case
+            .verify(&risk_oracle, &mut aporia_runtime::Interp, 4000);
         assert!(
             check.holds && !check.over_budget,
             "the reduced case did not survive its own witnesses: {check:?} in {:?}",
@@ -314,12 +330,12 @@ fn a_risk_query_is_charged_for_every_execution_it_performs() {
         .iter()
         .find(|f| {
             let s = RiskScorer::for_finding(&c, f);
-            s.agrees_with(&m, f)
+            s.agrees_with(&m, f, &mut aporia_runtime::Interp)
         })
         .expect("a finding the frozen scorer reproduces");
     let scorer = RiskScorer::for_finding(&c, finding);
     let oracle = RiskOracle::new(&m, &scorer);
-    let answer = oracle.query(&finding.representative);
+    let answer = oracle.query(&finding.representative, &mut aporia_runtime::Interp);
     assert!(
         answer.violating,
         "the scorer stopped reproducing its own finding"
@@ -331,7 +347,8 @@ fn a_risk_query_is_charged_for_every_execution_it_performs() {
     );
     // A rule question about the same point costs exactly one, which is the asymmetry the two
     // published columns exist to stop hiding.
-    let rule = aporia_minimize::FailureOracle::new(&m).query(&finding.representative);
+    let rule = aporia_minimize::FailureOracle::new(&m)
+        .query(&finding.representative, &mut aporia_runtime::Interp);
     assert_eq!(rule.executions, 1);
     assert!(
         !rule.violating,
@@ -353,7 +370,7 @@ fn a_risk_query_is_charged_for_every_execution_it_performs() {
     let physical_only = RiskScorer::from_campaign(&quiet);
     assert_eq!(
         RiskOracle::new(&m, &physical_only)
-            .query(&finding.representative)
+            .query(&finding.representative, &mut aporia_runtime::Interp)
             .executions,
         1,
         "a scorer with no measurement channel was charged for evaluations it did not run"
@@ -371,7 +388,7 @@ fn the_counterexample_column_carries_both_units_and_never_undersells_the_work() 
         .expect("entry present");
     let model = entry.model.clone().expect("entry compiles");
     let c = run(&model, ladder(640));
-    let rows = aporia_bench::metrics::counterexamples(entry, &c, 4000);
+    let rows = aporia_bench::metrics::counterexamples(entry, &c, 4000, &mut aporia_runtime::Interp);
     assert!(!rows.is_empty(), "the campaign produced no findings");
     for r in &rows {
         assert!(
@@ -418,18 +435,20 @@ fn a_finding_made_only_of_declared_relations_is_not_claimed_to_be_minimisable() 
     };
     let scorer = RiskScorer::for_finding(&c, &fabricated);
     assert!(
-        !scorer.agrees_with(&m, &fabricated),
+        !scorer.agrees_with(&m, &fabricated, &mut aporia_runtime::Interp),
         "the oracle accepted a relation finding it cannot measure at a point"
     );
     // And with no channel left to consult, it reports nothing anywhere: silence, not a clean bill.
-    let quiet = scorer.read(&m, &[7.0, 13.0]);
+    let quiet = scorer.read(&m, &[7.0, 13.0], &mut aporia_runtime::Interp);
     assert!(quiet.items.is_empty());
     assert!(
         quiet.risk < scorer.threshold(),
         "an oracle with no channel still cleared the bar: {quiet:?}"
     );
     assert_eq!(
-        RiskOracle::new(&m, &scorer).query(&[7.0, 13.0]).executions,
+        RiskOracle::new(&m, &scorer)
+            .query(&[7.0, 13.0], &mut aporia_runtime::Interp)
+            .executions,
         1,
         "an oracle with nothing to consult was charged a full measurement"
     );

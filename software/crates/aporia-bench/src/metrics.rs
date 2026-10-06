@@ -333,8 +333,18 @@ impl Outcome {
 /// the attempts is not recorded, because no reader asked for it; what the pair does give is the
 /// surplus, since a rule call costs exactly one execution and the difference between the columns is
 /// therefore the probe star the risk calls paid for.
+///
+/// `engine` is the path the campaign executed the model on, and it is the path both oracles ask. A
+/// corpus entry whose arithmetic came from an external program has its counterexample re-checked by
+/// that program, or not at all: a reduction confirmed by arithmetic the model never ran is not a
+/// smaller version of the finding, it is a different claim.
 #[must_use]
-pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<CaseSize> {
+pub fn counterexamples(
+    entry: &Entry,
+    campaign: &Campaign,
+    budget: u64,
+    engine: &mut dyn aporia_runtime::Executor,
+) -> Vec<CaseSize> {
     let Some(model) = entry.model.as_ref() else {
         return Vec::new();
     };
@@ -349,6 +359,7 @@ pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<C
             };
             let rule = aporia_minimize::minimize(
                 &aporia_minimize::FailureOracle::new(model),
+                engine,
                 model,
                 &f.representative,
                 config,
@@ -360,15 +371,20 @@ pub fn counterexamples(entry: &Entry, campaign: &Campaign, budget: u64) -> Vec<C
             // from being graded by a question the report never asked.
             let scorer = crate::risk::RiskScorer::for_finding(campaign, f);
             let (minimal, oracle, queries, executions) =
-                if rule.verified || !scorer.agrees_with(model, f) {
+                if rule.verified || !scorer.agrees_with(model, f, engine) {
                     (rule, "rule", rule_queries, rule_executions)
                 } else {
                     let risk_oracle = crate::risk::RiskOracle::new(model, &scorer);
                     // The budget is the shared one: the fallback is not a second helping of search, it
                     // is the same finding asked of a different oracle, and the cost of both attempts is
                     // reported together so a reader can see what the second question added.
-                    let risk =
-                        aporia_minimize::minimize(&risk_oracle, model, &f.representative, config);
+                    let risk = aporia_minimize::minimize(
+                        &risk_oracle,
+                        engine,
+                        model,
+                        &f.representative,
+                        config,
+                    );
                     let pair = (
                         rule_queries + risk.queries,
                         rule_executions + risk.executions,

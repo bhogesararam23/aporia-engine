@@ -13,7 +13,7 @@ use crate::corpus::Entry;
 use crate::metrics::Outcome;
 use crate::truth::Truth;
 use aporia_boundary::Policy;
-use aporia_search::{Config, Strategy, run};
+use aporia_search::{Config, Strategy, run, run_with};
 use aporia_store::Environment;
 use aporia_store::Json;
 use std::time::Instant;
@@ -126,6 +126,11 @@ pub struct Sweep {
 #[must_use]
 pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Option<Sweep> {
     let model = entry.model.as_ref()?;
+    // The path this sweep executes the model on, named in one place because three consumers have to
+    // agree on it: the campaign that finds the region, the minimiser that shrinks the finding it
+    // reports, and the archive that says afterwards which arithmetic produced which number. Passing
+    // it down is what makes "the same computation was re-run" a fact of the code rather than of habit.
+    let mut engine = aporia_runtime::Interp;
     let mut outcomes = Vec::new();
     let mut detected_at = None;
     let mut localised_at = None;
@@ -134,7 +139,7 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
     for &budget in &plan.budgets {
         let cfg = plan.config(strategy, budget, seed);
         let started = Instant::now();
-        let campaign = run(model, cfg);
+        let campaign = run_with(model, cfg, &mut engine);
         let wall_ms = started.elapsed().as_millis() as u64;
         let mut outcome = Outcome::measure(entry, &campaign, wall_ms, strategy, budget);
         outcome.seed = seed;
@@ -164,7 +169,7 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
                 entry.name,
                 strategy = strategy.name()
             ));
-            match archive_and_replay(entry, &campaign, plan, strategy, seed, &dir) {
+            match archive_and_replay(entry, &campaign, plan, strategy, seed, &dir, &mut engine) {
                 Ok(r) => {
                     outcome.replay = Some(r);
                 }
@@ -177,8 +182,12 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
         // budget: the description of the fault does not change with the search's sample count, but
         // paying for it five times would.
         if budget == *plan.budgets.last().unwrap_or(&0) {
-            outcome.counterexamples =
-                crate::metrics::counterexamples(entry, &campaign, plan.minimise_budget);
+            outcome.counterexamples = crate::metrics::counterexamples(
+                entry,
+                &campaign,
+                plan.minimise_budget,
+                &mut engine,
+            );
         } else {
             outcome.counterexamples.clear();
         }
@@ -206,6 +215,11 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
 /// This is where the store earns its place in the measurement: a finding is only reproducible if
 /// re-running the archive's own A-IR over its own recorded inputs gives the same bits, so the
 /// benchmark reports the replay result beside its detection numbers instead of assuming it.
+///
+/// `engine` is the sweep's own execution path, handed to the minimiser that decides each finding's
+/// `case` field. Replay is deliberately *not* threaded through it: replay re-executes the archived
+/// A-IR, which is the point of the check — see `aporia_store::replay`, and the archived-program case
+/// that reports itself as not replayed rather than pretending.
 pub fn archive_and_replay(
     entry: &Entry,
     campaign: &aporia_search::Campaign,
@@ -213,6 +227,7 @@ pub fn archive_and_replay(
     strategy: Strategy,
     seed: u64,
     dir: &std::path::Path,
+    engine: &mut dyn aporia_runtime::Executor,
 ) -> Result<(bool, u64, u64), String> {
     use aporia_store::{Environment, Json, Store};
 
@@ -224,6 +239,7 @@ pub fn archive_and_replay(
     let findings = campaign.stored_findings(|f| {
         let minimal = aporia_minimize::minimize(
             &aporia_minimize::FailureOracle::new(model),
+            engine,
             model,
             &f.representative,
             aporia_minimize::Config {

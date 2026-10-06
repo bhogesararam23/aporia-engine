@@ -14,6 +14,11 @@
 //! representative point and at the samples its claims depend on, and the cost is counted and
 //! returned.
 //!
+//! Those checks are asked of an [`aporia_runtime::Executor`] the caller hands in and this crate
+//! threads through every stage, never chosen here. Which computation a finding was found in is the
+//! caller's business, and a minimiser that picked its own interpreter could shrink a failure of
+//! someone else's program by asking arithmetic that program never ran.
+//!
 //! Two limits, stated because they are load-bearing. Dropping a parameter means the failure survived
 //! *the sampled points across its domain*, not that it is mathematically independent of it. And an
 //! interval is the widest one the bisection could verify under an assumed-monotone predicate, which

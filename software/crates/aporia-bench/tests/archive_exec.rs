@@ -52,6 +52,7 @@ fn an_archive_records_the_step_budget_its_campaign_actually_ran_under() {
         Strategy::Adaptive,
         1,
         &dir,
+        &mut aporia_runtime::Interp,
     )
     .expect("the archive is written and replayed");
     let loaded = Loaded::open(&dir).expect("the archive reads back");
@@ -115,6 +116,7 @@ fn a_campaign_left_at_its_defaults_archives_its_own_defaults_not_something_else(
         Strategy::Adaptive,
         1,
         &dir,
+        &mut aporia_runtime::Interp,
     )
     .expect("the archive is written and replayed");
     let loaded = Loaded::open(&dir).expect("the archive reads back");
