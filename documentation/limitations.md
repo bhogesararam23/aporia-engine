@@ -127,16 +127,16 @@ Known defects still open, each recorded with how it was found:
    and unreadable to a human). The finding-block defaults were the dangerous ones — they attached
    evidence to execution 0 of cell 0 — and are closed: a `.apx` missing a field it always writes is now
    refused with the file and the field named.
-3. `aporia-numerics`' reference evaluator computes `budget_exceeded` and `non_finite` and no caller
-   reads them, so a reference path that ran out of its step guard is currently indistinguishable from a
-   clean one where it happens to produce finite values.
 
 Closed since, each with its own commit and its own test: the minimiser now asks the execution path that
 produced the finding rather than the interpreter, and a program's finding is verified by that program
 end to end; a risk scorer inherits the channels its path can measure and *refuses* rather than answers
 less when it cannot; the observation header is parsed once and checked against the records it
-summarises; a finding block missing an identity field is refused by name; and the public functions
-nothing in production called have been removed.
+summarises; a finding block missing an identity field is refused by name; the public functions nothing
+in production called have been removed; and the reference evaluator's `budget_exceeded` / `non_finite`
+flags are now read by the channel that consumes its answer — an unfinished reference is reported as
+*not compared* rather than as agreement, and a reference that leaves the real numbers where the runtime
+does not is named as a divergence instead of being skipped.
 
 ## Questions that come up
 
