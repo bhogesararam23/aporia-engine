@@ -47,10 +47,11 @@ fn usage() -> &'static str {
      \x20     [--json] for the machine-readable form: every section, whether it could be\n\
      \x20     compared, and the counts — the text form prints only what moved\n\
      \x20 bench <command> [flags]    the measurement harness: list, verify, run, verdict, scan,\n\
-     \x20                            explain (bare `bench` shows its own usage)\n\
+     \x20                            explain, e2 (bare `bench` shows its own usage)\n\
      \x20 help                        show this text\n\
      \x20 version                     which build of aporia this is\n\
-     exit: 0 clean, 1 suspicious regions reported, 2 usage, 3 model not usable,\n\
+     exit: 0 clean (or archives identical), 1 suspicious regions reported, 2 usage,\n\
+     \x20     3 model not usable,\n\
      \x20     4 the program stopped answering (the map above is incomplete),\n\
      \x20     5 archive integrity failure, 6 archive intact but the run did not reproduce,\n\
      \x20     7 the run finished and the archive could not be written,\n\
@@ -169,6 +170,10 @@ fn parse_args(flags: &[String]) -> Result<Args, Exit> {
                         eprintln!("aporia: --budget needs a number, got {value}");
                         return Err(Exit::Usage);
                     };
+                    if n == 0 {
+                        eprintln!("aporia: --budget needs a positive number; 0 evaluates nothing");
+                        return Err(Exit::Usage);
+                    }
                     budget = Some(n);
                 }
                 "--timeout" => {

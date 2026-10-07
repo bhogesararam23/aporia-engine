@@ -149,3 +149,30 @@ fn a_zero_timeout_is_refused_in_one_readable_sentence() {
         "the refusal still carries the run of spaces: {err:?}"
     );
 }
+
+#[test]
+fn a_zero_budget_is_refused_with_usage_status() {
+    let out = aporia()
+        .arg("run")
+        .arg(fixture("clean.ap"))
+        .args(["--budget", "0"])
+        .output()
+        .expect("aporia runs");
+    assert_eq!(out.status.code(), Some(2));
+    let err = text(&out.stderr);
+    assert!(
+        err.contains("--budget needs a positive number"),
+        "the refusal did not explain that budget must be positive: {err}"
+    );
+}
+
+#[test]
+fn usage_lists_e2_in_bench_commands() {
+    let out = aporia().arg("help").output().expect("aporia runs");
+    assert_eq!(out.status.code(), Some(0));
+    let body = text(&out.stdout);
+    assert!(
+        body.contains("explain, e2"),
+        "the usage text does not list e2 among bench commands: {body}"
+    );
+}
