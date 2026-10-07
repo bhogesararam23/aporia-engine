@@ -6,7 +6,7 @@
 //! care about.
 //!
 //! `case` is always empty. The `.apx` finding block has a field for a minimised counterexample, and
-//! minimisation is a separate claim with its own oracle question (decisions 0012 and 0020). A command
+//! minimisation is a separate claim with its own oracle question. A command
 //! that ran a campaign does not get to fill it: `Campaign::stored_findings` asks every caller for a
 //! case per finding and this one answers `None`, so the archive says plainly what the campaign
 //! established and nothing more.

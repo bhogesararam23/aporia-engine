@@ -4,7 +4,7 @@
 //! and that is the only question a counterexample can be verified against today. Findings produced by
 //! the measurement channels answer to none of it: a cell flagged because one output moves twenty-five
 //! times further than usual along an axis violates no rule, so ddmin has nothing to preserve and the
-//! harness reports no smaller description at all. That gap is recorded in decision 0012 and in the
+//! harness reports no smaller description at all. That gap is recorded in the
 //! results README, and it is why four corpus entries never produce a verified minimisation.
 //!
 //! [`RiskScorer`] is the rest of that answer: the campaign's own evidence model, frozen — its fitted
@@ -118,7 +118,7 @@ impl RiskScorer {
     /// The Behavioral channel is *not* in here, because its two producers are statements about a
     /// population rather than about a point: a declared relation is judged over the whole record set
     /// (`aporia_properties::relations` fits a scaling exponent, scans monotonicity, compares a swap
-    /// against a recorded execution), and the inferred-pattern sensor is advisory by decision 0014.
+    /// against a recorded execution), and the inferred-pattern sensor is advisory by design.
     /// Rebuilding either from a candidate's three-point neighbourhood would let a fit rest on one
     /// step — a *louder* claim than the report made, which is the direction that turns a verified
     /// counterexample into one the report would not have flagged. So a finding whose risk comes only

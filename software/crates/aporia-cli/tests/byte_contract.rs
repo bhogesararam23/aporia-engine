@@ -174,7 +174,7 @@ fn an_archive_reassembled_from_gits_own_bytes_opens_and_passes_its_integrity_che
 
 /// Every tracked file has a declared line-ending behaviour, or a checkout may rewrite it.
 ///
-/// This is the rule that would have caught decision 0022's bug by reasoning alone rather than by
+/// This is the rule that would have caught the line-ending bug by reasoning alone rather than by
 /// exporting a worktree: `decisions.jsonl` and `findings/*.apx` were tracked, digested, and had no
 /// `.gitattributes` line, so `core.autocrlf=true` rewrote them on clone and every committed archive
 /// failed its own integrity check.

@@ -311,8 +311,8 @@ impl Campaign {
     /// cannot say what region it came from is not replayable.
     ///
     /// `case` is a closure because that field is the one thing a caller has to decide for itself. A
-    /// minimised counterexample is a separate claim with its own oracle question (decisions 0012 and
-    /// 0020), so a command that merely ran a campaign answers `None`, and a harness that verified a
+    /// minimised counterexample is a separate claim with its own oracle question,
+    /// so a command that merely ran a campaign answers `None`, and a harness that verified a
     /// reduced case passes the description it verified.
     #[must_use]
     pub fn stored_findings(
