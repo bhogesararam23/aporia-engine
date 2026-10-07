@@ -18,8 +18,11 @@ unseparated, so what is left is the evidence and the artefact:
 
 - **H1 — evidence.** Does fusing five heterogeneous signals, calibrated and correlation-discounted
   against the same run, localise regions that no strict subset of them localises at the same budget?
-  This is the only remaining question that can move the claim, it is expressible as an experiment
-  (`aporia bench run --ablate …`), and it has not been run.
+  Measured in **E2 (run across 11 arms, grid 41, 105 sweeps each, all 3,465 outcomes budget-charged
+  and census-verified): partially supported on this corpus.** Removing Physical causes 39
+  localisations to be missed, but Physical alone matches the full instrument on all 59 localised cases,
+  while the other 4 single-channel arms miss all 59. Evidence fusion did not localise something no
+  strict subset could on this corpus.
 - **H2 — artefact.** Does an atlas whose every region carries re-executable provenance change what a
   reader can do with a result? Parts of this are tested in this repository; whether it counts as
   research rather than engineering is open.

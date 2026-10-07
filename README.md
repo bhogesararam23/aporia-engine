@@ -30,12 +30,13 @@ questions replace it:
 > downstream reader can *do* with a result — verify it, compare two runs, dispute a label — compared
 > with a score or a region list without provenance?
 
-H1 is answerable with the ablation the harness now supports (`aporia bench run --ablate …`, which drops
+H1 is answerable with the ablation the harness supports (`aporia bench run --ablate …`, which drops
 a channel's *readings* while charging its evaluations, so the arms cost the same). H2 is a claim about
 this repository's own behaviour, checked by the replay, report and compare tests — and the honest risk
 is that H2 is engineering rather than research.
 
-Neither question is answered yet, and the measured answer to the old one is now **a negative**, in
+H1 has now been measured in E2 across 11 ablation arms and is **partially supported on this corpus**;
+the measured answer to the older search-advantage question is **a negative** (E1), both detailed in
 [`software/benchmarks/results/README.md`](software/benchmarks/results/README.md). In short: the
 three-arm ladder localises `electromagnetics/rlc_resonance`, a band 0.088% of the domain, where neither
 random nor stratified localises anything at any budget, and loses on two entries where plain coverage is
@@ -97,7 +98,7 @@ configure. From `software/`:
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 606 tests
+cargo test --release                  # 622 tests across 13 crates
 cargo fmt --all --check && cargo clippy --workspace --all-targets
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains
@@ -283,13 +284,14 @@ come from a program the harness has no way to run.
 Not done: hand-written x86-64 kernels, which are only admissible with a measured
 advantage over compiler output and are not yet written; a CUDA backend, which cannot be compiled or
 measured on the machine this was built on because it has no NVIDIA device — stated rather than hidden,
-and the design is deferred with its trigger recorded; Julia reference implementations; and the evidence
-ablation that H1 actually asks for, whose arms the harness has supported since `9835e17` and which has
-still not been run. The search comparison against an adaptive-learning baseline that used to be on this
-list has been run: `levelset` is implemented, measured across the corpus, and the result is that the
-multi-evidence search is not separated from it on this corpus (E1, above). The prior-work pass has been
-done and is written up in [`documentation/prior-work.md`](documentation/prior-work.md); it narrowed the
-question rather than answering it.
+and the design is deferred with its trigger recorded; and Julia reference implementations.
+The evidence ablation that H1 asks for has now been run (E2, across 11 arms, showing Physical is
+essential while fusion does not improve on Physical alone on this corpus). The search comparison
+against an adaptive-learning baseline has also been run: `levelset` is implemented, measured across the
+corpus, and the result is that the multi-evidence search is not separated from it on this corpus (E1,
+above). The prior-work pass has been done and is written up in
+[`documentation/prior-work.md`](documentation/prior-work.md); it narrowed the question rather than
+answering it.
 
 Everything above is described as it is: the repository keeps its failed experiments and its corrected
 documentation in the open rather than presenting only what worked.

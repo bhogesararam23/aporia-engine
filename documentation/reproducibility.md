@@ -174,14 +174,16 @@ colliding with the run it corrected. Documents written before the identity field
 published ones — are still nameable, because `results_identity` recomputes it from the schema, plan
 and entries inside the file.
 
-## The four statuses a reader should learn
+## Key exit statuses for reproduction and comparison
 
 | status | meaning |
 |---|---|
+| `0` | clean run (or two compared archives are byte- and field-identical) |
 | `5` | integrity: an archive byte is not the byte that was written |
 | `6` | reproduction: the archive is intact and re-execution disagrees |
 | `7` | the run finished and the archive could not be written |
-| `8` / `9` | the two archives differ / agree on everything that could be compared |
+| `8` | the two compared archives differ |
+| `9` | the two compared archives agree on everything that could be compared |
 
 `0`–`4` are `aporia run`'s own: clean, suspicious, usage, unusable model, program stopped answering.
 The full list is `aporia help`.

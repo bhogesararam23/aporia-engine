@@ -19,7 +19,7 @@ earlier claims in that same file.
 
 ```
 software/crates/          13 Rust crates, one concern each (the list is in the root README)
-software/benchmarks/      the corpus (22 entries, 21 swept), the 15 committed measurements,
+software/benchmarks/      the corpus (22 entries, 21 swept), the 26 committed measurements,
                           the archives a ladder run wrote (git-ignored, regenerable)
 software/examples/        external programs in other languages, with their models
 software/scripts/         shell helpers — convenience and one lint substitution, never semantics
@@ -41,7 +41,7 @@ git ls-files | grep -c "^docs/"
 ```sh
 cd software
 cargo build --release
-cargo test --release                   # the whole suite; 606 tests across 13 crates
+cargo test --release                   # the whole suite; 622 tests across 13 crates
 cargo fmt --all --check
 cargo clippy --workspace --all-targets
 ```
