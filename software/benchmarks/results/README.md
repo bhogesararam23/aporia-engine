@@ -4,8 +4,8 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Fifteen files are committed. Each one is the record of what a change did; the last is the current
-ladder, and the one before it is the pilot that said the current one could be run.
+Twenty-six files are committed. The E1 ladder below is retained as the strategy comparison; the
+latest measurement is E2, the evidence ablation that tests H1.
 
 | file | what it is |
 |---|---|
@@ -23,7 +23,18 @@ ladder, and the one before it is the pilot that said the current one could be ru
 | `results-1791158752.json` | the campaign rewired onto an `Executor` seam. Every measured field of all 945 campaigns is identical to the row above, `wall_ms` except — kept because "this refactor changed no measurement" is a claim that needs its own run rather than an assertion |
 | `results-bb424c168dd4.json` | the last three-arm ladder, and the source of every figure in the sections below that speak of "the current run": the oracle now reports its own executions, so a counterexample row carries its call count *and* its model-execution count. Identical to `results-1791158752.json` in every field of every sweep and every outcome except `wall_ms`, and identical in all 341 counterexample rows except their cost columns (see "What a minimisation actually costs") |
 | `results-8a74233bf0c6.json` | the E1 pilot: four entries, four arms, budgets 60-500, two seeds, 128 campaigns. Run to find out whether a level-set competitor can be measured at all, and it found one defect no test could have (see "E1" below) |
-| `results-bc6d5c38dd15.json` | **current.** E1 as specified in advance: the full 22-entry corpus, budgets 40-1280, seeds 1-5, four arms including `levelset`, 420 sweeps, 84 archives all replayed byte-exactly (see "E1: a level-set competitor, and what it did not separate") |
+| `results-bc6d5c38dd15.json` | E1 as specified in advance: the full 22-entry corpus, budgets 40-1280, seeds 1-5, four arms including `levelset`, 420 sweeps, 84 archives all replayed byte-exactly (see "E1: a level-set competitor, and what it did not separate") |
+| `results-a5143462383c.json` | E2 full instrument: grid 41, 21 swept entries, budgets 320/640/1280, seeds 1-5; 105 sweeps and 21 archived cases replayed (see "E2: what the five evidence channels bought") |
+| `results-2bdd3de41060.json` | E2 −Behavioral, identity `2bdd3de41060` |
+| `results-b5844cc16517.json` | E2 −Physical, identity `b5844cc16517` |
+| `results-01f13a1fca11.json` | E2 −Numerical, identity `01f13a1fca11` |
+| `results-5dcf0dd1f132.json` | E2 −Differential, identity `5dcf0dd1f132` |
+| `results-2100f4d867ec.json` | E2 −Sensitivity, identity `2100f4d867ec` |
+| `results-7df43489378f.json` | E2 only-Behavioral, identity `7df43489378f` |
+| `results-e4c016d7b976.json` | E2 only-Physical, identity `e4c016d7b976` |
+| `results-dbd76c01ba88.json` | E2 only-Numerical, identity `dbd76c01ba88` |
+| `results-7c174171f2c7.json` | E2 only-Differential, identity `7c174171f2c7` |
+| `results-19259edbe3f5.json` | E2 only-Sensitivity, identity `19259edbe3f5` |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
 `differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
@@ -401,6 +412,48 @@ three rows were correct.
 `levelset` stays in the default plan. Not because it performed well — it lost to the cheapest arm in
 the places that matter — but because removing a baseline for that reason is exactly what this file's
 corrections exist to forbid.
+
+## E2: what the five evidence channels bought
+
+E2 tests H1 against ten pre-registered strict subsets: each channel removed once and each channel
+kept alone. It does not test all 30 possible strict subsets. The contract fixed the 21 swept corpus
+entries, Adaptive strategy, budgets 320/640/1280, seeds 1–5, grid 41 and the `differential_every = 11`
+rate before the full run. The rate differs from E1 because E1 did not pay for reference executions;
+E2 is comparable within its own arms, not against E1's numbers.
+
+The eleven files listed above carry distinct identities. Each has 105 entry/seed sweeps and 315
+outcomes; every arm charged exactly 320, 640 and 1280 evaluations on every sweep. Each arm recorded
+21 archive replays, all reproduced byte-for-byte (per archive, the stored observation records all
+matched). The `aporia bench e2 <full.json> <arm.json>...` report pairs plans that differ only in the
+ablation mask and refuses mismatched plans or costs.
+
+**The registered deciding metric classifies H1 as partially supported on this corpus.** Removing
+Physical caused 39 entry/seed localisations reached by the full instrument to be missed within the
+budget ladder; the ablation did not create a localisation the full instrument missed. The other four
+single-channel removals did not change localisation. No entry/seed required the full five-channel
+instrument: the Physical-only arm matched the full arm's localisation outcomes on all 59 localised
+entry/seed cases, while the other four single-channel arms missed those cases. So this is evidence
+that Physical matters, not evidence that fusion localises something no strict subset can. This is a
+corpus-bounded result under the registered arms, settings and cost model.
+
+| comparison against full | full-only localisations | arm-only localisations | boundary tolerance lost / gained |
+|---|---:|---:|---:|
+| −Behavioral | 0 | 0 | 0 / 0 |
+| −Physical | 39 | 0 | 16 / 6 |
+| −Numerical | 0 | 0 | 0 / 0 |
+| −Differential | 0 | 0 | 0 / 0 |
+| −Sensitivity | 0 | 0 | 0 / 0 |
+| only-Behavioral | 59 | 0 | 0 / 0 |
+| only-Physical | 0 | 0 | 0 / 0 |
+| only-Numerical | 59 | 0 | 0 / 0 |
+| only-Differential | 59 | 0 | 0 / 0 |
+| only-Sensitivity | 59 | 0 | 0 / 0 |
+
+Boundary counts are paired boundary checks, not entry counts. “Lost / gained” means the ablation
+lost or gained a within-tolerance boundary relative to full. Detection, census, control-volume and
+vacuity details remain in the machine-readable results and the CLI report; in particular, gains in
+trusted volume on controls are reported for inspection, not automatically treated as defects or
+successes. The control ledger shows those changes alongside suspicious and unknown volume.
 
 ## The controls, and a correction to this file
 
