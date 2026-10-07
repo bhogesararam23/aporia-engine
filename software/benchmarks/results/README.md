@@ -31,10 +31,10 @@ latest measurement is E2, the evidence ablation that tests H1.
 | `results-5dcf0dd1f132.json` | E2 −Differential, identity `5dcf0dd1f132` |
 | `results-2100f4d867ec.json` | E2 −Sensitivity, identity `2100f4d867ec` |
 | `results-7df43489378f.json` | E2 only-Behavioral, identity `7df43489378f` |
-| `results-e4c016d7b976.json` | E2 only-Physical, identity `e4c016d7b976` |
+| `results-19259edbe3f5.json` | E2 only-Physical, identity `19259edbe3f5` |
 | `results-dbd76c01ba88.json` | E2 only-Numerical, identity `dbd76c01ba88` |
-| `results-7c174171f2c7.json` | E2 only-Differential, identity `7c174171f2c7` |
-| `results-19259edbe3f5.json` | E2 only-Sensitivity, identity `19259edbe3f5` |
+| `results-e4c016d7b976.json` | E2 only-Differential, identity `e4c016d7b976` |
+| `results-7c174171f2c7.json` | E2 only-Sensitivity, identity `7c174171f2c7` |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
 `differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
@@ -596,7 +596,7 @@ Three distinct limits, and they are not the same problem.
   run**, with all 19 entries that produced findings represented. The count of attempts fell when
   findings were merged, because there are fewer claims to minimise, and the verified share held at
   84.2% (88.8% before merging) until the risk-threshold oracle landed. The entries that never produced
-  one failed for the reason recorded in decision 0012: the counterexample oracle asked whether a
+  one failed because the counterexample oracle asked whether a
   *declared rule* fails, and a finding produced only by the measurement channels violates no rule, so
   ddmin had nothing to preserve. That is now a second oracle rather than an open hole — see "The
   risk-threshold oracle" below, including what its 100% does and does not prove.
@@ -681,9 +681,9 @@ is pinned by test rather than changed by preference.
 `aporia-bench run` regenerates the JSON, and every archive it writes replays. The corpus verifies
 before any measurement runs — `run` refuses to produce numbers when a declared region does not hold
 against direct evaluation of the model's own rules — so a change in these columns means the method
-changed, not that a ground truth drifted. The reasoning behind the changes between the runs is in
-`docs/decisions/0014`, `0015` and `0016` (internal), and the code for each claim is in the commit
-named against its file in the table at the top of this one.
+changed, not that a ground truth drifted. The design rationale for each change is documented alongside
+the commits, and the code for each claim is in the commit named against its file in the table at the top
+of this one.
 
 The files above are named for the second they finished, which made a measurement's identity a fact about
 the clock: re-running one plan produced a second artefact that could not be recognised as the same
