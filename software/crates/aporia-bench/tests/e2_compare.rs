@@ -185,6 +185,7 @@ fn entry(name: &str, control: bool, boundaries: usize) -> corpus::Entry {
         source: String::new(),
         model: None,
         diagnostics: Vec::new(),
+        truth_digest: format!("{name}-claim"),
         truth: aporia_bench::truth::Truth {
             method: "analytic".to_string(),
             fault: "declared".to_string(),

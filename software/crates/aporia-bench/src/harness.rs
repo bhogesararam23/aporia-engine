@@ -707,7 +707,9 @@ pub fn archive_and_replay(
 pub fn run_corpus(entries: &[Entry], plan: &Plan) -> Vec<Sweep> {
     let mut out = Vec::new();
     for entry in entries {
-        if entry.truth.static_expected || entry.model.is_none() {
+        if crate::corpus::unmeasurable(entry).is_some() {
+            // The same predicate `results_json` reports from, so an entry skipped here is an entry the
+            // document says something about.
             continue;
         }
         for &seed in &plan.seeds {
@@ -841,6 +843,27 @@ pub fn results_json(
             "sweeps",
             Json::Arr(sweeps.iter().map(Sweep::to_json).collect()),
         ),
+        // Which entries the plan covered and could not be measured, with the reason the loader gave.
+        // A silently skipped entry is a number that went missing from a comparison without anyone
+        // noticing — the reason the corpus loader already refuses a directory the registry names and
+        // the filesystem lacks. E13's metric is that a refusal is *reported*, so the refusal belongs
+        // in the document rather than in nobody's.
+        (
+            "refused",
+            Json::Arr(
+                entries
+                    .iter()
+                    .filter_map(|e| {
+                        crate::corpus::unmeasurable(e).map(|reason| {
+                            Json::object(vec![
+                                ("entry", Json::text(e.id())),
+                                ("reason", Json::text(reason)),
+                            ])
+                        })
+                    })
+                    .collect(),
+            ),
+        ),
         (
             "comparison",
             Json::Arr(crate::metrics::compare(
@@ -901,8 +924,10 @@ fn plan_json(plan: &Plan) -> Json {
     ])
 }
 
-/// Which corpus entries were covered, and what each one claimed. The claim travels with the name
-/// because measuring against an edited `truth.json` is a different measurement.
+/// Which corpus entries were covered, and what each one claimed. The claim travels with the name —
+/// and with the digest of the file it was read from — because measuring against an edited
+/// `truth.json` is a different measurement. Before the digest, editing a region's numbers left the
+/// identity untouched, so the corrected run could overwrite the published one's name.
 fn entries_json(entries: &[Entry]) -> Json {
     Json::Arr(
         entries
@@ -917,6 +942,9 @@ fn entries_json(entries: &[Entry]) -> Json {
                         "declared_regions",
                         Json::count(e.truth.regions.len() as u64),
                     ),
+                    // The claim itself, not just its shape. An edit to a region's numbers changes
+                    // this, and therefore changes the measurement's name.
+                    ("truth_digest", Json::text(e.truth_digest.clone())),
                 ])
             })
             .collect(),

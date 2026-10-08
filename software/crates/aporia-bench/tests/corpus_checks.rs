@@ -188,3 +188,97 @@ fn the_reference_path_finishes_wherever_the_corpus_measures_it() {
          being boundary entries"
     );
 }
+
+#[test]
+fn an_entry_the_plan_covers_but_cannot_measure_is_named_with_its_reason() {
+    // E13's pre-registered metric in 0029 is "refusal at the IR gate, not a label": the experiment is
+    // that the refusal is *reported*. `run_corpus` had been skipping unmeasurable entries in silence
+    // while its own doc comment said they were reported, so a reader of a results file could not tell
+    // an entry the plan refused from an entry the plan never had.
+    use aporia_bench::harness::{Plan, results_json};
+    use aporia_store::{Environment, Json};
+    let entries = corpus::load(&corpus_root()).expect("the corpus loads");
+    let mut environment = Environment::current();
+    environment.notes.clear();
+    let doc = results_json(&[], &entries, &Plan::default(), &environment, None);
+    let refused = doc
+        .get("refused")
+        .and_then(Json::as_array)
+        .expect("a results document says which entries it refused");
+    let named: Vec<&str> = refused
+        .iter()
+        .map(|r| r.get("entry").and_then(Json::as_str).unwrap_or("?"))
+        .collect();
+    let expected: Vec<String> = entries
+        .iter()
+        .filter(|e| corpus::unmeasurable(e).is_some())
+        .map(corpus::Entry::id)
+        .collect();
+    assert_eq!(
+        named,
+        expected.iter().map(String::as_str).collect::<Vec<_>>(),
+        "the document names exactly the entries the runner skips, in corpus order"
+    );
+    assert!(
+        named.contains(&"mutants/unit_mistake"),
+        "the corpus's static entry is the one a sweep can never measure: {named:?}"
+    );
+    for record in refused {
+        let id = record.get("entry").and_then(Json::as_str).unwrap_or("?");
+        let reason = record
+            .get("reason")
+            .and_then(Json::as_str)
+            .unwrap_or("<missing>");
+        assert!(
+            !reason.is_empty(),
+            "{id} was refused without a reason being recorded"
+        );
+        if id == "mutants/unit_mistake" {
+            assert!(
+                reason.contains("static"),
+                "a refusal of a declared-static entry must say so, got {reason:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn skipping_an_entry_and_reporting_it_are_the_same_decision() {
+    // One predicate for both, or they drift: a sweep list and a refusal list that disagree about the
+    // same entry is a document that describes an experiment nobody ran.
+    use aporia_bench::harness::Plan;
+    let all = corpus::load(&corpus_root()).expect("the corpus loads");
+    let chosen: Vec<_> = all
+        .iter()
+        .filter(|e| {
+            [
+                "mutants/unit_mistake",
+                "analytic/sqrt_domain",
+                "synthetic/wide_1d",
+            ]
+            .contains(&e.id().as_str())
+        })
+        .cloned()
+        .collect();
+    assert_eq!(chosen.len(), 3, "the mixed selection this test needs");
+    let plan = Plan {
+        budgets: vec![40],
+        strategies: vec![aporia_search::Strategy::Adaptive],
+        seeds: vec![1],
+        ..Plan::default()
+    };
+    let swept: Vec<String> = aporia_bench::harness::run_corpus(&chosen, &plan)
+        .iter()
+        .map(|s| s.entry.clone())
+        .collect();
+    let refused: Vec<String> = chosen
+        .iter()
+        .filter(|e| corpus::unmeasurable(e).is_some())
+        .map(corpus::Entry::id)
+        .collect();
+    assert_eq!(swept.len(), 2, "{swept:?} / {refused:?}");
+    assert_eq!(refused, vec!["mutants/unit_mistake".to_string()]);
+    for id in &swept {
+        assert!(!refused.contains(id), "{id} was both swept and refused");
+    }
+}

@@ -53,6 +53,12 @@ fn truth(fault: &str, regions: usize) -> Truth {
 
 /// An entry with `name`, carrying a claim about `regions` declared regions.
 fn entry(family: &str, name: &str, fault: &str, regions: usize) -> Entry {
+    entry_claimed(family, name, fault, regions, "x in [0, 1]")
+}
+
+/// The same entry, with the numbers it declares spelled out — which is the part an editor changes
+/// and the identity used not to notice.
+fn entry_claimed(family: &str, name: &str, fault: &str, regions: usize, claim: &str) -> Entry {
     Entry {
         family: family.to_string(),
         name: name.to_string(),
@@ -60,6 +66,12 @@ fn entry(family: &str, name: &str, fault: &str, regions: usize) -> Entry {
         source: SOURCE.to_string(),
         model: Some(model()),
         diagnostics: Vec::new(),
+        // What the loader would have read off the file: the claim, digested. Two entries that claim
+        // different things must not share a digest, or the identity would not notice an edit.
+        truth_digest: aporia_store::digest::sha256_hex(
+            format!("{fault}:{regions}:{claim}").as_bytes(),
+        )[..16]
+            .to_string(),
         truth: truth(fault, regions),
     }
 }
@@ -278,6 +290,35 @@ fn an_edited_ground_truth_is_a_different_measurement() {
         named(&document(&p, &before)),
         named(&document(&p, &after)),
         "the fault text and the region count both travel in the identity"
+    );
+}
+
+#[test]
+fn editing_a_regions_numbers_renames_the_measurement() {
+    // The doc comment on `entries_json` already claimed that "measuring against an edited
+    // `truth.json` is a different measurement", and the digest did not cover the edit: the entry
+    // section carried the name, the fault, the method, the control flag and the *count* of regions.
+    // Moving a declared bound left every one of those unchanged, so a corrected run could be written
+    // under a published run's name. The claim's bytes are in the identity now.
+    let before = vec![entry_claimed(
+        "analytic",
+        "sqrt_domain",
+        "sqrt of a negative input",
+        1,
+        "x in [-10, -0.000000001]",
+    )];
+    let after = vec![entry_claimed(
+        "analytic",
+        "sqrt_domain",
+        "sqrt of a negative input",
+        1,
+        "x in [-10, 0]",
+    )];
+    let p = plan(&[40], &["adaptive"], &[1]);
+    let (a, b) = (named(&document(&p, &before)), named(&document(&p, &after)));
+    assert_ne!(
+        a, b,
+        "an entry that claims a different region is a different measurement, whatever it is called"
     );
 }
 

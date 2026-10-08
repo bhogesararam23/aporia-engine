@@ -26,6 +26,16 @@ pub struct Entry {
     /// Every diagnostic the frontend produced, at any severity, rendered with its line.
     pub diagnostics: Vec<String>,
     pub truth: Truth,
+    /// The first 16 hex digits of the SHA-256 of this entry's `truth.json` **bytes**, taken as they
+    /// were read. It travels into the measurement identity so that editing a declared region
+    /// produces a different measurement rather than a second file with the first file's name.
+    ///
+    /// It is the bytes rather than a canonical re-serialisation of the parsed claim, deliberately:
+    /// a canonical form would have to enumerate every field it knows, and a field it forgets is an
+    /// edit that does not change the identity — a silent hole in exactly the thing this is for. The
+    /// cost is that reformatting a `truth.json` without changing its meaning renames the
+    /// measurement, which is the honest direction to fail.
+    pub truth_digest: String,
 }
 
 impl Entry {
@@ -135,6 +145,7 @@ fn load_entry(family: &str, name: &str, dir: &Path) -> Result<Entry, String> {
         model,
         diagnostics: reported,
         truth,
+        truth_digest: aporia_store::digest::sha256_hex(truth_text.as_bytes())[..16].to_string(),
     })
 }
 
@@ -176,7 +187,22 @@ pub fn verify(entries: &[Entry], per_axis: usize) -> Vec<Problem> {
 /// would be a picture of the harness's own absent `--program`. Refusing at this boundary is the same
 /// decision `aporia run` makes at its own; `aporia_search::run` does not check, because a driver is not
 /// an input boundary and has no way to decline a budget it was handed.
-fn unmeasurable(e: &Entry) -> Option<String> {
+///
+/// This is the one predicate both for skipping an entry in a sweep and for recording in the results
+/// document that it was skipped. E13's pre-registered metric is *that a refusal is reported rather
+/// than that a label appears*, and a skip that left no trace in the file could not tell a reader
+/// which entries the experiment was asked to measure and refused.
+pub fn unmeasurable(e: &Entry) -> Option<String> {
+    // Checked first, and not as part of the `model.is_none()` branch below: the unit checker reports
+    // a scale mismatch at *warning* severity, so a declared-static entry still yields a model. It is
+    // a hard refusal for `verify`, which wants the diagnostic, and a refusal for a sweep, which has
+    // no search to run against an entry that should never be executed.
+    if e.truth.static_expected {
+        return Some(format!(
+            "declared static, and the frontend rejects it as expected: {}",
+            e.diagnostics.first().cloned().unwrap_or_default()
+        ));
+    }
     let model = e.model.as_ref();
     let Some(model) = model else {
         return Some(format!(
