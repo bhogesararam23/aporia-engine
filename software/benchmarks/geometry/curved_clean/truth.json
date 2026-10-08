@@ -1,0 +1,12 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "none",
+  "control": true,
+  "curved": true,
+  "method": "analytic",
+  "derivation": "Curved arithmetic with nowhere to fail: the largest radius_sq in the declared square is at a corner, (3 - 1)^2 + (3 - 1)^2 = 8, and the limit is 20, so every point in the domain satisfies the rule and the true failing set is empty. This is the control for the shape experiment: the other four entries in the family declare curved regions, and if suspicion appears here the atlas is being misled by curved geometry itself rather than by a region it failed to find. No `where` is declared because there is no set to carve - a control with an empty predicate region would be a region that cannot be checked.",
+  "regions": [],
+  "boundaries": [],
+  "matched_to": "aerospace/projectile_clean",
+  "expect": "nothing suspicious anywhere, on a curved-shaped model"
+}

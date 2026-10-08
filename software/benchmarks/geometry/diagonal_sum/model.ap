@@ -1,0 +1,6 @@
+model diagonal_sum "two loads share one budget, and the failure is their weighted sum" {
+  input p in [0, 4]
+  input q in [0, 4]
+  let total = 2 * p + q
+  require total <= 8
+}

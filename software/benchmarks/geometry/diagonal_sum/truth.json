@@ -1,0 +1,32 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "boundary_condition",
+  "curved": true,
+  "method": "analytic",
+  "derivation": "The rule fails where 2p + q > 8: a straight line that is not parallel to either axis, so no axis-aligned box describes the failing set and the atlas's own partition direction matches neither it nor the region. The area is the triangle with vertices (2,4), (4,4) and (4,0): 1/2 * 2 * 4 = 4, over a 4x4 domain, so the region is exactly a quarter of the parameter space - the same share as synthetic/quarter_2d, which is the axis-aligned rung this entry is difficulty-matched to. The point of the pair is that the share is identical and the shape is not. At the domain centre q = 2 the crossing sits at p = 3, which is the single-axis boundary declared below; a diagonal has one crossing per scan line, so the tolerance is the width of one atlas leaf at the top budget rather than a claim that the boundary is sharp in p.",
+  "regions": [
+    {
+      "reason": "the shared load budget is overrun",
+      "axes": {
+        "p": [
+          0,
+          4
+        ],
+        "q": [
+          0,
+          4
+        ]
+      },
+      "where": "2 * p + q > 8"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "p",
+      "at": 3,
+      "tolerance": 0.25
+    }
+  ],
+  "matched_to": "synthetic/quarter_2d",
+  "expect": "a diagonal band whose p-crossing drifts with q"
+}

@@ -1,0 +1,7 @@
+model narrow_oblique "a normaliser that divides by the difference of two near-equal loads" {
+  input p in [0, 2]
+  input q in [0, 2]
+  let gap = p - q - 0.5
+  let amplified = 1 / (gap * gap)
+  require amplified < 10000
+}

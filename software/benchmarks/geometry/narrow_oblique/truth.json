@@ -1,0 +1,33 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "cancellation",
+  "curved": true,
+  "narrow": true,
+  "method": "analytic",
+  "derivation": "Two nearly equal loads are subtracted and the remainder divides 1, so the answer blows up on the line p - q = 0.5. The rule fails where (p - q - 0.5)^2 <= 1e-4, i.e. |p - q - 0.5| <= 0.01: a strip of perpendicular width 0.01*sqrt(2) = 0.01414 running obliquely across the square. Its area is that width times the length of the chord from (0.5, 0) to (2, 1.5), sqrt(1.5^2 + 1.5^2) = 2.1213, giving 0.030 over a 4-square: 0.75% of the domain, within a factor of two of synthetic/one_pct_2d. At the domain centre q = 1 the crossing pair is p = 1.49 and p = 1.51, so 1.5 is declared with the half-width of the strip as its tolerance - the honest question is whether an axis-aligned search resolves an oblique sliver at all, not whether it can place one edge to six digits. Exactly on the line the divisor is zero and the reading is infinite, which is the divergence the Physical channel reports; the strip's interior is finite but huge, so this entry also exercises what a band of overflow-adjacent readings looks like to the other channels. The region's true area is 0.030, so 0.75% of the domain; the share the report prints is 2.34%, because the 32-per-axis measure lattice has a step of 0.0625 and the strip is only 0.02 wide, so the sample cannot resolve it. That gap is not a defect to tune away: it says the volume of a thin oblique band is a lattice artifact for this partition, while its membership stays exact, and the frozen protocol excludes a localisation decided by such a lattice from the primary comparison rather than letting it count as a sameness or a difference.",
+  "regions": [
+    {
+      "reason": "the cancelled difference is small enough to amplify past the limit",
+      "axes": {
+        "p": [
+          0,
+          2
+        ],
+        "q": [
+          0,
+          2
+        ]
+      },
+      "where": "(p - q - 0.5) * (p - q - 0.5) <= 0.0001"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "p",
+      "at": 1.5,
+      "tolerance": 0.01
+    }
+  ],
+  "matched_to": "synthetic/one_pct_2d",
+  "expect": "a narrow oblique strip, the hardest shape for an axis-aligned atlas"
+}

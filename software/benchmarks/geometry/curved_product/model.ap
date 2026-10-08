@@ -1,0 +1,6 @@
+model curved_product "a feedback loop whose gain is the product of two settings" {
+  input p in [0.5, 2.5]
+  input q in [0.5, 2.5]
+  let loop_gain = p * q
+  require loop_gain <= 5.5
+}

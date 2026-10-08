@@ -1,0 +1,8 @@
+model curved_clean "the same circular requirement, with the reach circle larger than the workspace" {
+  input px in [-1, 3]
+  input py in [-1, 3]
+  let dx = px - 1
+  let dy = py - 1
+  let radius_sq = dx * dx + dy * dy
+  require radius_sq <= 20
+}

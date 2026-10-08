@@ -12,37 +12,70 @@
     {
       "name": "analytic",
       "purpose": "ground truth is a closed-form property of the real numbers or of IEEE-754, so the true region and its boundary are exact",
-      "entries": ["sqrt_domain", "log_positive", "reciprocal_bound", "exp_overflow"]
+      "entries": [
+        "sqrt_domain",
+        "log_positive",
+        "reciprocal_bound",
+        "exp_overflow"
+      ]
     },
     {
       "name": "ode",
       "purpose": "step size and rate produce stability boundaries, including a curved one an axis-aligned atlas can only stair-step",
-      "entries": ["euler_decay", "euler_decay_2d"]
+      "entries": [
+        "euler_decay",
+        "euler_decay_2d"
+      ]
     },
     {
       "name": "control",
       "purpose": "the same equations in two update orders, one with a genuine trusted region and one without",
-      "entries": ["naive_euler_spring", "symplectic_spring"]
+      "entries": [
+        "naive_euler_spring",
+        "symplectic_spring"
+      ]
     },
     {
       "name": "linear_algebra",
       "purpose": "catastrophic cancellation over a nine-decade parameter range",
-      "entries": ["quadratic_small_root"]
+      "entries": [
+        "quadratic_small_root"
+      ]
     },
     {
       "name": "aerospace",
       "purpose": "a clean model used as a false-positive control, and two single-line mutants of it",
-      "entries": ["projectile_clean", "projectile_sign_mutant", "projectile_zero_gravity"]
+      "entries": [
+        "projectile_clean",
+        "projectile_sign_mutant",
+        "projectile_zero_gravity"
+      ]
     },
     {
       "name": "electromagnetics",
       "purpose": "a narrow interior band at a resonance, which is the shape boundary discovery is for",
-      "entries": ["rlc_resonance", "coupled_coils"]
+      "entries": [
+        "rlc_resonance",
+        "coupled_coils"
+      ]
     },
     {
       "name": "mutants",
       "purpose": "fault classes from the specification that APORIA should catch without executing anything",
-      "entries": ["unit_mistake"]
+      "entries": [
+        "unit_mistake"
+      ]
+    },
+    {
+      "name": "geometry",
+      "purpose": "E1.1: regions whose truth is curved, diagonal or oblique, so a corpus no longer consists of boxes drawn along the axes the atlas partitions on; each declares an exact `where` predicate under aporia.truth/2",
+      "entries": [
+        "diagonal_sum",
+        "curved_product",
+        "narrow_oblique",
+        "curved_arc",
+        "curved_clean"
+      ]
     },
     {
       "name": "synthetic",
