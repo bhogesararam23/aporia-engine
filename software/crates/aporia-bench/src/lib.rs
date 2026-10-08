@@ -20,6 +20,7 @@ pub mod corpus;
 pub mod e2;
 pub mod harness;
 pub mod metrics;
+pub mod predicate;
 pub mod risk;
 pub mod truth;
 
