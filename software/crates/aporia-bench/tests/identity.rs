@@ -30,6 +30,7 @@ fn model() -> Model {
 /// with two copies of the same region.
 fn declared(i: usize) -> Declared {
     Declared {
+        predicate: None,
         reason: format!("x below {i}"),
         axes: vec![("x".to_string(), [-10.0, -1.0 - i as f64])],
     }
@@ -37,6 +38,9 @@ fn declared(i: usize) -> Declared {
 
 fn truth(fault: &str, regions: usize) -> Truth {
     Truth {
+        schema: "aporia.truth/1".to_string(),
+        matched_to: None,
+        choice_claims: Vec::new(),
         method: "static".to_string(),
         fault: fault.to_string(),
         derivation: String::new(),

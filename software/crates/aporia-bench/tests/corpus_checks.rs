@@ -124,6 +124,7 @@ fn a_declared_external_entry_is_refused_before_any_budget_is_spent() {
         .model,
     );
     e.truth.regions = vec![aporia_bench::truth::Declared {
+        predicate: None,
         reason: "the program goes negative".to_string(),
         axes: vec![("load".to_string(), [60.0, 100.0])],
     }];

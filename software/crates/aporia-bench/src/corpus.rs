@@ -264,38 +264,23 @@ fn verify_entry(e: &Entry, per_axis: usize) -> Vec<Problem> {
         return out;
     }
     out.extend(undeclared_axes(e, model));
-    let mut inside_total = 0u64;
-    let mut inside_ok = 0u64;
-    let mut outside_total = 0u64;
-    let mut outside_ok = 0u64;
-    // A degenerate box has zero width, so a grid can never land inside it: those regions
-    // contribute their exact point to the same tally.
-    let (degenerate_total, degenerate_ok, degenerate_bad) = check_degenerate_boxes(model, e);
-    inside_total += degenerate_total;
-    inside_ok += degenerate_ok;
-    let mut first_bad = degenerate_bad;
-    for x in grid(model, per_axis) {
-        let inside = e.truth.contains(model, &x);
-        if inside {
-            inside_total += 1;
-            if violates(model, &x) {
-                inside_ok += 1;
-            } else if first_bad.is_none() {
-                first_bad = Some(format!(
-                    "declared region contains {x:?}, which does not violate"
-                ));
-            }
-        } else if e.truth.margin(model, &x) > 0.02 {
-            outside_total += 1;
-            if !violates(model, &x) {
-                outside_ok += 1;
-            } else if first_bad.is_none() {
-                first_bad = Some(format!(
-                    "{x:?} is outside every declared region by a margin and still violates"
-                ));
-            }
-        }
+    out.extend(regions_inside_the_domain(e, model));
+    if let Some(problem) = predicate_answerable(e, model, per_axis) {
+        out.push(problem);
+        return out;
     }
+    // Two directions of the same question — is every declared point really failing, and is every
+    // failing point really declared — answered from one walk of the grid, so the two cannot
+    // disagree about which points they looked at.
+    let tally = region_tally(e, model, per_axis);
+    let Tally {
+        inside_total,
+        inside_ok,
+        outside_total,
+        outside_ok,
+        boundary_layer,
+        first_bad,
+    } = tally;
     if let Some(detail) = first_bad {
         out.push(Problem {
             entry: e.id(),
@@ -311,8 +296,10 @@ fn verify_entry(e: &Entry, per_axis: usize) -> Vec<Problem> {
             ),
         });
     }
-    // The outside check is reported per entry but tolerated for a curved region, whose declared
-    // boxes are an inner approximation on purpose.
+    // The outside check is reported per entry but tolerated for a curved entry, whose declared boxes
+    // are an inner approximation on purpose. The tolerance is the same 90% either way — the `curved`
+    // flag has never changed it, only the wording of this refusal, and the comment that claimed it
+    // did is corrected here rather than worked around.
     if outside_total > 0 && outside_ok * 100 < outside_total * 90 {
         out.push(Problem {
             entry: e.id(),
@@ -328,6 +315,235 @@ fn verify_entry(e: &Entry, per_axis: usize) -> Vec<Problem> {
             ),
         });
     }
+    if boundary_layer > 0 {
+        println!(
+            "  {}:{} boundary-layer points violate next to the declared region (within one grid \
+             step): {}",
+            e.id(),
+            if e.truth.curved { "curved" } else { "region" },
+            boundary_layer
+        );
+    }
+    out
+}
+
+/// Every point of the verification lattice, with whether it is inside a declared region and whether
+/// the model's own rules fail there. Sampled once and read twice — by the region tally and by the
+/// adjacency rule — because the two directions have to disagree about the same points or the check
+/// is measuring its own sampling.
+#[must_use]
+fn grid_states(e: &Entry, model: &Model, per_axis: usize) -> Vec<(Vec<f64>, bool, bool)> {
+    let total = per_axis.pow(model.params.len() as u32);
+    let mut out = Vec::with_capacity(total.min(1 << 20));
+    for index in 0..total {
+        let x = index_point(model, index, per_axis);
+        let inside = e.truth.contains(model, &x);
+        let violated = violates(model, &x);
+        out.push((x, inside, violated));
+    }
+    out
+}
+
+/// What the verification lattice and one entry's declarations said about each other.
+#[derive(Default)]
+struct Tally {
+    inside_total: u64,
+    inside_ok: u64,
+    outside_total: u64,
+    outside_ok: u64,
+    /// Points that violate next to a `where` region — within one grid step — which is the boundary
+    /// layer where the model's arithmetic and the authored expression round differently.
+    boundary_layer: u64,
+    first_bad: Option<String>,
+}
+
+/// Walk the grid once and classify every point against the declaration, in both directions.
+///
+/// A box-only entry uses the margin rule 0029 has always used. A `where` entry cannot: `margin`
+/// measures distance from the envelope *box*, so a point the predicate carved away has margin zero
+/// and would never be counted as outside no matter what tolerance was applied. Its rule is adjacency
+/// instead — a violating point must sit next to the region on this very lattice or the expression
+/// does not describe the model.
+fn region_tally(e: &Entry, model: &Model, per_axis: usize) -> Tally {
+    let mut out = Tally::default();
+    // A degenerate box has zero width, so a grid can never land inside it: those regions contribute
+    // their exact point to the same tally.
+    let (degenerate_total, degenerate_ok, degenerate_bad) = check_degenerate_boxes(model, e);
+    out.inside_total = degenerate_total;
+    out.inside_ok = degenerate_ok;
+    out.first_bad = degenerate_bad;
+    let axes = model.params.len();
+    let states = grid_states(e, model, per_axis);
+    let inside_index: Vec<bool> = states.iter().map(|(_, inside, _)| *inside).collect();
+    let carved = e.truth.has_predicates();
+    for (index, (x, inside, violated)) in states.iter().enumerate() {
+        if *inside {
+            out.inside_total += 1;
+            if *violated {
+                out.inside_ok += 1;
+            } else if out.first_bad.is_none() {
+                out.first_bad = Some(format!(
+                    "declared region contains {x:?}, which does not violate"
+                ));
+            }
+            continue;
+        }
+        if !*violated {
+            if !carved && e.truth.margin(model, x) > 0.02 {
+                out.outside_total += 1;
+                out.outside_ok += 1;
+            }
+            continue;
+        }
+        if carved {
+            if neighbour_inside(index, &inside_index, per_axis, axes) {
+                out.boundary_layer += 1;
+            } else if out.first_bad.is_none() {
+                out.first_bad = Some(format!(
+                    "{x:?} violates and is not in the declared region, but is further than one grid \
+                     step from it — the `where` expression does not describe the model's failure set"
+                ));
+            }
+        } else if e.truth.margin(model, x) > 0.02 {
+            out.outside_total += 1;
+            if out.first_bad.is_none() {
+                out.first_bad = Some(format!(
+                    "{x:?} is outside every declared region by a margin and still violates"
+                ));
+            }
+        }
+    }
+    out
+}
+
+/// Does any grid point leave a `where` expression undefined? A NaN answers every comparison false,
+/// so an undeclarable region would look like an empty one — and an empty-looking region is the one
+/// thing a verification run must never report as a pass.
+fn predicate_answerable(e: &Entry, model: &Model, per_axis: usize) -> Option<Problem> {
+    if !e.truth.has_predicates() {
+        return None;
+    }
+    for x in grid(model, per_axis) {
+        if e.truth.predicate_undefined_at(model, &x) {
+            return Some(Problem {
+                entry: e.id(),
+                detail: format!(
+                    "{x:?} leaves a region's `where` expression undefined, so the region does not \
+                     say what it claims"
+                ),
+            });
+        }
+    }
+    None
+}
+
+/// Is any lattice point adjacent to `index` inside a declared region? Neighbourhood is one step in
+/// each axis, which is the grid's own resolution — the audit's unit of "close to the boundary".
+#[must_use]
+fn neighbour_inside(index: usize, inside: &[bool], per_axis: usize, axes: usize) -> bool {
+    let mut digits = Vec::with_capacity(axes);
+    let mut rest = index;
+    for _ in 0..axes {
+        digits.push(rest % per_axis);
+        rest /= per_axis;
+    }
+    // Each axis offers its own digit and its in-range neighbours, walked as a product with a digit
+    // counter. Nothing goes negative and nothing is cast, so a lattice edge cannot wrap into a
+    // neighbour that does not exist.
+    let ranges: Vec<Vec<usize>> = digits
+        .iter()
+        .map(|d| {
+            let mut r = Vec::with_capacity(3);
+            if *d > 0 {
+                r.push(*d - 1);
+            }
+            r.push(*d);
+            if *d + 1 < per_axis {
+                r.push(*d + 1);
+            }
+            r
+        })
+        .collect();
+    let mut chosen = vec![0usize; axes];
+    loop {
+        let mut next = 0usize;
+        let mut place = 1usize;
+        for (slot, digit) in chosen.iter().enumerate() {
+            next += ranges[slot][*digit] * place;
+            place *= per_axis;
+        }
+        if next != index && inside.get(next).copied().unwrap_or(false) {
+            return true;
+        }
+        let mut slot = 0;
+        loop {
+            if slot == axes {
+                return false;
+            }
+            chosen[slot] += 1;
+            if chosen[slot] < ranges[slot].len() {
+                break;
+            }
+            chosen[slot] = 0;
+            slot += 1;
+        }
+    }
+}
+
+/// Every declared region bound that leaves the model's declared domain, or that names a value a
+/// `Choices` axis does not contain.
+///
+/// `Truth::volume_fraction` clamps a bound to the axis width, so a box declared as `[8, 1e9]` on a
+/// domain of `[0, 10]` verified green while claiming the whole axis: the overhang was invisible to
+/// the grid because the grid never leaves the domain. Refusing it is what makes E1.3's edge entries
+/// say where their truth stops.
+#[must_use]
+fn regions_inside_the_domain(e: &Entry, model: &Model) -> Vec<Problem> {
+    use aporia_ir::Domain;
+    let mut out = Vec::new();
+    for (at, region) in e.truth.regions.iter().enumerate() {
+        for (name, [lo, hi]) in &region.axes {
+            let Some(index) = model.param(name).map(|p| p as usize) else {
+                continue;
+            };
+            let detail = match &model.params[index].domain {
+                Domain::Interval { lo: dlo, hi: dhi } => {
+                    if *lo < *dlo || *hi > *dhi {
+                        Some(format!(
+                            "region {at}: axis {name:?} is declared over [{lo}, {hi}] but the model's                              domain is [{dlo}, {dhi}]"
+                        ))
+                    } else {
+                        None
+                    }
+                }
+                Domain::Choices(values) => {
+                    let known = |v: &f64| values.iter().any(|c| c == v);
+                    if !known(lo)
+                        && !known(hi)
+                        && (*lo < *values.first().unwrap_or(lo)
+                            || *hi > *values.last().unwrap_or(hi))
+                    {
+                        Some(format!(
+                            "region {at}: axis {name:?} is discrete, so its bounds have to be                              values the model enumerates; [{lo}, {hi}] names neither of {}",
+                            values
+                                .iter()
+                                .map(ToString::to_string)
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ))
+                    } else {
+                        None
+                    }
+                }
+            };
+            if let Some(detail) = detail {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail,
+                });
+            }
+        }
+    }
     out
 }
 
@@ -340,6 +556,9 @@ fn verify_entry(e: &Entry, per_axis: usize) -> Vec<Problem> {
 /// the metrics anyway, which reported it as a band that missed -- an absence scored as a failure, in
 /// the same column as real measurements. Refusing it here means a typo in a `truth.json` stops a
 /// measurement instead of quietly becoming part of its published numbers.
+///
+/// A `where` expression's names are checked in the same place, because the predicate reader cannot
+/// check them itself: a truth file is read before its model is compiled.
 fn undeclared_axes(e: &Entry, model: &Model) -> Vec<Problem> {
     let named = e
         .truth
@@ -366,6 +585,16 @@ fn undeclared_axes(e: &Entry, model: &Model) -> Vec<Problem> {
                     detail: format!("{what}: the model has no parameter named {axis:?}"),
                 });
             }
+        }
+    }
+    for axis in e.truth.predicate_vars() {
+        if model.param(&axis).is_none() {
+            out.push(Problem {
+                entry: e.id(),
+                detail: format!(
+                    "a region's `where` expression names {axis:?}, which is not a parameter of this                      model"
+                ),
+            });
         }
     }
     out

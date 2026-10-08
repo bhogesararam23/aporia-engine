@@ -105,6 +105,9 @@ fn outcome(entry: &str, strategy: &'static str) -> aporia_bench::metrics::Outcom
         duplicates: Some(0.0),
         boundaries: Vec::new(),
         counterexamples: Vec::new(),
+        unplaced: 0,
+        trusted_over_true: 0.0,
+        lattice_sensitive: None,
         census: aporia_bench::metrics::Census {
             channels: Vec::new(),
         },

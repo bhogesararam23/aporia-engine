@@ -187,6 +187,9 @@ fn entry(name: &str, control: bool, boundaries: usize) -> corpus::Entry {
         diagnostics: Vec::new(),
         truth_digest: format!("{name}-claim"),
         truth: aporia_bench::truth::Truth {
+            schema: "aporia.truth/1".to_string(),
+            matched_to: None,
+            choice_claims: Vec::new(),
             method: "analytic".to_string(),
             fault: "declared".to_string(),
             derivation: String::new(),
@@ -194,6 +197,7 @@ fn entry(name: &str, control: bool, boundaries: usize) -> corpus::Entry {
                 Vec::new()
             } else {
                 vec![aporia_bench::truth::Declared {
+                    predicate: None,
                     reason: "declared".to_string(),
                     axes: vec![("x".to_string(), [0.0, 1.0])],
                 }]
@@ -267,6 +271,9 @@ fn outcome(
             }]
         },
         counterexamples: Vec::new(),
+        unplaced: 0,
+        trusted_over_true: 0.0,
+        lattice_sensitive: None,
         census,
         replay: None,
         replay_error: None,

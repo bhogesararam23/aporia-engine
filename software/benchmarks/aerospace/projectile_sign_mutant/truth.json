@@ -1,7 +1,7 @@
 {
   "schema": "aporia.truth/1",
   "fault": "sign_error",
-  "derivation": "cos(2a) goes negative past a = pi/4, so the declared non-negativity rule fails over the upper half of the angle domain - but only where there is a speed to multiply. At v = 0 the range is -0.0, which satisfies r >= 0, so the speed is part of the region and the zero-speed edge is not. That corner is the honest reason the box names two axes.",
+  "derivation": "cos(2a) goes negative past a = pi/4, so the declared non-negativity rule fails over the upper half of the angle domain - but only where there is a speed to multiply. At v = 0 the range is -0.0, which satisfies r >= 0, so the speed is part of the region and the zero-speed edge is not. That corner is the honest reason the box names two axes. The upper bound is pi/2 to the last digit rather than 1.5708 because that is the domain edge, and `aporia-bench audit` refuses a region bound that leaves the declared domain: a box reaching past the edge cannot be checked against any point the grid will ever sample, and its fraction was being clamped to the whole axis.",
   "method": "analytic",
   "regions": [
     {
@@ -9,7 +9,7 @@
       "axes": {
         "a": [
           0.7854,
-          1.5708
+          1.5707963267948966
         ],
         "v": [
           0.001,

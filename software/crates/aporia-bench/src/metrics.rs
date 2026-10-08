@@ -256,6 +256,20 @@ pub struct Outcome {
     pub counterexamples: Vec<CaseSize>,
     /// What each channel did on this outcome. See [`Census`].
     pub census: Census,
+    /// Measurements the finished atlas could not place in any cell, from its own coverage counter.
+    /// Evidence that reached no cell can support no label, so 0029 pinned this at zero for a
+    /// `Choices` axis and E1.2 reports it per sweep rather than assuming it.
+    pub unplaced: u64,
+    /// Fraction of the *domain* that is labelled TRUSTED and lies inside a declared region, in the
+    /// same units as `suspicious_volume`. It is the mirror of `false_positive_fraction` and the
+    /// safety direction: volume an instrument called trustworthy where the model's own rules fail.
+    /// An absolute volume rather than a ratio, so no arm can hand back a 0/0 that would have to be
+    /// read as either a pass or an absence.
+    pub trusted_over_true: f64,
+    /// Did the localisation decision change when a curved region's overlap lattice doubled? `None`
+    /// when no region needs a lattice — which is every box-only entry, and is why this is an
+    /// absence rather than a flattering `false`.
+    pub lattice_sensitive: Option<bool>,
     /// `(reproduced, matched, total)` when this run was archived and replayed.
     pub replay: Option<(bool, u64, u64)>,
     pub replay_error: Option<String>,
@@ -295,24 +309,31 @@ impl Outcome {
             .cloned()
             .collect();
 
-        let detected = truth
-            .regions
-            .iter()
-            .filter(|r| {
-                suspicious.iter().any(|c| {
-                    region_intersects(model, &c.bounds, r) && overlap_of(model, &c.bounds, r) > 0.0
+        // Both counts ask "does some suspicious cell overlap this region past the bar", with 0 for
+        // detection and 0.5 for localisation. The overlap is the region's own definition
+        // (`truth::Declared`), which for a `where` region is the fixed lattice sample of the carved
+        // set — one definition of "inside", read by the audit and by the metric alike.
+        let regions_over = |bar: f64, per_axis: usize| -> u64 {
+            truth
+                .regions
+                .iter()
+                .filter(|r| {
+                    suspicious.iter().any(|c| {
+                        r.overlaps(model, &c.bounds)
+                            && r.overlap_fraction(model, &c.bounds, per_axis) >= bar
+                    })
                 })
-            })
-            .count() as u64;
-        let localised = truth
-            .regions
-            .iter()
-            .filter(|r| {
-                suspicious.iter().any(|c| {
-                    region_intersects(model, &c.bounds, r) && overlap_of(model, &c.bounds, r) >= 0.5
-                })
-            })
-            .count() as u64;
+                .count() as u64
+        };
+        let detected = regions_over(0.0, crate::truth::LATTICE_PER_AXIS);
+        let localised = regions_over(0.5, crate::truth::LATTICE_PER_AXIS);
+        // A curved region's overlap is an estimate on a lattice, so the bar can be crossed by the
+        // sampling rather than by the search. Re-measuring at double resolution says which: an
+        // outcome that flips is reported rather than scored, because two arms have different cells
+        // and a flip can land on either side of a comparison by luck.
+        let lattice_sensitive = truth
+            .has_predicates()
+            .then(|| localised != regions_over(0.5, crate::truth::LATTICE_SENSITIVITY_PER_AXIS));
 
         let first_true_failure = campaign
             .records
@@ -341,7 +362,7 @@ impl Outcome {
             let justified: f64 = suspicious
                 .iter()
                 .map(|c| {
-                    let share = best_overlap(model, &c.bounds, truth);
+                    let share = truth.overlap_fraction(model, &c.bounds);
                     volume_of(c) * share
                 })
                 .sum();
@@ -385,6 +406,14 @@ impl Outcome {
             duplicates,
             boundaries,
             census: Census::of(campaign),
+            unplaced: u64::from(campaign.atlas.coverage().unplaced),
+            trusted_over_true: leaves
+                .iter()
+                .filter(|c| c.label == Label::Trusted)
+                .map(|c| cell_fraction(model, &c.bounds) * truth.overlap_fraction(model, &c.bounds))
+                .sum::<f64>()
+                .clamp(0.0, 1.0),
+            lattice_sensitive,
             replay: None,
             replay_error: None,
             // Filled in by the harness at the largest budget only: minimisation costs evaluations
@@ -437,6 +466,12 @@ impl Outcome {
                 Json::Arr(self.counterexamples.iter().map(CaseSize::to_json).collect()),
             ),
             ("census", self.census.to_json()),
+            ("unplaced", Json::count(self.unplaced)),
+            ("trusted_over_true", Json::number(self.trusted_over_true)),
+            (
+                "lattice_sensitive",
+                self.lattice_sensitive.map_or(Json::Null, Json::Bool),
+            ),
             (
                 "replayed",
                 self.replay
@@ -543,64 +578,11 @@ pub fn counterexamples(
         .collect()
 }
 
-/// Fraction of a cell that lies inside one declared region.
-fn overlap_of(
-    model: &aporia_ir::Model,
-    bounds: &[[f64; 2]],
-    region: &crate::truth::Declared,
-) -> f64 {
-    let mut fraction = 1.0;
-    for (name, [lo, hi]) in &region.axes {
-        let Some(i) = model.param(name).map(|p| p as usize) else {
-            continue;
-        };
-        let Some([clo, chi]) = bounds.get(i) else {
-            return 0.0;
-        };
-        let width = (chi - clo).max(1e-30);
-        fraction *= (hi.min(*chi) - lo.max(*clo)).max(0.0) / width;
-    }
-    fraction
-}
-
-fn region_intersects(
-    model: &aporia_ir::Model,
-    bounds: &[[f64; 2]],
-    region: &crate::truth::Declared,
-) -> bool {
-    region.axes.iter().all(|(name, [lo, hi])| {
-        let Some(i) = model.param(name).map(|p| p as usize) else {
-            return false;
-        };
-        let Some([clo, chi]) = bounds.get(i) else {
-            return false;
-        };
-        chi >= lo && clo <= hi
-    })
-}
-
-/// Overlap with whichever declared region explains the cell best.
-fn best_overlap(model: &aporia_ir::Model, bounds: &[[f64; 2]], truth: &crate::truth::Truth) -> f64 {
-    truth
-        .regions
-        .iter()
-        .map(|r| overlap_of(model, bounds, r))
-        .fold(0.0, f64::max)
-}
-
 fn cell_fraction(model: &aporia_ir::Model, bounds: &[[f64; 2]]) -> f64 {
     bounds.iter().enumerate().fold(1.0, |acc, (i, [lo, hi])| {
-        let span = declared_width(model, i);
+        let span = crate::truth::axis_width(model, i);
         acc * ((hi - lo).min(span).max(0.0) / span.max(1e-30))
     })
-}
-
-fn declared_width(model: &aporia_ir::Model, i: usize) -> f64 {
-    use aporia_ir::Domain;
-    match &model.params[i].domain {
-        Domain::Interval { lo, hi } => hi - lo,
-        Domain::Choices(v) => v.len().max(1) as f64,
-    }
 }
 
 /// How many findings describe a fault the report has already described.
@@ -625,7 +607,12 @@ fn duplicate_rate(
             .regions
             .iter()
             .enumerate()
-            .map(|(i, r)| (i, overlap_of(model, &f.bounds, r)))
+            .map(|(i, r)| {
+                (
+                    i,
+                    r.overlap_fraction(model, &f.bounds, crate::truth::LATTICE_PER_AXIS),
+                )
+            })
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let Some((index, share)) = best else { continue };
         if share <= 0.0 {
@@ -658,7 +645,7 @@ fn boundary_hit(model: &aporia_ir::Model, campaign: &Campaign, b: &Boundary) -> 
             within_tolerance: false,
         };
     };
-    let width = declared_width(model, axis);
+    let width = crate::truth::axis_width(model, axis);
     // The bands come from the finished atlas, which is the object a user reads.
     let mut best: Option<f64> = None;
     let mut band = None;
