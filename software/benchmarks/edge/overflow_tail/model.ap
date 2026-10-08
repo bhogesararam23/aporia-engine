@@ -1,0 +1,6 @@
+model overflow_tail "a deflection that diverges as the stroke reaches its mechanical stop" {
+  input x in [0, 4]
+  let gap = 4 - x
+  let deflection = 1 / gap
+  require deflection <= 100000
+}

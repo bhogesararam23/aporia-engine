@@ -1,0 +1,28 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "overflow_divergence",
+  "narrow": true,
+  "method": "analytic",
+  "derivation": "The compliance is 1/(4 - x): it exceeds 1e5 exactly where 4 - x < 1e-5, i.e. x > 3.99999, and at x = 4 the gap is zero and the reading is +infinity, which is a real value of the expression rather than a failure to compute it - the rule still fails there, so the region runs up to and including the domain edge. The true failing set is x > 3.99999 with no upper bound at all: the model's own behaviour continues past the declared domain, and the region declared here is its intersection with the domain the instrument can sample, because a bound outside the declared domain cannot be checked against any point the grid will ever visit and used to be silently clamped. Declared share 1e-5 / 4 = 2.5e-6, matched to analytic/reciprocal_bound at 2e-6. This is also the entry where a channel blind to divergence is most exposed: the readings nearest the edge are non-finite, so the question the report asks is whether any arm calls that part of the domain trustworthy.",
+  "regions": [
+    {
+      "reason": "the deflection exceeds the allowed compliance at the stop",
+      "axes": {
+        "x": [
+          3.99999,
+          4
+        ]
+      },
+      "where": "1 / (4 - x) > 100000"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "x",
+      "at": 3.99999,
+      "tolerance": 1e-05
+    }
+  ],
+  "matched_to": "analytic/reciprocal_bound",
+  "expect": "a band pinned against the domain edge, whose far side cannot be seen"
+}

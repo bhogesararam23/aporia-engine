@@ -1,0 +1,5 @@
+model unbounded_interval "a domain with no upper edge, which the IR refuses" {
+  input x in [0, inf]
+  let decay = 1 / (x + 1)
+  require decay <= 1
+}

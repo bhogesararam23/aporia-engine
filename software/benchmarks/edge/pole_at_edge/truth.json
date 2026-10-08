@@ -1,0 +1,28 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "boundary_condition",
+  "narrow": true,
+  "method": "analytic",
+  "derivation": "The readout is 1/(x - 2), which diverges at x = 2 *inside* the declared domain, so the failing set is |1/(x-2)| >= 2e5, i.e. |x - 2| <= 5e-6: a band that straddles a point where the value is infinite and that has no side the search can approach from outside. The rule is written on the square so it is one comparison and fails symmetrically: at x = 2 the square is +infinity, which is not less than 4e10, so the pole itself is in the region on both sides at once. Declared share 1e-5 / 4 = 2.5e-6, matched to analytic/reciprocal_bound. The difference from that entry is the one E1.3 is about: reciprocal_bound's band sits in the middle of a domain the atlas can refine into, while this failure is a singularity *inside* the region, so the readings that would justify a TRUSTED label do not exist anywhere on it.",
+  "regions": [
+    {
+      "reason": "the readout diverges as the setpoint is crossed",
+      "axes": {
+        "x": [
+          1.999995,
+          2.000005
+        ]
+      },
+      "where": "1 / ((x - 2) * (x - 2)) >= 40000000000"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "x",
+      "at": 2,
+      "tolerance": 1e-05
+    }
+  ],
+  "matched_to": "analytic/reciprocal_bound",
+  "expect": "a band around an interior pole, where every reading is enormous or infinite"
+}

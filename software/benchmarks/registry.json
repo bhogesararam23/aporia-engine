@@ -90,6 +90,32 @@
         "narrow_1d_unreachable"
       ],
       "note": "the rule is `max_i(abs(axis_i) - bound_i) > 0`, which is negative exactly inside the box; bounds are inset by 1e-6 of the half-width because a point on a rule boundary has zero violation magnitude. `narrow_1d_unreachable` is deliberately beyond the atlas's depth limit: it measures the resolution of the representation, not the quality of a search."
+    },
+    {
+      "name": "discrete",
+      "purpose": "E1.2: axes whose domain is an enumerated set of branches, and mixed discrete-continuous cases where a discrete choice selects which threshold the continuous axis crosses. Every declared value carries an explicit claim of fails or clean",
+      "entries": [
+        "scheme_branch",
+        "mixed_magnitude",
+        "lattice_two",
+        "clean_lattice"
+      ]
+    },
+    {
+      "name": "edge",
+      "purpose": "E1.3: failure sets pinned against a declared domain edge or sitting on a singularity inside the domain, where the readings that would justify a label may not exist",
+      "entries": [
+        "overflow_tail",
+        "pole_at_edge"
+      ]
+    },
+    {
+      "name": "domain",
+      "purpose": "E1.3's refusal half: domains the IR will not accept. These entries are never sampled; the measurement is that the refusal is reported with its diagnostic",
+      "entries": [
+        "unbounded_interval",
+        "inverted"
+      ]
     }
   ],
   "fault_classes_covered": [

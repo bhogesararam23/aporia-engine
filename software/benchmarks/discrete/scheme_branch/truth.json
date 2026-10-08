@@ -1,0 +1,83 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "time_step_sensitivity",
+  "method": "analytic",
+  "derivation": "The damping coefficient is (scheme - 3)^2, so the four choices are 4, 1, 0 and 1: the update factor is 1 - damping*dt and the rule fails exactly where damping*dt >= 2. Choice 1 fails from dt = 0.5, choices 2 and 4 from dt = 2, and choice 3 has damping 0 so its factor is 1 at every step and it never fails anywhere in the domain. That per-value statement is the point of the entry: the axis is discrete, so truth is a union of boxes each keyed to one declared value, and the clean choice is declared as clean rather than left as an absence an auditor cannot tell apart from an oversight. Each choice owns the slice of the axis span that the atlas's own bisection gives it - 1 through 4 spans 3, and consecutive integers make the value space and the choice index the same thing up to an affine map, which is why the choice set is evenly spaced. Total declared share 30.7% of the domain, the nearest rung being synthetic/quarter_2d at 25%.",
+  "regions": [
+    {
+      "reason": "scheme 1 oscillates above this step",
+      "axes": {
+        "scheme": [
+          1,
+          1.5
+        ],
+        "dt": [
+          0.5,
+          3
+        ]
+      }
+    },
+    {
+      "reason": "scheme 2 oscillates above this step",
+      "axes": {
+        "scheme": [
+          1.5,
+          2.5
+        ],
+        "dt": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "reason": "scheme 4 oscillates above this step",
+      "axes": {
+        "scheme": [
+          3.5,
+          4
+        ],
+        "dt": [
+          2,
+          3
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "dt",
+      "at": 0.5,
+      "tolerance": 0.05
+    },
+    {
+      "axis": "dt",
+      "at": 2,
+      "tolerance": 0.05
+    }
+  ],
+  "choice_claims": [
+    {
+      "axis": "scheme",
+      "value": 1,
+      "expect": "fails"
+    },
+    {
+      "axis": "scheme",
+      "value": 2,
+      "expect": "fails"
+    },
+    {
+      "axis": "scheme",
+      "value": 3,
+      "expect": "clean"
+    },
+    {
+      "axis": "scheme",
+      "value": 4,
+      "expect": "fails"
+    }
+  ],
+  "matched_to": "synthetic/quarter_2d",
+  "expect": "three of four branches, each with its own step threshold, and one branch that cannot fail"
+}

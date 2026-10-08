@@ -1,0 +1,6 @@
+model clean_lattice "the same table with a limit no cell reaches" {
+  input mode in {1, 2, 3}
+  input stage in {1, 2}
+  let stress = mode * stage
+  require stress <= 6
+}

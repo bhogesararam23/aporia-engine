@@ -1,0 +1,6 @@
+model pole_at_edge "a sensor readout referenced to a setpoint it can pass exactly through" {
+  input x in [0, 4]
+  let offset = x - 2
+  let ratio = 1 / offset
+  require ratio * ratio < 40000000000
+}

@@ -1,0 +1,10 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "domain_assumption",
+  "static": true,
+  "method": "ir-refusal",
+  "derivation": "The other half of E13: an inverted interval. Before the verifier existed this lowered to a domain of width -4, so a sampled coordinate resolved to NaN, evaluations were orphaned from every cell, and the atlas still drew a suspicious finding at risk 0.000 - a picture of the harness's own broken arithmetic presented as evidence about a model. The refusal is the result, and it has to be an error rather than a warning, which is what the audit checks here.",
+  "regions": [],
+  "boundaries": [],
+  "expect": "an error at the IR gate, reported in the results document"
+}

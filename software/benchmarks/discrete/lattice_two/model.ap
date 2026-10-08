@@ -1,0 +1,6 @@
+model lattice_two "a mode and a stage whose combination is checked, not either alone" {
+  input mode in {1, 2, 3}
+  input stage in {1, 2}
+  let stress = mode * stage
+  require stress <= 3
+}

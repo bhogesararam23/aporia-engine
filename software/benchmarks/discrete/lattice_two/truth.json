@@ -1,0 +1,64 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "boundary_condition",
+  "method": "analytic",
+  "derivation": "Two discrete axes: the products are 1, 2 for mode 1; 2, 4 for mode 2; 3, 6 for mode 3, so exactly two of the six cells fail - (mode 2, stage 2) and (mode 3, stage 2). Each axis owns its slice of its span (1 through 3 spans 2, 1 through 2 spans 1), which makes the cells disjoint and the union exactly the two failing branches. Neither axis carries the information alone: stage 2 is safe at mode 1, and mode 3 is safe at stage 1, so an instrument that treats a discrete axis as decoration cannot get this right by accident. Declared share 37.5%, within a factor of two of synthetic/quarter_2d, and the entry is also the one where an off-grid probe value would be most visible: a value between two modes is a branch of the table that does not exist.",
+  "regions": [
+    {
+      "reason": "mode 2 with stage 2 overloads",
+      "axes": {
+        "mode": [
+          1.5,
+          2.5
+        ],
+        "stage": [
+          1.5,
+          2
+        ]
+      }
+    },
+    {
+      "reason": "mode 3 with stage 2 overloads",
+      "axes": {
+        "mode": [
+          2.5,
+          3
+        ],
+        "stage": [
+          1.5,
+          2
+        ]
+      }
+    }
+  ],
+  "boundaries": [],
+  "choice_claims": [
+    {
+      "axis": "mode",
+      "value": 1,
+      "expect": "clean"
+    },
+    {
+      "axis": "mode",
+      "value": 2,
+      "expect": "fails"
+    },
+    {
+      "axis": "mode",
+      "value": 3,
+      "expect": "fails"
+    },
+    {
+      "axis": "stage",
+      "value": 1,
+      "expect": "clean"
+    },
+    {
+      "axis": "stage",
+      "value": 2,
+      "expect": "fails"
+    }
+  ],
+  "matched_to": "synthetic/quarter_2d",
+  "expect": "two named cells of a six-cell table"
+}

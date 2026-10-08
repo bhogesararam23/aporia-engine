@@ -1,0 +1,7 @@
+model scheme_branch "four integrators, of which three are unstable above some step" {
+  input scheme in {1, 2, 3, 4}
+  input dt in [0.01, 3]
+  let damping = (scheme - 3) * (scheme - 3)
+  let factor = 1 - damping * dt
+  require factor > -1
+}

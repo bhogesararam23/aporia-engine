@@ -1,0 +1,10 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "domain_assumption",
+  "static": true,
+  "method": "ir-refusal",
+  "derivation": "There is no region to declare, because nothing is ever sampled: an interval with an infinite edge is refused by the IR verifier (0023, commit bf6fdf9) because every partition, volume and grid step in the instrument divides by the axis width. 0029 pre-registered E13 as 'refusal at the IR gate, not a label', so the measurement this entry contributes is that the refusal is reported with the diagnostic that produced it - which is why it is named in the plan and swept by nothing.",
+  "regions": [],
+  "boundaries": [],
+  "expect": "an error at the IR gate, reported in the results document"
+}

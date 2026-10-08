@@ -1,0 +1,70 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "overflow_divergence",
+  "method": "analytic",
+  "derivation": "The tap sets gain = tap^2 / 2, so gains are 0.5, 2, 4.5 and 8, and the converter saturates where signal * gain > 9. Taps 1 and 2 need signal above 18 and 4.5, which the declared domain never reaches, so both are clean at every input. Tap 3 fails above signal = 9 / 4.5 = 2 and tap 4 above 9 / 8 = 1.125, both exact. This is the mixed case: one discrete axis selects which threshold the continuous axis crosses, so no single interval on signal describes the failure set and the truth has to be read per tap. Declared share 21.6%, matched to synthetic/quarter_2d.",
+  "regions": [
+    {
+      "reason": "tap 3 saturates",
+      "axes": {
+        "tap": [
+          2.5,
+          3.5
+        ],
+        "signal": [
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "reason": "tap 4 saturates",
+      "axes": {
+        "tap": [
+          3.5,
+          4
+        ],
+        "signal": [
+          1.125,
+          3
+        ]
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "signal",
+      "at": 2,
+      "tolerance": 0.05
+    },
+    {
+      "axis": "signal",
+      "at": 1.125,
+      "tolerance": 0.05
+    }
+  ],
+  "choice_claims": [
+    {
+      "axis": "tap",
+      "value": 1,
+      "expect": "clean"
+    },
+    {
+      "axis": "tap",
+      "value": 2,
+      "expect": "clean"
+    },
+    {
+      "axis": "tap",
+      "value": 3,
+      "expect": "fails"
+    },
+    {
+      "axis": "tap",
+      "value": 4,
+      "expect": "fails"
+    }
+  ],
+  "matched_to": "synthetic/quarter_2d",
+  "expect": "a threshold that exists only on the upper taps"
+}

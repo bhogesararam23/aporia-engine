@@ -1,0 +1,7 @@
+model mixed_magnitude "a digitiser whose input range is set by a discrete tap ladder" {
+  input tap in {1, 2, 3, 4}
+  input signal in [0.01, 3]
+  let gain = 0.5 * tap * tap
+  let adc = signal * gain
+  require adc <= 9
+}

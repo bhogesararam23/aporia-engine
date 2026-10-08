@@ -1,0 +1,38 @@
+{
+  "schema": "aporia.truth/2",
+  "fault": "none",
+  "control": true,
+  "method": "analytic",
+  "derivation": "The largest product in the table is 3 * 2 = 6, which satisfies the rule, so no branch combination fails anywhere and the true failing set is empty. This is the discrete control: it declares per-value claims of clean for every choice of both axes, which is what makes it a check rather than an absence - suspicion on any branch is a false positive on a discrete axis, and a claim of `fails` here would be refused by the audit because no grid point on that branch violates.",
+  "regions": [],
+  "boundaries": [],
+  "choice_claims": [
+    {
+      "axis": "mode",
+      "value": 1,
+      "expect": "clean"
+    },
+    {
+      "axis": "mode",
+      "value": 2,
+      "expect": "clean"
+    },
+    {
+      "axis": "mode",
+      "value": 3,
+      "expect": "clean"
+    },
+    {
+      "axis": "stage",
+      "value": 1,
+      "expect": "clean"
+    },
+    {
+      "axis": "stage",
+      "value": 2,
+      "expect": "clean"
+    }
+  ],
+  "matched_to": "electromagnetics/coupled_coils",
+  "expect": "nothing suspicious on any branch"
+}

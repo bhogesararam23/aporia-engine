@@ -1,0 +1,5 @@
+model inverted "a domain whose bounds are the wrong way round, which the IR refuses" {
+  input x in [5, 1]
+  let scaled = x / 5
+  require scaled <= 1
+}
