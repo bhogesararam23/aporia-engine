@@ -538,8 +538,9 @@ the channels. Fifteen of them are entries **no arm localises at all**:
 - `edge/pole_at_edge` is detected 5/5 by full and by only-Physical, 0/5 by −Physical — so the pole is
   one of the places where Physical's own readings do the work — and localised nowhere.
 - `edge/overflow_tail` is detected by **no arm at any budget on any seed**. Its declared tail is
-  0.0003% of the domain — 3·10⁻⁶ of it, about one column of the measure lattice wide — and 1280
-  evaluations never put a suspicious cell inside it. A corpus entry no arm can
+  10⁻⁵ wide on a domain of 4 — 2.5·10⁻⁶ of the domain, which the audit's four-decimal percentage
+  column displays as `0.0003%` — and 1280 evaluations never put a suspicious cell inside it. A corpus
+  entry no arm can
   see is a bad instrument, not a small effect, so this row is reported as untested rather than as a
   null result about channels.
 
@@ -555,11 +556,15 @@ never appear as a label.
 
 **E1.3's frozen safety condition failed.** The protocol required `trusted_over_true = 0` on both edge
 entries for every arm — no cell labelled trustworthy sitting on top of a region the model really
-violates. Eighty-seven of the 330 edge rows report a non-zero value, and every one of them is
-2.5·10⁻⁶. Under the full arm it is one row in thirty: `edge/overflow_tail`, seed 4, budget 1280, where
-0.871 of the domain is TRUSTED, 0.121 UNKNOWN and 0.008 SUSPICIOUS, and the trusted cells cover
-2.5·10⁻⁶ of the domain inside the declared tail — the tail itself being 3·10⁻⁶ of the domain, so about
-eighty percent of the region this entry exists to describe is labelled trustworthy in that row. Under
+violates. Eighty-seven of the 330 edge rows report a non-zero value: 81 at 2.5·10⁻⁶ and 6 at 1.25·10⁻⁶.
+Those are not small residues — 2.5·10⁻⁶ *is* the whole measure of either declared region (10⁻⁵ wide on
+a domain of 4), so in 81 of those rows the atlas calls **every point of the region the entry exists to
+describe** trustworthy, and in the other 6 it calls exactly half of it trustworthy. Under the full arm
+there is one such row in thirty: `edge/overflow_tail`, seed 4, budget 1280, where 0.871 of the domain is
+TRUSTED, 0.121 UNKNOWN and 0.008 SUSPICIOUS, and the trusted share of the tail is its full 2.5·10⁻⁶.
+An earlier version of this section said "about eighty percent", dividing by the audit's rounded
+`0.0003%` display of the region instead of by the region; the correct figure is 100%, and it is the
+worse reading, so it is stated here rather than left in the history. Under
 −Physical the whole domain is trusted on 15/15 rows, because an
 instrument that detects nothing has no evidence to withhold and the atlas reads "no evidence" as
 trustworthy — which is what TRUSTED has always meant here and is the reason 0036 refuses to call it
@@ -568,6 +573,50 @@ eleven documents, so nothing vanished off the atlas, and no NaN or unbounded rea
 a trust claim by that route. Whether a 2.5·10⁻⁶ residue counts as the route being taken is exactly the
 kind of question a frozen pass condition exists to answer, and it answers *yes, it failed* — recorded
 here rather than re-worded.
+
+### Why the condition failed: one row traced to its cells
+
+The trace re-ran four rows with the frozen plan's grid, rates and masks (`budgets=[B]`, `seeds=[S]`,
+one entry — the campaign for one (entry, seed, budget) does not depend on the rest of the ladder),
+compared every measured field of each reproduced row against the committed document before interpreting
+anything, and then read the atlas cells the archive recorded. All four rows matched the committed
+values exactly. `bench e2`'s own numbers are unchanged by any of this.
+
+- **`edge/overflow_tail`, full arm, seed 4, budget 1280 — the failing row.** The tail lives in one leaf:
+  cell 58, depth 7, span x ∈ [3.96875, 4], 0.78% of the domain, **4 samples, mean risk 0.000, peak risk
+  0.000, 0 facts, 2 channels measured → TRUSTED**. The region is the last 10⁻⁵ of that span, so
+  `trusted_over_true` = 0.0078 × (10⁻⁵ / 0.03125) = 2.5·10⁻⁶: the entire region, no more and no less.
+  Across all 1280 evaluations in that sweep the largest sample ever drawn was x = 3.98925763 — **no
+  point was ever placed inside the region**, and the label was earned by the four points that were not.
+- **`edge/overflow_tail`, full arm, seed 1, budget 1280 — the passing row, same model, same cell span.**
+  The leaf over the tail holds **3 samples**, which is below `min_samples` = 4, so the policy cannot call
+  it trustworthy and it is UNKNOWN; `trusted_over_true` = 0. Its peak reading is 0.695 against a
+  suspicious-peak bar of 0.700, so this leaf also escaped being *SUSPICIOUS* by 0.005 of risk. Nothing
+  about the evidence differs between this row and the failing one: the difference between a safety pass
+  and a safety failure here is one sample landing on the far side of a threshold that was never about
+  the region.
+- **`edge/overflow_tail`, only-Behavioral — the 30-failures arm.** The atlas never split at all: one root
+  cell, x ∈ [0, 4], 1080 samples, risk 0.000 everywhere, TRUSTED. Behavioral alone computes nothing on
+  this model, so nothing ever flagged and the domain was certified whole — the same 2.5·10⁻⁶, arrived at
+  by a different route.
+- **`edge/pole_at_edge`, −Physical, seed 4 — a half-coverage row, 1.25·10⁻⁶.** The pole sits at x = 2,
+  which is exactly a cell boundary: the left cell [1.984375, 2] is UNKNOWN (peak risk 1.000 — it holds
+  the diverging readings) and the right cell [2, 2.015625] is TRUSTED with 7 samples at risk 0.000. Half
+  the band, 1.25·10⁻⁶, is certified; the other half is not. The metric is arithmetically right about
+  both.
+
+So the failure is not a defect in `trusted_over_true`, which computes exactly the quantity the protocol
+defines and was hand-checked against two rows of different shapes. It is the joint consequence of
+(i) TRUSTED's documented meaning — quiet under the channels that ran, `min_samples` satisfied, nothing
+flagged — which makes no demand about the *unsampled* part of a cell; (ii) the atlas's granularity,
+whose floor is `max_depth` = 12 (a leaf on this one-dimensional domain is never narrower than 4/2¹² ≈
+9.8·10⁻⁴, and the observed leaves stopped at depth 7-8), while the declared regions are 10⁻⁵ wide, so a
+leaf containing either region can *never* be half inside it and localisation there is impossible by
+construction; and (iii) a corpus that places those regions against a domain edge and on an interior
+pole, exactly where the search is least able to resolve them. Cause (ii) is the one that also explains
+the geometry result: three of the nine new entries — `narrow_oblique`, `pole_at_edge`, `overflow_tail` —
+are not evidence *about* channels, they are entries the frozen instrument cannot reach at any budget in
+the ladder.
 
 **The other secondary readings.** No new entry's measure depends on the predicate lattice:
 `lattice_sensitive` is false on all six curved/edge predicate regions across all 165 of their rows.

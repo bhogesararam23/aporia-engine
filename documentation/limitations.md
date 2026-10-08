@@ -115,17 +115,34 @@ every labelled region, a minimised case re-executed at its own witnesses, and ho
   defect E2 fixed: changing the corroboration rule because one channel looks unhelpful would destroy
   the comparison that measured it. What is now true is that `TRUSTED` means *quiet under the channels
   this run was allowed to consult*, and every results row records which those were.
-- **`TRUSTED` sitting on a region the model really violates is now measured, not just argued.** E1.3
-  pre-registered a pass condition — on its two edge entries every arm must report `trusted_over_true`
-  (the fraction of the domain that is both labelled TRUSTED and inside a declared region) of exactly 0.
-  It failed as written: 87 of 330 edge rows report 2.5·10⁻⁶, and one row in thirty under the full
-  instrument — `edge/overflow_tail`, seed 4, budget 1280, where the trusted cells cover roughly
-  eighty percent of a region that is itself 3·10⁻⁶ of the domain. `unplaced` is 0 in all 2475 rows of
-  that run, so no measurement fell off the atlas and no non-finite reading reached a label through that
-  route; what reached it is the same three-label policy as above. The condition was frozen precisely so
-  that this would be a finding instead of a wording choice, so it is recorded as a failed condition and
-  the labelling rule is left for the next pre-registration to change, rather than being adjusted now.
-- **The atlas cannot enclose a region narrower than its cells, and E1.x measured how badly.** Three of
+- **`TRUSTED` sitting on a region the model really violates is now measured, traced, and not a metric
+  defect.** E1.3 pre-registered a pass condition — on its two edge entries every arm must report
+  `trusted_over_true` (the fraction of the domain that is both labelled TRUSTED and inside a declared
+  region) of exactly 0. It failed as written: 87 of 330 edge rows report a non-zero value, 81 of them at
+  2.5·10⁻⁶ and 6 at 1.25·10⁻⁶ — and since each declared region *is* 10⁻⁵ wide on a domain of 4, which
+  is exactly 2.5·10⁻⁶ of it, those rows are not marginal: 81 of them certify **the whole of the region
+  the entry exists to describe** as trustworthy, and the other 6 certify exactly half. Traced to the
+  cell, the full instrument's single failing row (`edge/overflow_tail`, seed 4, budget 1280) is a
+  depth-7 leaf spanning x ∈ [3.96875, 4] that holds 4 samples, a peak risk of 0.000 and two channels
+  measured: the policy's `min_samples` is 4, so the leaf is trusted — while across all 1280 evaluations
+  of that sweep **no point was ever placed inside the region at all** (the largest sample drawn was
+  x = 3.98925763, the region begins at 3.99999). The same entry, same arm, same budget at seed 1 has a
+  3-sample leaf over the same span, which the policy refuses to trust, and the condition passes. One
+  sample is the difference between pass and fail. `unplaced` is 0 in all 2475 rows of the run, so no
+  measurement fell off the atlas and no non-finite reading reached a label through that route: the
+  quantity computed exactly what the protocol defined, over a cell whose trusted status was earned by
+  the points that missed the region. The condition was frozen precisely so that this would be a finding
+  rather than a wording choice, so it stays recorded as a failed condition, and the labelling rule is
+  left for a new pre-registration (E1.3b) to change rather than being adjusted now.
+- **The atlas cannot enclose a region narrower than its leaf, and the arithmetic is now measured rather
+  than asserted.** `Policy::default` caps refinement at depth 12, splitting the longest normalised axis
+  each time. On the one-dimensional edge domains that puts the floor of a leaf at 4/2¹² ≈ 9.8·10⁻⁴ of
+  the span — about a hundred times wider than either declared edge region, so no leaf can be half
+  inside them and the 0.5 overlap bar that defines localisation is unreachable *by construction*. The
+  two-dimensional diagonal strip is the same story with different numbers: at depth 12 the smallest
+  leaf in `geometry/narrow_oblique` measured 0.03125 a side against a strip 0.00566 wide, and the best
+  inside-fraction achieved by any of the 197 leaves in that traced atlas was 0.262 — where localisation
+  needs 0.5. Three of
   the nine new region-bearing entries are localised by *no* arm at any budget: `geometry/narrow_oblique`
   (a band 0.008 wide crossing a diagonal) is detected on all five seeds by the full instrument, by
   Physical alone and by the instrument blind to Physical, and never enclosed; `edge/pole_at_edge` is
