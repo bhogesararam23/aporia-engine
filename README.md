@@ -37,17 +37,29 @@ is that H2 is engineering rather than research.
 
 H1 has now been measured in E2 across 11 ablation arms and is **partially supported on this corpus**;
 the measured answer to the older search-advantage question is **a negative** (E1), both detailed in
-[`software/benchmarks/results/README.md`](software/benchmarks/results/README.md). In short: the
+[`software/benchmarks/results/README.md`](software/benchmarks/results/README.md). E2's substance, in one
+line: removing Physical costs 39 of the 59 localisations the instrument reaches, but a **Physical-only
+arm matches the full five-channel instrument on every one of those 59, at the same charged cost** — so
+fusion did not localise anything no subset could. What it did buy is narrower and is recorded as such:
+on one entry (`rlc_resonance`) a detection that survives removing Physical and dies when either
+Numerical or Differential is removed, and that a Physical-only arm never achieves — real, joint, and
+about detection rather than the localisation the hypothesis named. In short: the
 three-arm ladder localises `electromagnetics/rlc_resonance`, a band 0.088% of the domain, where neither
 random nor stratified localises anything at any budget, and loses on two entries where plain coverage is
 the right tool — one entry wide. The comparison that could have changed that verdict has now been run.
 A fourth arm, `levelset` — a budgeted single-threshold bracket search in the shape the excursion-set
 literature uses, needing none of the evidence instrument — reaches as many entries as the five-channel
 search (13 of 18) and resolves more of them across seeds, and the two arms tie or fail together on 15 of
-18 entries. By the criterion fixed before the run, **the search is not separated from the baseline**, so
-the claim this repository can defend is the evidence model and the artefact, not the algorithm. Numbers
+18 entries. By the criterion fixed before the run, **the search is not separated from the baseline**, and
+by the criterion fixed before E2, **the five-channel evidence model is not separated from its Physical
+channel alone on localisation, on this corpus**. What this repository can therefore defend is the
+artefact — a map whose every region carries re-executable provenance, plus the measurement machinery
+that produced these negatives — and not a demonstrated superiority of either its search or its
+evidence fusion; whether the artefact counts as research (H2) is still open. Numbers
 are recorded only from runs that actually happened, and `TRUSTED` never means *proven correct* — it means
-no current evidence of a problem under the tested assumptions and evidence model.
+no current evidence of a problem under the tested assumptions and evidence model, where *which channels
+were allowed to speak* is recorded per row and, as E2 measured, a label can be won by silencing the
+channel that was withholding it.
 
 ## What is here
 

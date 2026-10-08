@@ -206,10 +206,34 @@ an ablation arm writes its own results file and cannot overwrite the arm it is c
 Silencing every channel is refused at the command line; the test for what would otherwise happen is the
 one that shows an arm blind to everything labels the domain UNKNOWN rather than trusting it.
 
+Every results row carries what each channel actually did on that campaign: `applied` (executions the
+channel's measurements ran on), `computed` (items it produced before the mask dropped anything),
+`readings` (items the arm kept), `strong` (kept items reaching the report's own loudness bar under
+that campaign's final calibrator), `findings` (findings carrying it) and the `silenced` bit. The six
+counts exist so that three situations which read identically as "zero" stay three different facts: a
+channel that never ran, one that ran and had nothing to say, and one that was silenced *after* it had
+something to say. They are derived from the campaign's own records rather than from the requested
+mask — a census computed from the mask could not distinguish the third case from the second, and the
+difference is what E2's nulls are interpreted against. `aporia bench explain` prints the same table.
+
+One asymmetry to read deliberately: `findings` counts *findings that carry the channel*, not readings,
+and a relational reading names every observation it compared — so one Behavioral reading about one
+declared relation can be carried by many findings, and a small `computed` next to a large `findings`
+is the shape of a relation measured over a whole record set, not a contradiction.
+
+The comparison itself lives in `aporia-bench::e2`, deliberately apart from the strategy comparison:
+strategy arms differ in where they placed points, evidence arms differ in what they were allowed to
+conclude at the same placements and the same charge. It pairs an ablated arm with the full arm on
+entry, seed and budget, refuses documents whose plans differ in anything except the mask or whose
+pairs charged different evaluations, and reports each quantity in one of four states — same, changed,
+not measurable, not applicable — because a boundary an arm produced no band for is not a boundary
+with zero error, and a control has no regions to localise. The `--json` form carries the same
+comparison for machines.
+
 ## Where each concern lives, and why that matters
 
 `aporia-cli` contains rendering and exit statuses. `aporia-bench` contains the corpus, the truth gate,
-the metrics and the results identity. `aporia-store` contains the byte contract and the comparison.
+the metrics, the results identity and the ablation comparison. `aporia-store` contains the byte contract and the comparison.
 There is exactly one `StoredFinding` constructor, one campaign configuration serializer, one number
 encoding, one strategy vocabulary, one archive layout. Every bug in this project's own correction list
 came from a place where two callers described the same thing independently — which is the reason this

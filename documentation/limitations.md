@@ -22,7 +22,13 @@ unseparated, so what is left is the evidence and the artefact:
   and census-verified): partially supported on this corpus.** Removing Physical causes 39
   localisations to be missed, but Physical alone matches the full instrument on all 59 localised cases,
   while the other 4 single-channel arms miss all 59. Evidence fusion did not localise something no
-  strict subset could on this corpus.
+  strict subset could on this corpus. Two things this does **not** say, both because the corpus rather
+  than the channels set the limit: it does not say Behavioral is unimportant — Behavioral had almost
+  nothing to say to test (across the whole full-instrument run it computed 18 readings and spoke on 3
+  of the 18 fault entries, because exactly one fault entry declares a `check` relation at all while
+  the other two declarations sit on controls, so its null is vacuous rather than empty), and it does
+  not say calibration or correlation-aware fusion are pointless — E2 ablated *channels*, not the
+  fusion machinery, which is the question E3 and E4 ask and neither has been run.
 - **H2 — artefact.** Does an atlas whose every region carries re-executable provenance change what a
   reader can do with a result? Parts of this are tested in this repository; whether it counts as
   research rather than engineering is open.
@@ -85,6 +91,18 @@ every labelled region, a minimised case re-executed at its own witnesses, and ho
   `NaN` for coverage.
 - **Correlation between channels is measured per run**, from that run's own records. A run with few
   samples has a weak estimate, and `correlation_samples` is archived so the reader can see how weak.
+- **A `TRUSTED` label can be earned by silencing the channel that was withholding it.** E2 measured
+  this directly: on `aerospace/projectile_clean` at seed 1 and budget 320 the full instrument marks
+  **100% of the domain UNKNOWN and none of it suspicious**, while the arm blind to Sensitivity marks
+  the same domain **100% TRUSTED** (and so do the arms that keep only one channel). The volume was
+  measured either way — Physical applies to every record — but the labelling policy holds a cell at
+  UNKNOWN when one channel's reading is loud and nothing corroborates it, and an arm that cannot hear
+  that channel is no longer held. So an arm with *less* evidence is not merely less cautious in this
+  build; on those pairs it is more decisive. This is the documented cost of the three-label policy
+  (a suspicious cell needs two channels; trust needs the channels that ran to stay quiet), not a
+  defect E2 fixed: changing the corroboration rule because one channel looks unhelpful would destroy
+  the comparison that measured it. What is now true is that `TRUSTED` means *quiet under the channels
+  this run was allowed to consult*, and every results row records which those were.
 
 ## Engineering status
 

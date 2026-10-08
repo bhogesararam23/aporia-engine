@@ -204,11 +204,24 @@ to anyone changing them:
 
 ## Recording an experiment
 
+0. Write the contract down before running anything: the arms, the corpus, the budgets, the seeds, the
+   rates that cost evaluations, and the metric that decides — with the thresholds for supported,
+   partially supported, unsupported and unresolved. An experiment whose comparison is chosen after the
+   arms run is a narrative. Then pilot it on a few entries at one budget and one seed: the pilot's job
+   is to prove the measurement is *possible* (identities distinct, costs equal, output interpretable),
+   never to pick the metric. Both pilots run so far found a defect the test suite could not: a
+   comparison block that named three arms after the plan measured four, and archive directories named
+   so that E2's eleven arms overwrote each other.
 1. Run it. `aporia-bench run --budgets … --seeds …` writes `results-<identity>.json` and archives
-   every top-of-ladder campaign, replaying each before reporting.
+   every top-of-ladder campaign, replaying each before reporting. An ablation arm (`--ablate …`) is a
+   separate plan, so it gets its own identity and cannot overwrite the full instrument's file; the run
+   says so on the console instead of printing a strategy verdict it is not entitled to give.
 2. Compare it against the previous run, field by field, and say what moved. Every "this change did
    not affect the measurement" claim in the results README is a run that was diffed, not an
-   assertion. Use the committed tooling: `aporia bench verdict <file>`, `aporia compare` for archives.
+   assertion. Use the committed tooling: `aporia bench verdict <file>` for a strategy ladder,
+   `aporia bench e2 <full.json> <arm.json>…` for ablation arms (it refuses to pair documents that
+   were not one experiment with two masks, and `--json` gives the machine-readable form), and
+   `aporia compare` for archives.
 3. Write the numbers into `software/benchmarks/results/README.md` **from the file that now exists**,
    never from what you expect it contains. Label historical runs as historical. Where a result is
    missing, say it is missing.
@@ -218,6 +231,11 @@ to anyone changing them:
 
 Numbers are only documented if they were measured. No fabricated speedups, detections, benchmark
 rows, citations or "successful build" claims; `TRUSTED` is never described as *proven correct*.
+
+A null is a result and gets written as one. E1 did not separate the search strategies; E2 did not
+support the claim that fusing five channels localises something no subset localises. Neither null is
+a reason to change the instrument after looking: removing a baseline because it performs badly, or a
+channel because it looks unhelpful, destroys the comparison that made the finding possible.
 
 ## Commit style
 

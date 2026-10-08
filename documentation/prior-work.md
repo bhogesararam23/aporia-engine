@@ -89,8 +89,14 @@ is a weak signal next to a sound round-off bound, and is presented in this repos
 calibrated signals rather than as error analysis. Second: Monniaux is the primary source for the limit
 [already documented here](portability.md): a run's bit pattern is not promised to reproduce across
 compilers and platforms, so APORIA's replay is scoped to a pinned toolchain and says so. Zou et al. is
-the published objection to APORIA's Differential channel, and the channel stands or falls on being
-*one calibrated signal among five*, not on being an oracle.
+the published objection to APORIA's Differential channel, and the channel stood or fell on being
+*one calibrated signal among five*, not on being an oracle. **E2 has now measured what that standing
+is worth on this corpus, and it is small:** a Differential-only arm localises nothing anywhere, and
+removing the channel costs one outcome in the whole experiment — one detection on
+`electromagnetics/rlc_resonance` seed 3, which also requires Numerical to survive, so the two
+precision channels jointly achieve that one thing and neither achieves it alone. That is the measured
+extent of the claim; the argument that a comparison of two implementations is a legitimate signal
+rather than a weaker oracle still holds, and it was never the part at issue.
 
 ### Counterexample minimisation
 

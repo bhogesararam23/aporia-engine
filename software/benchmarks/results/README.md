@@ -455,6 +455,35 @@ vacuity details remain in the machine-readable results and the CLI report; in pa
 trusted volume on controls are reported for inspection, not automatically treated as defects or
 successes. The control ledger shows those changes alongside suspicious and unknown volume.
 
+### The one row where fusion did something no subset could
+
+Registering localisation as the deciding metric does not mean detection was unmeasured, and on one
+row the two disagree — `electromagnetics/rlc_resonance`, the band that is 0.088% of the domain:
+
+| detected at | full | −Behavioral | −Physical | −Numerical | −Differential | −Sensitivity | only-Physical |
+|---|---|---|---|---|---|---|---|
+| seed 3 | **640** | 640 | **640** | never | never | 640 | **never** |
+| seed 4 | **320** | 320 | 320 | 320 | 320 | 1280 | 1280 |
+
+Seed 3 is the interesting one: that detection survives removing Physical entirely and dies when
+either Numerical or Differential is removed, and a Physical-only arm never achieves it at any budget
+in the ladder. It is a detection produced by two non-Physical channels *jointly* — neither alone
+suffices, and the channel responsible for every localisation in the experiment is not involved. This
+is the shape H1 asked for, and it is real, measured from the committed files.
+
+What keeps it from changing the verdict is the outcome it stops at: neither row localises in any arm,
+including the full instrument (`localised_at` is null on both), so the five-channel model here notices
+a near-measure-zero band that no single-channel arm notices and never firms that notice into a
+localisation. The honest summary of E2 is therefore not “fusion contributes nothing” but “fusion
+contributes detection on one row and localisation nowhere” — the hypothesis was stated on
+localisation, and that is where it failed.
+
+Suspicion without detection appears separately on `aerospace/projectile_zero_gravity`: the full arm
+holds 0.0078–0.0117 of the domain suspicious at every budget, while −Sensitivity, −Numerical and
+only-Physical hold none — and no arm detects or localises that entry at all, because its declared
+region is measure-zero. The extra channels are seeing something there; nothing in this run says they
+found the fault.
+
 ## The controls, and a correction to this file
 
 The first version of this file reported the controls as "0.9% random, 2.8% stratified, 2.9% adaptive"
