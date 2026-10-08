@@ -41,11 +41,14 @@ unchanged on purpose: the only variable is the shape of the truth.
 
 `protocols/e1-3b-trust-resolution.json` is E1.3b — whether a truth-blind tightening of the trust rule
 stops `TRUSTED` covering a violated region, and what that costs in UNKNOWN area and in localisation. Its
-schema is `aporia.protocol/draft-1`, deliberately: the rule variants it names need an instrument
-dimension that does not exist yet, and its `entries` section describes sets rather than naming files, so
-a runner asked to use it refuses it by schema name. A freeze that could be run early is a freeze that can
-be quietly amended by the first run; this one cannot be run until the commit that adds its entries
-promotes it, and that commit is not allowed to contain a measurement.
+schema is `aporia.protocol/draft-1`, deliberately, and its `entries.run` is empty: the rule variants the
+arms name need an instrument dimension that does not exist yet, and the resolvable corpus the metric
+measures has not been authored. So the runner refuses it twice over — first by schema name, then by the
+empty list — and `tests/protocol.rs` checks both refusals plus the one thing that must still be true
+underneath them: with the schema promoted and three existing entries handed to it, the file parses as a
+protocol with its eight arms and its frozen plan intact. A freeze that could be run early is a freeze
+that can be quietly amended by the first run; this one becomes runnable only in a commit that fills the
+list, and that commit is not allowed to contain a measurement.
 
 ## What a `truth.json` says
 
