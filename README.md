@@ -52,7 +52,16 @@ literature uses, needing none of the evidence instrument — reaches as many ent
 search (13 of 18) and resolves more of them across seeds, and the two arms tie or fail together on 15 of
 18 entries. By the criterion fixed before the run, **the search is not separated from the baseline**, and
 by the criterion fixed before E2, **the five-channel evidence model is not separated from its Physical
-channel alone on localisation, on this corpus**. What this repository can therefore defend is the
+channel alone on localisation, on this corpus**. That result has since been re-measured where the corpus
+stops matching the atlas: **E1.1/E1.2/E1.3** ran the same eleven arms, ladder, rates and seeds over a
+diagonal half-plane, four curved regions and three discrete-choice entries, and the difference set the
+pre-registration decided on is empty again — of the 45 (entry, seed) pairs it names, the full instrument
+localises 28 and a Physical-only arm localises those same 28 at the same budgets. So the axis-aligned
+shape of E2's corpus is not what made Physical look dominant. The same run found a limitation that
+belongs to the instrument rather than to the channels: three of the nine new region-bearing entries are
+localised by no arm at all, one of them detected by no arm at any budget, and the frozen safety
+condition on `TRUSTED` covering a truly-failing edge region **failed as written** — recorded as a failure
+rather than re-worded. What this repository can therefore defend is the
 artefact — a map whose every region carries re-executable provenance, plus the measurement machinery
 that produced these negatives — and not a demonstrated superiority of either its search or its
 evidence fusion; whether the artefact counts as research (H2) is still open. Numbers
@@ -91,7 +100,8 @@ software/crates/
                     failure modes, and an example solver to copy
   aporia-cli        the command line: `aporia run <model.ap>` (optionally `--program`, `--archive`),
                     `aporia replay`, `aporia report`, `aporia compare`, `aporia bench`
-software/benchmarks/  22 corpus entries with declared ground truth, and the committed measurements
+software/benchmarks/  35 corpus entries with declared ground truth, the frozen protocol files the
+                    experiments read before they run, and the committed measurements
 software/examples/    external programs in other languages and the models they answer for —
                       `beam.py` (Python 3, standard library only) and `beam.ap`
 software/scripts/     dev-env, test runner, lint gate, and the gate that build-verifies every
@@ -265,8 +275,9 @@ model euler_decay "explicit Euler on exponential decay, one free step size" {
 }
 ```
 
-That is `software/benchmarks/ode/euler_decay/model.ap`, one of the twenty-one swept corpus entries the
-numbers above are measured on, so the syntax shown is the syntax that runs.
+That is `software/benchmarks/ode/euler_decay/model.ap`, one of the twenty-one corpus entries E2 swept —
+the measurements above come from those twenty-one and from fifteen of the thirty-five that E1.x names —
+so the syntax shown is the syntax that runs.
 
 Inputs carry units and declared domains, `state` and `advance` are integration, `watch` produces a
 trace, `require` is physical evidence against the author's own contract and `check` is behavioural —

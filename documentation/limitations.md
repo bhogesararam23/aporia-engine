@@ -29,6 +29,18 @@ unseparated, so what is left is the evidence and the artefact:
   the other two declarations sit on controls, so its null is vacuous rather than empty), and it does
   not say calibration or correlation-aware fusion are pointless — E2 ablated *channels*, not the
   fusion machinery, which is the question E3 and E4 ask and neither has been run.
+- **H1, re-measured on geometry the atlas does not partition along (E1.1 / E1.2 / E1.3).** E2 left one
+  specific criticism unanswered: its corpus was boxes aligned with the axes the atlas splits, so
+  Physical's parity might describe the corpus rather than the instrument. **E1.x tested that and it did
+  not move.** The same eleven arms, ladder, rates and seeds ran over a diagonal half-plane, four curved
+  regions and three discrete-choice entries: of the 45 (entry, seed) pairs the frozen universe contains,
+  the full instrument localises 28, Physical alone localises the same 28 at the same budgets, and the
+  difference set the pre-registration decided on is empty — so the outcome is the same "partially
+  supported, nothing uniquely required" as E2, now on curved and discrete shape as well as boxes. What
+  the new corpus *did* find belongs to the instrument rather than to the channels, and it is listed as a
+  limitation below: three of the nine new region-bearing entries are localised by no arm at all, and one
+  of them is detected by no arm either, so on the hardest geometry in the corpus the transfer claim is
+  resting on entries the atlas can reach.
 - **H2 — artefact.** Does an atlas whose every region carries re-executable provenance change what a
   reader can do with a result? Parts of this are tested in this repository; whether it counts as
   research rather than engineering is open.
@@ -103,6 +115,24 @@ every labelled region, a minimised case re-executed at its own witnesses, and ho
   defect E2 fixed: changing the corroboration rule because one channel looks unhelpful would destroy
   the comparison that measured it. What is now true is that `TRUSTED` means *quiet under the channels
   this run was allowed to consult*, and every results row records which those were.
+- **`TRUSTED` sitting on a region the model really violates is now measured, not just argued.** E1.3
+  pre-registered a pass condition — on its two edge entries every arm must report `trusted_over_true`
+  (the fraction of the domain that is both labelled TRUSTED and inside a declared region) of exactly 0.
+  It failed as written: 87 of 330 edge rows report 2.5·10⁻⁶, and one row in thirty under the full
+  instrument — `edge/overflow_tail`, seed 4, budget 1280, where the trusted cells cover roughly
+  eighty percent of a region that is itself 3·10⁻⁶ of the domain. `unplaced` is 0 in all 2475 rows of
+  that run, so no measurement fell off the atlas and no non-finite reading reached a label through that
+  route; what reached it is the same three-label policy as above. The condition was frozen precisely so
+  that this would be a finding instead of a wording choice, so it is recorded as a failed condition and
+  the labelling rule is left for the next pre-registration to change, rather than being adjusted now.
+- **The atlas cannot enclose a region narrower than its cells, and E1.x measured how badly.** Three of
+  the nine new region-bearing entries are localised by *no* arm at any budget: `geometry/narrow_oblique`
+  (a band 0.008 wide crossing a diagonal) is detected on all five seeds by the full instrument, by
+  Physical alone and by the instrument blind to Physical, and never enclosed; `edge/pole_at_edge` is
+  detected by every arm that keeps Physical and by none of the single non-Physical channels;
+  `edge/overflow_tail` is detected by nobody. This is a limitation of partitioning axes, not of the
+  evidence model — which is also why the geometry experiment cannot say whether fusion would have
+  helped there: on parts of the corpus the instrument cannot reach, every arm is equally wrong.
 
 ## Engineering status
 
