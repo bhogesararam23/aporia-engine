@@ -110,7 +110,7 @@ configure. From `software/`:
 
 ```sh
 cargo build --release                 # the workspace
-cargo test --release                  # 622 tests across 13 crates
+cargo test --release                  # 623 tests across 13 crates
 cargo fmt --all --check && cargo clippy --workspace --all-targets
 cargo run --release -p aporia-cli -- run benchmarks/aerospace/projectile_sign_mutant/model.ap
 cargo run --release -p aporia-bench -- list      # what the corpus contains

@@ -41,7 +41,7 @@ git ls-files | grep -c "^docs/"
 ```sh
 cd software
 cargo build --release
-cargo test --release                   # the whole suite; 622 tests across 13 crates
+cargo test --release                   # the whole suite; 623 tests across 13 crates
 cargo fmt --all --check
 cargo clippy --workspace --all-targets
 ```

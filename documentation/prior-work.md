@@ -140,15 +140,16 @@ intermediate representation rather than re-running the tool that produced it.
 
 ## What APORIA can say about itself, given the above
 
-Not "novel", "first", or "unique". What survives is specific and mostly about the artefact and the
-evidence model:
+Not "novel", "first", or "unique". What survives is specific and mostly about the artefact; the
+evidence model is now measured as well, and E2 narrowed what can be said about it:
 
 - A single instrument in which **five heterogeneous signal kinds** — a declared rule with exact SI
   dimension checking, precision disagreement, disagreement with an independent double-double
   evaluator, metamorphic relations, and probe-measured local sensitivity — are treated as one
   calibrated score whose correlation is estimated from the same run, and that score is what the search
   optimises. Each signal exists elsewhere; among the systems checked here, no single one of them is
-  the report's whole measure of distrust.
+  the report's whole measure of distrust — a description of the instrument, and after E2 not a claim
+  that all five earn their cost: on this corpus four of them do not change what is localised.
 - **Every labelled region carries its own proof**: the observations its evidence names, the archived
   A-IR, and a replay that distinguishes "the archive was edited" from "the numbers moved".
 - **A minimised case whose claim is re-executed at its own witnesses**, reported with the number of
@@ -173,6 +174,11 @@ evidence model:
 - That bit-exact replay holds across platforms.
 - That the search beats random or stratified sampling in general. It beats them on one measured entry
   out of 21, and that is recorded as one entry.
+- That the five evidence channels are each load-bearing. E2 removed them one at a time at equal charged
+  cost: four of the five change no localisation anywhere on this corpus, and an arm kept to the Physical
+  channel alone reproduces every localisation the full instrument reaches, at the same budget, with the
+  same boundary tolerance. What the other four demonstrably buy is one detection event, jointly, on one
+  entry — recorded in `../software/benchmarks/results/README.md` rather than argued away here.
 - That the search beats a level-set-shaped single-threshold baseline. Measured on the whole corpus:
   same reach, fewer seeds resolved, three entries cheaper, fifteen ties or joint failures. Not
   separated, and no claim rests on the search.
