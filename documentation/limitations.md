@@ -31,16 +31,21 @@ unseparated, so what is left is the evidence and the artefact:
   fusion machinery, which is the question E3 and E4 ask and neither has been run.
 - **H1, re-measured on geometry the atlas does not partition along (E1.1 / E1.2 / E1.3).** E2 left one
   specific criticism unanswered: its corpus was boxes aligned with the axes the atlas splits, so
-  Physical's parity might describe the corpus rather than the instrument. **E1.x tested that and it did
-  not move.** The same eleven arms, ladder, rates and seeds ran over a diagonal half-plane, four curved
-  regions and three discrete-choice entries: of the 45 (entry, seed) pairs the frozen universe contains,
-  the full instrument localises 28, Physical alone localises the same 28 at the same budgets, and the
-  difference set the pre-registration decided on is empty — so the outcome is the same "partially
-  supported, nothing uniquely required" as E2, now on curved and discrete shape as well as boxes. What
-  the new corpus *did* find belongs to the instrument rather than to the channels, and it is listed as a
-  limitation below: three of the nine new region-bearing entries are localised by no arm at all, and one
-  of them is detected by no arm either, so on the hardest geometry in the corpus the transfer claim is
-  resting on entries the atlas can reach.
+  Physical's parity might describe the instrument or might describe the corpus. **E1.x tested that, and
+  the answer is family-wise rather than one number.** The same eleven arms, ladder, rates and seeds ran
+  over a diagonal half-plane, four curved regions and three discrete-choice entries. On the 20 geometry
+  pairs and the 15 discrete pairs the full instrument localises 13 and 15, and a Physical-only arm
+  localises those same pairs at those same budgets — both difference sets empty, which is the outcome the
+  pre-registration decided on. So the axis-aligned shape of E2's corpus is not what made Physical look
+  dominant, and on the discrete entries the result is the stronger form: the atlas partitions a
+  `Choices` axis as a continuous span, and Physical alone still found every declared branch. The edge
+  family did not test the question at all: its 10 pairs are localised by no arm because no leaf the
+  policy permits (depth 12 → 2.441e-4 of the domain) can be half inside a region 2.5e-6 wide, and one of
+  the two edge entries is detected by nobody. Seventeen of the 45 pairs in the frozen universe are
+  unresolved for resolution reasons, not channel reasons, and they are reported as such: they are not
+  evidence that fusion is unnecessary, and they are not evidence that Physical suffices either. Fusion's
+  necessity remains unestablished — and on the geometry this corpus could actually reach, it remains
+  unestablished on evidence that now spans boxes, curves and choices.
 - **H2 — artefact.** Does an atlas whose every region carries re-executable provenance change what a
   reader can do with a result? Parts of this are tested in this repository; whether it counts as
   research rather than engineering is open.
@@ -131,7 +136,11 @@ every labelled region, a minimised case re-executed at its own witnesses, and ho
   sample is the difference between pass and fail. `unplaced` is 0 in all 2475 rows of the run, so no
   measurement fell off the atlas and no non-finite reading reached a label through that route: the
   quantity computed exactly what the protocol defined, over a cell whose trusted status was earned by
-  the points that missed the region. The condition was frozen precisely so that this would be a finding
+  the points that missed the region. And the phenomenon is not the edge entries' alone: under −Physical,
+  11 to 15 of the 15 rows on *every* geometry and discrete entry carry a non-zero `trusted_over_true`,
+  reaching the entry's whole declared envelope share on several. The frozen condition named two entries;
+  the labelling rule behaves this way wherever a region is thinner than the cell that contains it. The
+  condition was frozen precisely so that this would be a finding
   rather than a wording choice, so it stays recorded as a failed condition, and the labelling rule is
   left for a new pre-registration (E1.3b) to change rather than being adjusted now.
 - **The atlas cannot enclose a region narrower than its leaf, and the arithmetic is now measured rather

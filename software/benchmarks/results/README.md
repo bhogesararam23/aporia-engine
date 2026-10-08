@@ -618,6 +618,48 @@ the geometry result: three of the nine new entries — `narrow_oblique`, `pole_a
 are not evidence *about* channels, they are entries the frozen instrument cannot reach at any budget in
 the ladder.
 
+### What each family actually tested
+
+The frozen metric is one number and the answer to the question this corpus was built around is not one
+number, so the partition is published rather than summarised away.
+`benchmarks/analysis/e1-geometry-postmortem.json` is generated from the eleven documents by
+`scripts/post_e1_analysis.py`, and `tests/analysis_artifact.rs` recomputes its headline claims from the
+same files — an artifact that drifts from the measurements fails `cargo test`.
+
+| family | entries | pairs | full localises | only-Physical | state of the question |
+|---|---|---|---|---|---|
+| E1.1 geometry | 4 | 20 | 13 | 13, same budgets | **exercised, and Physical matches the full instrument** |
+| E1.2 discrete | 3 | 15 | 15 | 15, same budgets | **exercised, and Physical matches the full instrument** |
+| E1.3 edge | 2 | 10 | 0 | 0 | **structurally untestable by this atlas** |
+
+- **E1.1.** `diagonal_sum` and `curved_arc` localise on 5/5 seeds at budget 320 under both arms.
+  `curved_product` localises on 3/5 (seed 5 at 640, seeds 1 and 3 at 1280) with the same two arms
+  agreeing; its seed 2 detects at 1280 and never encloses, and seed 4 detects nothing. `narrow_oblique`
+  is the entry that is not about channels at all: detected 5/5 by the full instrument, by only-Physical
+  **and** by −Physical, enclosed by none of the eleven arms.
+- **E1.2.** Every declared branch of every discrete entry is localised by both arms at the same budget —
+  the strongest transfer evidence in the run, because the atlas partitions a `Choices` axis as a
+  continuous span, and a search built that way still found each branch exactly when Physical alone could.
+- **E1.3.** Zero of ten pairs in every arm, and the partition records *why*: the finest leaf the policy
+  permits (depth 12, `Policy::default`, the same object every arm ran with) occupies 2.441e-4 of a
+  one-axis domain, while each declared envelope is 2.5e-6 of it — about a hundred times thinner. No leaf
+  can be half inside either region, so the 0.5 overlap bar that defines localisation cannot be met at any
+  budget by any arm whatever the evidence. `overflow_tail` is not even detected by any arm.
+
+So the state of the intended question, family by family: E1.1 and E1.2 were exercised and Physical wins;
+E1.3 could not be decided by this instrument at this resolution; and **no pair anywhere in the universe
+is evidence that another channel is load-bearing**, because both difference sets are empty. The 17
+unresolved pairs are not evidence that no problem exists, and they are not evidence for Physical either —
+they are the atlas reporting the limit of its own granularity, which is why they are listed per entry in
+the artifact with their envelope shares beside them.
+
+One more reading the frozen condition did not ask for and the artifact makes unavoidable: under −Physical
+the over-claim is not confined to the edge entries. 11–15 of the 15 rows on *every* geometry and discrete
+entry carry a non-zero `trusted_over_true`, reaching the entry's whole envelope share on several, so what
+E1.3 found on its two edge entries is the labelling rule behaving the same way everywhere the region is
+thinner than the cell that contains it. The condition named the edge entries; the phenomenon is not
+theirs alone.
+
 **The other secondary readings.** No new entry's measure depends on the predicate lattice:
 `lattice_sensitive` is false on all six curved/edge predicate regions across all 165 of their rows.
 Behaviour is the channel that is *absent* rather than ineffective: −Behavioral changes no localisation

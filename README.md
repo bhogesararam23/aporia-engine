@@ -57,7 +57,10 @@ stops matching the atlas: **E1.1/E1.2/E1.3** ran the same eleven arms, ladder, r
 diagonal half-plane, four curved regions and three discrete-choice entries, and the difference set the
 pre-registration decided on is empty again — of the 45 (entry, seed) pairs it names, the full instrument
 localises 28 and a Physical-only arm localises those same 28 at the same budgets. So the axis-aligned
-shape of E2's corpus is not what made Physical look dominant. The same run found a limitation that
+shape of E2's corpus is not what made Physical look dominant. That answer is family-wise, and the
+families differ: the 13 geometry pairs and the 15 discrete pairs were exercised and Physical matched,
+while the 10 edge pairs settled nothing at all, because no leaf the atlas is permitted to build can be
+half inside a region that thin. The same run found a limitation that
 belongs to the instrument rather than to the channels: three of the nine new region-bearing entries are
 localised by no arm at all, one of them detected by no arm at any budget, and the frozen safety
 condition on `TRUSTED` covering a truly-failing edge region **failed as written** — recorded as a failure
