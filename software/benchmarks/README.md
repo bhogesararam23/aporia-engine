@@ -39,6 +39,14 @@ committed on 2026-10-08, and the entries its `entries` list names did not exist 
 and are authored against it, not the other way round. Its arms, budgets, seeds and rates are E2's,
 unchanged on purpose: the only variable is the shape of the truth.
 
+`protocols/e1-3b-trust-resolution.json` is E1.3b — whether a truth-blind tightening of the trust rule
+stops `TRUSTED` covering a violated region, and what that costs in UNKNOWN area and in localisation. Its
+schema is `aporia.protocol/draft-1`, deliberately: the rule variants it names need an instrument
+dimension that does not exist yet, and its `entries` section describes sets rather than naming files, so
+a runner asked to use it refuses it by schema name. A freeze that could be run early is a freeze that can
+be quietly amended by the first run; this one cannot be run until the commit that adds its entries
+promotes it, and that commit is not allowed to contain a measurement.
+
 ## What a `truth.json` says
 
 `regions` is a union of axis-aligned boxes in the model's own parameter names. A point inside one of

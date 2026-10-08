@@ -461,3 +461,135 @@ fn an_edited_protocol_reads_as_a_different_document_than_the_one_it_was_frozen_i
         .expect("the committed protocol reads");
     assert_eq!(in_memory.digest, None);
 }
+#[test]
+fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
+    // `e1-3b-trust-resolution.json` is a pre-registration written before its corpus and before the
+    // instrument changes it depends on. The protection has to be structural rather than a note in
+    // prose: an unreadable schema cannot be measured against, so the file cannot quietly become a run.
+    let path = corpus_root()
+        .join("protocols")
+        .join("e1-3b-trust-resolution.json");
+    let text = std::fs::read_to_string(&path).expect("the follow-up protocol is in the tree");
+    let value = Json::parse(&text).expect("it is JSON");
+    let error =
+        Protocol::from_json(&value).expect_err("a draft schema is not a protocol the runner reads");
+    assert!(
+        error.contains("aporia.protocol/draft-1"),
+        "the refusal names the schema rather than a detail: {error}"
+    );
+
+    // What the freeze commits to, checked as fields so it cannot be quietly rewritten later.
+    let field = |key: &str| -> Json {
+        value
+            .get(key)
+            .unwrap_or_else(|| panic!("the freeze states no {key}"))
+            .clone()
+    };
+    assert_eq!(field("frozen").as_str(), Some("2026-10-09"));
+    assert!(
+        field("supersedes_nothing")
+            .as_str()
+            .unwrap_or_default()
+            .contains("stays failed"),
+        "a follow-up must not reopen the condition it follows"
+    );
+    let rule = field("primary_metric")
+        .get("decision_rule")
+        .and_then(Json::as_array)
+        .expect("the freeze states a decision rule")
+        .to_vec();
+    assert_eq!(
+        rule.len(),
+        5,
+        "five outcomes, including the one where the corpus cannot ask"
+    );
+    assert!(
+        rule[0]
+            .as_str()
+            .unwrap_or_default()
+            .contains("stop and report"),
+        "the first outcome must be the null one, stated before the favourable ones"
+    );
+    let prerequisites = field("prerequisite_instrument_changes")
+        .as_array()
+        .expect("the freeze names what must be built first")
+        .to_vec();
+    assert!(prerequisites.len() >= 3);
+    assert!(
+        prerequisites.iter().any(|p| {
+            p.as_str()
+                .unwrap_or_default()
+                .contains("declared region into the labelling path")
+        }),
+        "and one of them must be the prohibition that keeps the answer key out of the rule"
+    );
+}
+
+/// The eight arms are four trust variants across two channel masks, and the masks alone do not separate
+/// them: two arms of this freeze would today carry the same plan and therefore the same measurement
+/// identity, which the runner refuses to write twice. That collision is not a bug in the freeze, it is
+/// the freeze's first prerequisite stated as a fact about the current instrument.
+#[test]
+fn the_frozen_arms_cannot_be_told_apart_by_the_instrument_that_exists_today() {
+    let path = corpus_root()
+        .join("protocols")
+        .join("e1-3b-trust-resolution.json");
+    let value =
+        Json::parse(&std::fs::read_to_string(path).expect("the follow-up protocol is in the tree"))
+            .expect("it is JSON");
+    let arms = value
+        .get("arms")
+        .and_then(Json::as_array)
+        .expect("arms")
+        .to_vec();
+    assert_eq!(
+        arms.len(),
+        8,
+        "four trust variants across two channel regimes"
+    );
+    assert!(
+        arms.iter().any(|a| {
+            a.get("name").and_then(Json::as_str) == Some("full-current-trust")
+                && a.get("ablate")
+                    .and_then(Json::as_array)
+                    .is_some_and(<[Json]>::is_empty)
+        }),
+        "the default arm must be today's policy with an empty mask, because it is the one the reproduction gate compares against committed rows"
+    );
+    let masks: Vec<String> = arms
+        .iter()
+        .map(|a| {
+            a.get("ablate")
+                .and_then(Json::as_array)
+                .map(|m| {
+                    m.iter()
+                        .filter_map(Json::as_str)
+                        .collect::<Vec<_>>()
+                        .join("+")
+                })
+                .unwrap_or_default()
+        })
+        .collect();
+    // Three masks across eight arms: today the plan of `full-min-channels-2` would be byte-identical
+    // to `full-current-trust`, and the runner refuses to write one identity twice. The freeze is
+    // therefore unrunnable in a second, structural way — the trust dimension has to reach the plan and
+    // the identity before the arms can mean anything, which is the first prerequisite.
+    let distinct: Vec<&String> = {
+        let mut seen: Vec<&String> = Vec::new();
+        for mask in &masks {
+            if !seen.contains(&mask) {
+                seen.push(mask);
+            }
+        }
+        seen
+    };
+    assert_eq!(
+        distinct.len(),
+        3,
+        "eight arms over three channel masks: the trust variants are not yet distinguishable"
+    );
+    assert!(
+        distinct.len() < masks.len(),
+        "and that is exactly the collision the prerequisite exists to remove"
+    );
+}

@@ -1,0 +1,98 @@
+{
+  "schema": "aporia.protocol/draft-1",
+  "id": "e1-3b-trust-resolution",
+  "title": "E1.3b — does a truth-blind trust rule stop TRUSTED covering a violated region, and what does it cost?",
+  "frozen": "2026-10-09",
+  "status": "FROZEN, NOT RUN, AND NOT RUNNABLE YET. It names no entry that exists, so `bench run --plan` refuses it; that refusal is the point. This definition was written before the corpus it will measure was authored and before any number from it exists.",
+  "promotion": "The schema is `aporia.protocol/draft-1` deliberately, and the strict reader refuses an unrecognised schema by name: until the two prerequisite instrument changes below exist and the resolvable entries are authored, this file cannot be read as a plan at all, which is a stronger guarantee than being readable and wrongly runnable. It becomes `aporia.protocol/1` in the commit that adds its entries, and that commit must not contain a measurement.",
+  "supersedes_nothing": "E1.3's pass condition failed and stays failed. Nothing here reopens, re-reads or repairs E1.1/E1.2/E1.3, and no E1.x number is recomputed under a new rule.",
+  "depends_on": [
+    "0029 E13",
+    "0034",
+    "0036",
+    "0037 — the protocol that failed its own condition",
+    "0038 — the audit that established why"
+  ],
+  "question": "E1.3 found that a leaf can be labelled TRUSTED while a declared region lies unsampled inside it, and 0038 showed that this happens because the region is thinner than any leaf the atlas is permitted to build, not because a channel was removed. Does a truth-blind tightening of the trust rule stop that, and if it does, at what cost in UNKNOWN area and in localisation?",
+  "hypotheses": {
+    "H-RESOLVE": "Requiring more evidence before a leaf may be trusted removes the over-claim on regions the atlas can actually resolve, and what remains is confined to regions narrower than the finest permitted leaf.",
+    "H-SILENCE": "Or the over-claim falls mainly by turning TRUSTED into UNKNOWN — the instrument stops claiming rather than stops being wrong — in which case the change is in reporting, not in knowledge."
+  },
+  "why_the_frozen_condition_was_the_wrong_test": "0037 required `trusted_over_true = 0` on two edge entries for every arm. Two measured facts make that unable to answer anything about evidence. (a) On those entries no leaf can be half inside the region at any depth the policy allows, so localisation was unreachable and the only route to a pass was for the region's leaf to stay UNKNOWN. (b) The same entry passed at one seed and failed at another because the leaf held 3 samples rather than 4, so the condition is decided by a sampling accident and is monotone in neither evidence nor safety. E1.3b separates the two questions 0037 conflated: whether the atlas can resolve a region at all, which is a reachability measurement reported per entry and never scored as safety, and whether a trust rule avoids certifying what it did resolve.",
+  "prerequisite_instrument_changes": [
+    "An arm dimension beyond channel masks. The arms 0036 and 0037 used are masks over channels; this protocol's comparison is over the trust rule, so `Config` and `Policy` need a frozen set of named trust variants carried in the plan and inside the measurement identity exactly as the ablate mask is. Built and tested before any arm runs, with the argument that no committed measurement moves: the default variant is today's policy, byte for byte.",
+    "Reachability becomes the instrument's own arithmetic rather than prose: a function from a declared region, the policy's depth cap and the axis count to whether any permitted leaf could be half inside that region, computed at load time and recorded in the results document beside the entry's digest.",
+    "No rule in this protocol may read a declared region into the labelling path. A trust rule that consults truth to decide trust would make the instrument mark its own homework, which is the defect 0037's correction C8 was written to keep out of the corpus."
+  ],
+  "plan": {
+    "budgets": [320, 640, 1280, 2560],
+    "strategies": ["adaptive"],
+    "seeds": [1, 2, 3, 4, 5],
+    "grid_per_axis": 41,
+    "minimise_budget": 4000,
+    "probe_every": 7,
+    "numerical_every": 11,
+    "differential_every": 11,
+    "symmetric_every": 1,
+    "refine_every": 40,
+    "calibrate_every": 25
+  },
+  "plan_reason": "E1.x's ladder unchanged, so the `full` arm under the current rule is comparable with E1.x's committed rows, plus 2560 for one reason stated before any run: the reachability classes are defined against the depth the atlas reaches, and doubling the largest budget is the cheapest way to show a class is a depth limit rather than a budget limit. No threshold here was chosen after an E1.3b number; none exists.",
+  "arms": [
+    { "name": "full-current-trust", "ablate": [] },
+    { "name": "full-min-channels-2", "ablate": [] },
+    { "name": "full-nonfinite-blocks-trust", "ablate": [] },
+    { "name": "full-both-trust-rules", "ablate": [] },
+    { "name": "no-physical-current-trust", "ablate": ["physical"] },
+    { "name": "no-physical-both-trust-rules", "ablate": ["physical"] },
+    { "name": "only-physical-current-trust", "ablate": ["behavioral", "numerical", "differential", "sensitivity"] },
+    { "name": "only-physical-both-trust-rules", "ablate": ["behavioral", "numerical", "differential", "sensitivity"] }
+  ],
+  "arms_reason": "Two dimensions, confounded with nothing: the channel masks E1.x used, and four truth-blind trust variants. `current-trust` is `Policy::default` exactly as measured in 0036 and 0037. `min-channels-2` requires two channels applied inside a leaf before it may be trusted — the cheapest test of whether trust is being granted on one sensor's silence. `nonfinite-blocks-trust` refuses TRUSTED where any reading in the leaf left the real numbers, which is the mechanism 0029 named. `both` is the conjunction, because two rules that each halve an over-claim are not one rule that halves it twice. −Physical and only-Physical carry through both dimensions because E2 and E1.x established Physical as load-bearing: a trust rule that works only on the full instrument is not a safety rule, it is an artefact of having four other channels talking.",
+  "entries": {
+    "resolvable": "To be authored after this file is committed. Each entry's declared region must be wide enough that a leaf the policy permits could be at least half inside it — the instrument's own reachability function decides that at load time, and an entry it calls unresolvable is refused from this set rather than reclassified.",
+    "sub_granular": "The two E1.3 edge entries and `geometry/narrow_oblique`, unchanged, as the control set for the reachability claim. They are expected to over-claim under every variant; if they do not, 0038's account of why they failed is wrong, and that is the finding.",
+    "note": "No entry is named that does not exist yet, which is why the runner refuses this file today: the corpus is authored after the freeze and before any arm runs."
+  },
+  "primary_metric": {
+    "name": "over-claim among the resolvable, and what replaced it",
+    "universe": "the (entry, seed, budget) rows of the resolvable set, per trust variant and per mask. The sub-granular set is reported separately and never enters a deciding quantity.",
+    "definition": "For each arm, four quantities read from the same rows: (1) how many rows carry `trusted_over_true` > 0, and the largest fraction of a declared region certified; (2) those rows' UNKNOWN volume, because a rule that clears trust by refusing to label has measured nothing; (3) the localisation count, because a rule that stops trusting and also stops localising has traded one failure for another; (4) control cleanliness as in E1.x — suspicious volume on the controls and the count of control rows trusted more than the full arm. The deciding statistic is (1) reaching zero on the resolvable set while (2) stays under the ceiling stated below and (3) stays within one pair of the current rule at the same budget.",
+    "decision_rule": [
+      "1. If the resolvable set is empty after the reachability filter, stop and report that this corpus cannot state the question. Do not widen the filter to obtain a set.",
+      "2. If a trust variant takes over-claim to 0 on every resolvable row while mean UNKNOWN volume rises by no more than 0.05 of the domain per row and localisation on the resolvable set stays within one pair of the current rule at the same budget, that variant is a safety improvement and is reported as one, named.",
+      "3. If over-claim falls but the fall is mainly UNKNOWN growth beyond that ceiling, report H-SILENCE supported and H-RESOLVE unsupported: the instrument changed its reporting, not its knowledge.",
+      "4. If over-claim persists on the resolvable set under every variant, the semantics are the limitation rather than the thresholds: report that TRUSTED cannot carry the meaning E1.3 wanted from it, and open the question of a fourth label instead of another knob.",
+      "5. If over-claim disappears only on the full instrument and survives under −Physical or only-Physical, the rule is an interaction with channel count rather than a trust rule; report it that way and do not adopt it."
+    ],
+    "ceiling_rationale": "The 0.05 UNKNOWN ceiling and the one-pair localisation tolerance are frozen now, before the corpus exists and before any variant has run, and they are deliberately ungenerous: a rule that buys safety by stopping measurement has to show it has not, and the only evidence that it has not is what it still reports."
+  },
+  "secondary_metrics": [
+    "the reachability classification itself, per entry and per budget — what share of the corpus this atlas can enclose at all, which 0037 had no vocabulary for",
+    "trusted, unknown and suspicious volume per row under each variant, so a reader can see what a fall in over-claim was paid for",
+    "non-finite readings per row, because the non-finite variant's effect must be attributable: a rule that fires where nothing was non-finite is a different rule from the one proposed",
+    "control rows still trusted more after a channel is removed, under each variant",
+    "per-entry and per-seed breakdown; no family is averaged into another, which is the error 0038 found in 0037's reporting"
+  ],
+  "not_claims": [
+    "that any E1.x result changes. E1.3's condition failed under the rule in force when the experiment ran, and that stands as measured.",
+    "that a lower over-claim means a more correct instrument: correctness about a region requires consulting the region, which no arm here may do.",
+    "that TRUSTED will come to mean proven correct. It means quiet under the channels that ran; E1.3b asks how much quietness a label may claim on, not what the label proves."
+  ],
+  "audit_gate": {
+    "command": "aporia-bench audit, aporia-bench verify --grid 41, and the reachability function named above, all green before the pilot",
+    "refuses": [
+      "[verify] an entry in the resolvable set that the instrument's own reachability function calls unresolvable",
+      "[review] a trust variant that reads a declared region into the labelling path: the variants are functions of cell statistics the atlas already holds",
+      "[archive] a run whose documents do not all cite this file's digest, and any flag that shapes what is measured beside --plan"
+    ],
+    "order": "audit, verify, the reproduction gate against E1.x's committed rows under the current rule, then a pilot, then the full run"
+  },
+  "reproduction_gate": "The `full-current-trust` arm must reproduce E1.x's committed rows exactly on the shared entries — localisation, detection, both cost columns and the three volumes — because the default variant is the policy that produced those files. A difference means the trust refactor changed the measurement while claiming not to, and no variant is read.",
+  "limitations_this_does_not_remove": [
+    "one author chooses the entries, including which ones count as resolvable; the reachability function constrains that choice, it does not remove it",
+    "the variants are truth-blind by requirement, so none can be guaranteed to make trust track truth — only to require more evidence before claiming",
+    "the depth arithmetic treats each axis by halving the longest normalised one, so a region thin in one direction and wide in another, like the diagonal band, is classified by its thin direction; that is conservative towards calling a region resolvable, which is the direction that risks an over-optimistic result",
+    "the ceiling and the tolerance are numbers chosen in advance by the same person who wrote the rule; a reader who wants a different bar has to run their own protocol"
+  ]
+}
