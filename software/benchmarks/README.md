@@ -26,6 +26,13 @@ has to exist first: a metric chosen after the arms are read is not a metric. `pr
 the arms, the entry list, the budgets, the seeds, the rates, the deciding statistic and the decision
 rule, written down before the corpus they name exists.
 
+The runner reads them, which is what makes them more than a note. `aporia-bench run --plan
+protocols/<id>.json --arm <name>` takes its whole definition from the file, refuses any command-line
+flag that would shape what is measured (`--budgets`, `--seeds`, `--only`, `--ablate`, the sampling
+rates), requires the arm to be named rather than guessed, and writes the protocol id and arm into the
+results document. A protocol file with no `primary_metric` is refused outright: without a written
+decider it is a plan, not a pre-registration.
+
 `protocols/e1-geometry.json` is E1.1/E1.2/E1.3 — whether E2's finding that one channel suffices
 transfers to corpus entries whose geometry does not match the atlas's axis-aligned partition. It was
 committed on 2026-10-08, and the entries its `entries` list names did not exist when it was written
