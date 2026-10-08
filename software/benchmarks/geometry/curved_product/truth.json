@@ -3,13 +3,13 @@
   "fault": "boundary_condition",
   "curved": true,
   "method": "analytic",
-  "derivation": "The rule fails where p*q > 5.5: a hyperbola, curved in both axes and asymptotic to each. Closed form, over the square [0.5, 2.5]^2 of area 4: the set {pq > c} with b = 2.5 and c = 5.5 has area b^2 - c + c(ln c - 2 ln b) = 6.25 - 5.5 + 5.5(1.704748 - 1.832581) = 0.0468, so 1.17% of the domain - within a factor of two of synthetic/one_pct_2d, the axis-aligned rung it is matched to. The region enters the square only above p = c/b = 2.2, which is the declared boundary: below it every q is safe, and the crossing moves with q from there, which is what a hyperbola does to an axis-aligned band.",
+  "derivation": "The rule fails where p*q > 5.8: a hyperbola, curved in both axes and asymptotic to each. Closed form over the square [0.5, 2.5]^2 of area 4: with b = 2.5 and c = 5.8 the set {pq > c} has area b^2 - c + c(ln c - 2 ln b) = 6.25 - 5.8 + 5.8(1.757858 - 1.832581) = 0.0166, so 0.42% of the domain - within a factor of two of synthetic/one_pct_2d at 0.500%, the axis-aligned narrow rung it is difficulty-matched to. The region enters the square only above p = c/b = 2.32, which is the declared boundary: below it every q is safe, and above it the crossing moves continuously with q, which is what a hyperbola does to an axis-aligned band and what the boundary tolerance of 0.1 admits rather than pretends to pin.",
   "regions": [
     {
       "reason": "the loop gain exceeds the stability limit",
       "axes": {
         "p": [
-          2.2,
+          2.32,
           2.5
         ],
         "q": [
@@ -17,13 +17,13 @@
           2.5
         ]
       },
-      "where": "p * q > 5.5"
+      "where": "p * q > 5.8"
     }
   ],
   "boundaries": [
     {
       "axis": "p",
-      "at": 2.2,
+      "at": 2.32,
       "tolerance": 0.1
     }
   ],

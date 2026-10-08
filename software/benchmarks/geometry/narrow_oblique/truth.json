@@ -4,7 +4,7 @@
   "curved": true,
   "narrow": true,
   "method": "analytic",
-  "derivation": "Two nearly equal loads are subtracted and the remainder divides 1, so the answer blows up on the line p - q = 0.5. The rule fails where (p - q - 0.5)^2 <= 1e-4, i.e. |p - q - 0.5| <= 0.01: a strip of perpendicular width 0.01*sqrt(2) = 0.01414 running obliquely across the square. Its area is that width times the length of the chord from (0.5, 0) to (2, 1.5), sqrt(1.5^2 + 1.5^2) = 2.1213, giving 0.030 over a 4-square: 0.75% of the domain, within a factor of two of synthetic/one_pct_2d. At the domain centre q = 1 the crossing pair is p = 1.49 and p = 1.51, so 1.5 is declared with the half-width of the strip as its tolerance - the honest question is whether an axis-aligned search resolves an oblique sliver at all, not whether it can place one edge to six digits. Exactly on the line the divisor is zero and the reading is infinite, which is the divergence the Physical channel reports; the strip's interior is finite but huge, so this entry also exercises what a band of overflow-adjacent readings looks like to the other channels. The region's true area is 0.030, so 0.75% of the domain; the share the report prints is 2.34%, because the 32-per-axis measure lattice has a step of 0.0625 and the strip is only 0.02 wide, so the sample cannot resolve it. That gap is not a defect to tune away: it says the volume of a thin oblique band is a lattice artifact for this partition, while its membership stays exact, and the frozen protocol excludes a localisation decided by such a lattice from the primary comparison rather than letting it count as a sameness or a difference.",
+  "derivation": "Two nearly equal loads are subtracted and the remainder divides 1, so the answer blows up on the line p - q = 0.5. With amplified = 1/gap^2 the rule fails where gap^2 <= 1/62500, i.e. |p - q - 0.5| <= 0.004 exactly: a strip of perpendicular width 0.004*sqrt(2) = 0.00566 running obliquely across the square, whose true area is that width times the chord from (0.5, 0) to (2, 1.5), sqrt(1.5^2 + 1.5^2) = 2.1213, giving 0.012 = 0.30% of the 4-square. The share this build prints is 2.344% and the difference is the finding, not a defect to tune away: the 32-per-axis measure lattice steps by 0.0625 along this axis, so a band eight times narrower than the step is counted by whole columns and its sampled volume is quantised, while its membership stays exact. `matched_to` is therefore the rung whose *measured* share it sits beside (synthetic/narrow_1d, 2.000%), because that is the only share the audit can compute for a predicate region, and the disclosure belongs here rather than in a footnote: equal measured share does not mean equal difficulty. A 2% axis-aligned box can be enclosed by one cell of the atlas at any size; a cell inside this band has to be narrower than 0.008, which no budget on this ladder reaches. For an axis-aligned partition that is a structural difference, and it is the thing E1.1 exists to measure, so the frozen protocol keeps a localisation the lattice decides out of the primary comparison rather than letting it count as either a sameness or a difference. Exactly on the line the divisor is zero and the reading is infinite, so this entry also exercises a region whose core readings are non-finite.",
   "regions": [
     {
       "reason": "the cancelled difference is small enough to amplify past the limit",
@@ -18,16 +18,16 @@
           2
         ]
       },
-      "where": "(p - q - 0.5) * (p - q - 0.5) <= 0.0001"
+      "where": "(p - q - 0.5) * (p - q - 0.5) <= 0.000016"
     }
   ],
   "boundaries": [
     {
       "axis": "p",
       "at": 1.5,
-      "tolerance": 0.01
+      "tolerance": 0.004
     }
   ],
-  "matched_to": "synthetic/one_pct_2d",
+  "matched_to": "synthetic/narrow_1d",
   "expect": "a narrow oblique strip, the hardest shape for an axis-aligned atlas"
 }

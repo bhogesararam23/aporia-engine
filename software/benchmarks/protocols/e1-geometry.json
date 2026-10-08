@@ -5,18 +5,33 @@
   "frozen": "2026-10-08",
   "frozen_before": "This file was committed before any entry named under entries existed in the corpus, before any arm ran, and before any E1.x number existed anywhere. Nothing in it was chosen after a result was read.",
   "supersedes_nothing": "E1 (0032) and E2 (0036) are closed and are not rerun, altered, or reinterpreted by this protocol.",
-  "depends_on": ["0029 E11/E12/E13", "0032", "0034", "0036"],
-
+  "depends_on": [
+    "0029 E11/E12/E13",
+    "0032",
+    "0034",
+    "0036"
+  ],
   "question": "E2 measured that removing Physical loses 39 of 90 localisation events while keeping only Physical reproduces all 59 at the same budgets. Is Physical actually dominant, or did an axis-aligned corpus make an axis-aligned instrument look dominant?",
   "hypotheses": {
     "H-PHYS": "The five-channel model is effectively one channel plus explanation; only-Physical matches full on geometry the atlas does not partition along.",
     "H-SHAPE": "Physical's E2 parity is a property of corpus shape; on curved, discrete or edge geometry the full instrument localises pairs that only-Physical does not."
   },
-
   "plan": {
-    "budgets": [320, 640, 1280],
-    "strategies": ["adaptive"],
-    "seeds": [1, 2, 3, 4, 5],
+    "budgets": [
+      320,
+      640,
+      1280
+    ],
+    "strategies": [
+      "adaptive"
+    ],
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
     "grid_per_axis": 41,
     "minimise_budget": 4000,
     "probe_every": 7,
@@ -27,7 +42,6 @@
     "calibrate_every": 25
   },
   "plan_reason": "Every one of these is E2's value, from 0034, unchanged. The point of reusing them is that a difference between E2's numbers and this experiment's can be attributed to corpus shape and to nothing else. Budgets and seeds were not chosen to make any new entry reachable.",
-
   "corrections": {
     "dated": "2026-10-08, after this file was committed and before any entry named in it was authored or any arm ran",
     "why": "An audit of this protocol against the committed code and against 0029/0034/0036 found nine defects. None of them was found by looking at a result of this experiment; the experiment has not been run.",
@@ -40,35 +54,142 @@
       "C6 trusted_over_true had no numerator rule and E1.3's safety check had no pass condition. Both are stated now.",
       "C7 Nothing said how a one-pair divergence must be worded, and nothing separated an edge/* divergence caused by the documented remove-a-channel-to-gain-trust route from one caused by geometry. Both are constrained before the fact now.",
       "C8 The new entries' domains, coefficients and region sizes were pinned nowhere, so 'not a cosmetic variant' was unenforceable after authoring. Each region-bearing entry must now match a named existing entry's difficulty within a factor of two, declared in its truth file and checked by the audit.",
-      "C9 This protocol attributed to E2 a statement E2 never measured, that an all-non-finite region labels TRUSTED under -physical. That is a code-path reading taken during this session's audit and it is cited as one."
+      "C9 This protocol attributed to E2 a statement E2 never measured, that an all-non-finite region labels TRUSTED under -physical. That is a code-path reading taken during this session's audit and it is cited as one.",
+      "C10 Two E1.1 entries broke the difficulty rule C8 introduced, and the entries moved rather than the rule: curved_product sat at 1.157% against the nearest narrow rung (synthetic/one_pct_2d, 0.500%), which is 2.3x, so its limit became 5.8 and its share 0.422%; narrow_oblique measured 2.344% against the same rung, so it is matched to synthetic/narrow_1d at 2.000%. No experiment result was involved - no arm of this experiment has run - and the adjustment is exactly what the audit gate exists to force before an expensive run.",
+      "C11 The disclosure C10 forced into the open, recorded rather than buried: for a band narrower than the measure lattice's own step, the sampled volume of a curved region is *quantised* (narrow_oblique's true share is 0.30%, this build reports 2.344%, because a 0.008-wide band is counted in whole lattice columns). So 'matched_to' for a predicate region compares the measured share, which is the only share the audit can compute, and equal measured share does not mean equal difficulty: an axis-aligned 2% box can be enclosed by one cell at any refinement level, while a cell inside this band must be narrower than the band. That asymmetry between box and band is the hypothesis under test, not a nuisance in it."
     ]
   },
-
   "arms": [
-    { "name": "full", "ablate": [] },
-    { "name": "no-behavioral", "ablate": ["behavioral"] },
-    { "name": "no-numerical", "ablate": ["numerical"] },
-    { "name": "no-differential", "ablate": ["differential"] },
-    { "name": "no-sensitivity", "ablate": ["sensitivity"] },
-    { "name": "no-physical", "ablate": ["physical"] },
-    { "name": "only-behavioral", "ablate": ["physical", "numerical", "differential", "sensitivity"] },
-    { "name": "only-physical", "ablate": ["behavioral", "numerical", "differential", "sensitivity"] },
-    { "name": "only-numerical", "ablate": ["behavioral", "physical", "differential", "sensitivity"] },
-    { "name": "only-differential", "ablate": ["behavioral", "physical", "numerical", "sensitivity"] },
-    { "name": "only-sensitivity", "ablate": ["behavioral", "physical", "numerical", "differential"] }
+    {
+      "name": "full",
+      "ablate": []
+    },
+    {
+      "name": "no-behavioral",
+      "ablate": [
+        "behavioral"
+      ]
+    },
+    {
+      "name": "no-numerical",
+      "ablate": [
+        "numerical"
+      ]
+    },
+    {
+      "name": "no-differential",
+      "ablate": [
+        "differential"
+      ]
+    },
+    {
+      "name": "no-sensitivity",
+      "ablate": [
+        "sensitivity"
+      ]
+    },
+    {
+      "name": "no-physical",
+      "ablate": [
+        "physical"
+      ]
+    },
+    {
+      "name": "only-behavioral",
+      "ablate": [
+        "physical",
+        "numerical",
+        "differential",
+        "sensitivity"
+      ]
+    },
+    {
+      "name": "only-physical",
+      "ablate": [
+        "behavioral",
+        "numerical",
+        "differential",
+        "sensitivity"
+      ]
+    },
+    {
+      "name": "only-numerical",
+      "ablate": [
+        "behavioral",
+        "physical",
+        "differential",
+        "sensitivity"
+      ]
+    },
+    {
+      "name": "only-differential",
+      "ablate": [
+        "behavioral",
+        "physical",
+        "numerical",
+        "sensitivity"
+      ]
+    },
+    {
+      "name": "only-sensitivity",
+      "ablate": [
+        "behavioral",
+        "physical",
+        "numerical",
+        "differential"
+      ]
+    }
   ],
   "arms_reason": "E2's eleven arms, unchanged. full vs only-physical tests whether one channel suffices; full vs no-physical tests whether Physical is load-bearing; the other four removals make 'another channel became load-bearing' a measurement rather than an assertion; the other four single-channel arms make 'less evidence localised something full did not' visible for every channel rather than for one. Fusion necessity is reachable: a pair full localises while all ten subset arms fail on it.",
-
   "entries": {
-    "e1_1_geometry": ["geometry/diagonal_sum", "geometry/curved_product", "geometry/narrow_oblique", "geometry/curved_arc", "geometry/curved_clean"],
-    "e1_2_discrete": ["discrete/scheme_branch", "discrete/mixed_magnitude", "discrete/lattice_two", "discrete/clean_lattice"],
-    "e1_3_edge": ["edge/overflow_tail", "edge/pole_at_edge"],
-    "e1_3_refused": ["domain/unbounded_interval", "domain/inverted"],
-    "anchors": ["analytic/sqrt_domain", "synthetic/one_pct_2d", "electromagnetics/rlc_resonance", "aerospace/projectile_clean"],
-    "run": ["geometry/diagonal_sum", "geometry/curved_product", "geometry/narrow_oblique", "geometry/curved_arc", "geometry/curved_clean", "discrete/scheme_branch", "discrete/mixed_magnitude", "discrete/lattice_two", "discrete/clean_lattice", "edge/overflow_tail", "edge/pole_at_edge", "analytic/sqrt_domain", "synthetic/one_pct_2d", "electromagnetics/rlc_resonance", "aerospace/projectile_clean", "domain/unbounded_interval", "domain/inverted"],
+    "e1_1_geometry": [
+      "geometry/diagonal_sum",
+      "geometry/curved_product",
+      "geometry/narrow_oblique",
+      "geometry/curved_arc",
+      "geometry/curved_clean"
+    ],
+    "e1_2_discrete": [
+      "discrete/scheme_branch",
+      "discrete/mixed_magnitude",
+      "discrete/lattice_two",
+      "discrete/clean_lattice"
+    ],
+    "e1_3_edge": [
+      "edge/overflow_tail",
+      "edge/pole_at_edge"
+    ],
+    "e1_3_refused": [
+      "domain/unbounded_interval",
+      "domain/inverted"
+    ],
+    "anchors": [
+      "analytic/sqrt_domain",
+      "synthetic/one_pct_2d",
+      "electromagnetics/rlc_resonance",
+      "aerospace/projectile_clean"
+    ],
+    "run": [
+      "geometry/diagonal_sum",
+      "geometry/curved_product",
+      "geometry/narrow_oblique",
+      "geometry/curved_arc",
+      "geometry/curved_clean",
+      "discrete/scheme_branch",
+      "discrete/mixed_magnitude",
+      "discrete/lattice_two",
+      "discrete/clean_lattice",
+      "edge/overflow_tail",
+      "edge/pole_at_edge",
+      "analytic/sqrt_domain",
+      "synthetic/one_pct_2d",
+      "electromagnetics/rlc_resonance",
+      "aerospace/projectile_clean",
+      "domain/unbounded_interval",
+      "domain/inverted"
+    ],
     "refusal_reason": "aporia-ir refuses a non-finite interval edge and an inverted domain, so the two domain/* entries cannot be sampled at all. 0029 pre-registered E13 as 'refusal at the IR gate, not a label': they are in entries.run because a refusal the plan never named is not a refusal the plan can report, and run_corpus records each one with the diagnostic that produced it instead of skipping it. They are never swept, never counted in the primary universe, and never appear as a label."
   },
-
   "truth_form": {
     "schema": "aporia.truth/2",
     "adds": "a region may carry a boolean arithmetic 'where' expression that carves its required axis-aligned envelope down to the exact set",
@@ -80,7 +201,6 @@
     "outside_check": "A predicate region claims the whole failing set rather than an inner approximation of it, so a point that violates the model while sitting outside the region is a corpus bug. truth::margin measures distance from the envelope box, so it cannot see the carved-away interior and no tolerance can be applied there; instead every violating point outside the region must be adjacent to an in-region point on the grid-41 verification lattice, counted as one step in any axis. A violating point further than one step from the region refuses the entry, and the boundary-layer count is reported per entry.",
     "lattice_sensitivity": "That same lattice decides localisation for a predicate region, because its overlap_of is measured on it, so a cell straddling a curved boundary could fall on either side of the 0.5 bar by sampling luck. Each outcome therefore records whether its localisation decision changes when the lattice doubles to 64 samples per axis. A pair whose full or only-physical row is flagged is reported as not measurable (lattice-sensitive) and excluded from F and O by name -- never scored as sameness, never scored as a difference."
   },
-
   "primary_metric": {
     "name": "single-channel-sufficiency transfer",
     "universe": "the (entry, seed) pairs of the new region-bearing entries only: geometry/diagonal_sum, geometry/curved_product, geometry/narrow_oblique, geometry/curved_arc, discrete/scheme_branch, discrete/mixed_magnitude, discrete/lattice_two, edge/overflow_tail, edge/pole_at_edge — 9 entries x 5 seeds = 45 pairs. Controls and anchors are excluded by definition; anchors decide the reproduction gate instead.",
@@ -95,7 +215,6 @@
     "edge_entries": "A divergence on edge/overflow_tail or edge/pole_at_edge is reported in its own class and never folded into the E1.1/E1.2 headline, because those entries are built so that a channel's evidence can be non-finite, and the documented route from removing a channel to gaining TRUSTED volume can produce a difference that is about the labelling rule rather than about geometry.",
     "no_thresholds": "The arms are deterministic same-seed runs, so any difference is caused by the mask. No tolerance, no rounding and no 'close enough' converts a difference into sameness."
   },
-
   "secondary_metrics": [
     "the same tally for each single removal, per family, with full_only, arm_only, both, neither and budget-order counts",
     "detection, findings and the per-channel census on the new entries, which is what separates 'nothing to say here' from 'changed nothing'",
@@ -107,7 +226,6 @@
     "per-seed and per-budget breakdown, and per-entry rows named"
   ],
   "not_claims": "More TRUSTED volume is not better, more detections is not better, and fewer findings is not better. A pair counts only when the declared truth says the region was localised.",
-
   "audit_gate": {
     "command": "aporia-bench audit [--grid N]",
     "refuses": [
@@ -125,15 +243,12 @@
     ],
     "order": "the audit and verify --grid 41 must both be green before the pilot, and the pilot must be green before the full run"
   },
-
   "reproduction_gate": "On the four anchors every arm must reproduce E2's committed rows exactly, per (entry, seed, budget): localised_regions, detected_regions, evaluations, instruction_steps, and the suspicious, trusted and unknown volumes. The volumes are in the gate because localisation and detection are not-applicable on a control, and a labelling change would otherwise slip past a gate built only from event counts. Checked as a pre-run step on seeds 1-2, and again over all five seeds on the full run's own rows. A mismatch means the instrument changed, the run is invalid, and the new corpus is not read for anything.",
-
   "not_touched": [
     "Policy::classify, the measured mask, calibration, correlation, fusion, and every labelling rule — including the route E2 documented, where a single-channel arm that computes nothing certifies a whole domain as TRUSTED. E1.3 measures how often that route is taken; it does not close it.",
     "budgets, seeds, arms, strategies, rates, cost basis and every metric definition in this file, after any arm is read",
     "E2's result files and their recorded identities"
   ],
-
   "limitations_this_does_not_remove": [
     "the atlas has no notion of a discrete axis: it partitions a Choices axis's value span continuously, so a cell can straddle values no model point occupies. E1.2 measures what that partition does with discrete structure; it does not fix the partition.",
     "every new entry is at most 3-dimensional; a curved region in 4 or more parameters at budget 1280 is a different experiment from one about geometry",
