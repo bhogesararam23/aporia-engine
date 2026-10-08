@@ -29,7 +29,8 @@
 #[derive(Clone, Debug, PartialEq)]
 enum Node {
     Const(f64),
-    /// A parameter, already resolved to its index in the model.
+    /// A variable, addressed by its position in [`Predicate::vars`], so evaluation needs no lookup
+    /// by name and this module never needs to know what a model is.
     Var(usize),
     Add(Box<(Node, Node)>),
     Sub(Box<(Node, Node)>),
@@ -80,32 +81,32 @@ impl Cmp {
     }
 }
 
-/// A parsed region predicate, with the parameter indices its names resolved to.
+/// A parsed region predicate: an expression over named variables, with those names listed.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Predicate {
     node: Node,
-    /// The parameter indices the expression names, in first-seen order, so an audit can say which
-    /// axes a curved region actually depends on.
-    vars: Vec<usize>,
+    /// Every variable the expression names, in first-seen order. [`Predicate::holds`] takes one
+    /// value per entry in this order, and the corpus audit checks the names against the model's
+    /// parameters — which is where a typo like `pp + q > 1` is refused rather than quietly becoming
+    /// a region no point can be inside. A truth file is read before a model exists, so the names
+    /// cannot be resolved at parse time; they can still be *listed*, which is what makes that check
+    /// possible at all.
+    vars: Vec<String>,
     /// The text it was parsed from, kept for reports and refusals.
     source: String,
 }
 
 impl Predicate {
-    /// Parse a `where` expression, resolving names through `param`, which the caller wires to the
-    /// model the region belongs to.
-    ///
-    /// A name the model does not declare is refused here rather than treated as a constant: a typo
-    /// in a truth file would otherwise become a region no point can be in, and every metric that
-    /// reads that region would report an authoring mistake as a measurement.
-    pub fn parse(text: &str, param: impl Fn(&str) -> Option<usize>) -> Result<Self, String> {
+    /// Parse a `where` expression. Names are collected, not resolved — see [`Predicate::vars`] for
+    /// why a truth file cannot be checked against a model at the moment it is read, and where that
+    /// check happens instead.
+    pub fn parse(text: &str) -> Result<Self, String> {
         let tokens = lex(text).map_err(|e| format!("region predicate {e}"))?;
         let mut vars = Vec::new();
         let mut parser = Parser {
             tokens,
             at: 0,
             vars: &mut vars,
-            param: &param,
         };
         let node = parser
             .or()
@@ -123,9 +124,10 @@ impl Predicate {
         })
     }
 
-    /// The parameter indices this expression names, in first-seen order.
+    /// The names this expression uses, in first-seen order: one per value that [`Self::holds`] and
+    /// [`Self::undefined`] expect, and the list an audit checks against the model's parameters.
     #[must_use]
-    pub fn vars(&self) -> &[usize] {
+    pub fn vars(&self) -> &[String] {
         &self.vars
     }
 
@@ -135,19 +137,20 @@ impl Predicate {
         &self.source
     }
 
-    /// Does the point satisfy the predicate? An undefined point answers `false`; ask
-    /// [`Self::undefined`] when the difference matters, which the corpus audit does.
+    /// Does the point satisfy the predicate? `values` is one `f64` per entry of [`Self::vars`], in
+    /// that order. An undefined point answers `false`; ask [`Self::undefined`] when the difference
+    /// matters, which the corpus audit does.
     #[must_use]
-    pub fn holds(&self, x: &[f64]) -> bool {
-        eval(&self.node, x)
+    pub fn holds(&self, values: &[f64]) -> bool {
+        eval(&self.node, values)
     }
 
     /// Could the predicate be evaluated at this point at all? True when some arithmetic it performs
     /// produces NaN, which a comparison would otherwise answer "false" to — turning a region the
     /// declaration cannot describe into one that looks empty.
     #[must_use]
-    pub fn undefined(&self, x: &[f64]) -> bool {
-        !defined(&self.node, x)
+    pub fn undefined(&self, values: &[f64]) -> bool {
+        !defined(&self.node, values)
     }
 }
 
@@ -156,7 +159,7 @@ impl Predicate {
 fn value(node: &Node, x: &[f64]) -> Option<f64> {
     match node {
         Node::Const(v) => Some(*v),
-        Node::Var(i) => x.get(*i).copied(),
+        Node::Var(slot) => x.get(*slot).copied(),
         Node::Add(p) => Some(value(&p.0, x)? + value(&p.1, x)?),
         Node::Sub(p) => Some(value(&p.0, x)? - value(&p.1, x)?),
         Node::Mul(p) => Some(value(&p.0, x)? * value(&p.1, x)?),
@@ -192,7 +195,7 @@ fn defined(node: &Node, x: &[f64]) -> bool {
     let numeric = |n: &Node| value(n, x).is_some_and(|v| !v.is_nan());
     match node {
         Node::Const(v) => !v.is_nan(),
-        Node::Var(i) => x.get(*i).copied().is_some_and(|v| !v.is_nan()),
+        Node::Var(slot) => x.get(*slot).copied().is_some_and(|v| !v.is_nan()),
         Node::Add(p) | Node::Sub(p) | Node::Mul(p) | Node::Div(p) => {
             defined(&p.0, x) && defined(&p.1, x) && numeric(node)
         }
@@ -342,14 +345,13 @@ fn number_len(rest: &str) -> usize {
 
 /// Recursive descent over the frozen precedence: `or` loosest, then `and`, then `not`, then
 /// comparisons, then `+ -`, then `* /`, then atoms.
-struct Parser<'a, P: Fn(&str) -> Option<usize>> {
+struct Parser<'a> {
     tokens: Vec<Tok<'a>>,
     at: usize,
-    vars: &'a mut Vec<usize>,
-    param: &'a P,
+    vars: &'a mut Vec<String>,
 }
 
-impl<'a, P: Fn(&str) -> Option<usize>> Parser<'a, P> {
+impl<'a> Parser<'a> {
     fn at_end(&self) -> bool {
         self.at >= self.tokens.len()
     }
@@ -505,13 +507,13 @@ impl<'a, P: Fn(&str) -> Option<usize>> Parser<'a, P> {
             }
             Some(Tok::Ident(name)) => {
                 self.at += 1;
-                let Some(index) = (self.param)(name) else {
-                    return Err(format!("{name:?} is not a parameter this model declares"));
+                let slot = if let Some(at) = self.vars.iter().position(|seen| seen == name) {
+                    at
+                } else {
+                    self.vars.push(name.to_string());
+                    self.vars.len() - 1
                 };
-                if !self.vars.contains(&index) {
-                    self.vars.push(index);
-                }
-                Ok(Node::Var(index))
+                Ok(Node::Var(slot))
             }
             other => Err(format!(
                 "expected a number, a parameter name or `(`, found {other:?}"
@@ -525,20 +527,17 @@ mod tests {
     use super::*;
 
     fn parse(text: &str) -> Predicate {
-        Predicate::parse(text, |name| match name {
-            "p" | "x" => Some(0),
-            "q" => Some(1),
-            _ => None,
-        })
-        .unwrap_or_else(|e| panic!("{e}"))
+        Predicate::parse(text).unwrap_or_else(|e| panic!("{e}"))
     }
 
-    fn holds(text: &str, x: &[f64]) -> bool {
-        parse(text).holds(x)
+    /// Evaluate with `p` first and `q` second — the order the fixtures name them in, which is the
+    /// order [`Predicate::vars`] reports.
+    fn holds(text: &str, values: &[f64]) -> bool {
+        parse(text).holds(values)
     }
 
     #[test]
-    fn the_three_shape_classes_parse_and_decide() {
+    fn the_four_shape_classes_parse_and_decide() {
         // A diagonal half-plane, which no axis-aligned box describes.
         assert!(holds("p + q > 1", &[0.8, 0.4]));
         assert!(!holds("p + q > 1", &[0.4, 0.4]));
@@ -549,7 +548,7 @@ mod tests {
         let ring = "(p - 0.5) * (p - 0.5) + (q - 0.5) * (q - 0.5) > 0.25";
         assert!(holds(ring, &[1.5, 1.5]));
         assert!(!holds(ring, &[0.5, 0.5]));
-        // A narrow oblique strip, the shape whose volume the search has to find.
+        // A narrow oblique strip, the shape whose volume a search has to find.
         let strip = "(p - q - 0.5) * (p - q - 0.5) < 0.0004";
         assert!(holds(strip, &[1.0, 0.5]));
         assert!(!holds(strip, &[1.0, 0.4]));
@@ -559,10 +558,10 @@ mod tests {
     fn precedence_and_grouping_are_the_ones_the_grammar_promises() {
         assert!(holds("1 + 2 * 3 > 6", &[0.0, 0.0]));
         assert!(!holds("(1 + 2) * 3 > 9", &[0.0, 0.0]));
-        // `not` binds tighter than `and`, which binds tighter than `or`.
+        // `not` binds tighter than `and`, which binds tighter than `or`. The same words grouped
+        // differently answer differently, which is why the parenthesis production exists at the
+        // boolean level as well as the arithmetic one.
         assert!(holds("not 1 > 2 and 3 > 2", &[0.0, 0.0]));
-        // The same three words grouped differently answer differently, which is the point of the
-        // parenthesis production existing at the boolean level too.
         assert!(!holds("not 1 > 2 and 3 > 4", &[0.0, 0.0]));
         assert!(holds("not (1 > 2 and 3 > 4)", &[0.0, 0.0]));
         // `false or (true and false)` is false; the same words with the `or` branch true are true.
@@ -580,16 +579,29 @@ mod tests {
     }
 
     #[test]
-    fn a_name_the_model_does_not_have_is_refused_not_treated_as_a_constant() {
-        // The whole point of resolving at parse time: `pp + q > 1` must not become a region nothing
-        // can be inside, which a later metric would report as a boundary the search missed.
-        let error = Predicate::parse(
-            "pp + q > 1",
-            |name| if name == "q" { Some(0) } else { None },
-        )
-        .expect_err("an unknown parameter cannot be resolved");
-        assert!(error.contains("pp"), "{error}");
-        assert!(error.contains("not a parameter"), "{error}");
+    fn values_are_read_in_first_seen_name_order() {
+        // `holds` takes one value per entry of `vars`, so the two have to agree on what "first" means
+        // or a region would be evaluated with its axes swapped — a wrong answer that looks plausible
+        // on a symmetric expression and is invisible on an asymmetric one.
+        let p = parse("q > p");
+        assert_eq!(p.vars(), &["q".to_string(), "p".to_string()]);
+        assert!(p.holds(&[2.0, 1.0]));
+        assert!(!p.holds(&[1.0, 2.0]));
+        let reused = parse("p + q > 1 and p < 2");
+        assert_eq!(
+            reused.vars(),
+            &["p".to_string(), "q".to_string()],
+            "a name repeated is still one slot"
+        );
+    }
+
+    #[test]
+    fn a_predicate_lists_every_name_it_uses_so_the_auditor_can_refuse_a_typo() {
+        // A truth file is read before a model exists, so `pp + q > 1` cannot be refused here. What
+        // makes the refusal possible at all is that every name it uses is listed, which is what
+        // `corpus::verify` checks against the model's parameters.
+        let p = parse("pp + q > 1 and pp < 3");
+        assert_eq!(p.vars(), &["pp".to_string(), "q".to_string()]);
     }
 
     #[test]
@@ -603,9 +615,7 @@ mod tests {
             "p > 1; q < 2",
             "if p > 1 then q > 2",
         ] {
-            let error =
-                Predicate::parse(text, |n| if n == "p" || n == "q" { Some(0) } else { None })
-                    .expect_err("{text:?} must not parse");
+            let error = Predicate::parse(text).expect_err("{text:?} must not parse");
             assert!(!error.is_empty(), "{text:?} produced an empty refusal");
         }
     }
@@ -613,11 +623,7 @@ mod tests {
     #[test]
     fn an_expression_that_computes_a_number_declares_nothing() {
         // Refused rather than read as "always false" or "always true".
-        let error = Predicate::parse(
-            "p + q",
-            |n| if n == "p" || n == "q" { Some(0) } else { None },
-        )
-        .expect_err("a number is not a region");
+        let error = Predicate::parse("p + q").expect_err("a number is not a region");
         assert!(error.contains("comparison"), "{error}");
     }
 
@@ -625,27 +631,20 @@ mod tests {
     fn a_division_that_cannot_be_answered_is_reported_rather_than_read_as_outside() {
         let pole = parse("1 / (p - 1) > 1000");
         // One hundredth from the pole is only 100, which is genuinely not above 1000.
-        assert!(!pole.holds(&[1.01, 0.0]));
-        assert!(pole.holds(&[1.0001, 0.0]));
-        assert!(!pole.holds(&[2.0, 0.0]));
-        // At the pole `1/0` is infinity, which is genuinely above 1000: a real answer, not a failure.
-        assert!(!pole.undefined(&[1.0, 0.0]));
-        assert!(pole.holds(&[1.0, 0.0]));
+        assert!(!pole.holds(&[1.01]));
+        assert!(pole.holds(&[1.0001]));
+        assert!(!pole.holds(&[2.0]));
+        // At the pole `1/0` is infinity, which is above 1000: a real answer about the set, not a
+        // failure to answer.
+        assert!(!pole.undefined(&[1.0]));
+        assert!(pole.holds(&[1.0]));
         // `0/0` is not an answer, and a region built on it must not be scored as an empty one.
         let nan = parse("0 / (p - 1) > 1000");
-        assert!(nan.undefined(&[1.0, 0.0]));
-        assert!(!nan.holds(&[1.0, 0.0]));
-        // Both sides of a conjunction are walked, so a NaN the short-circuit would hide is seen.
+        assert!(nan.undefined(&[1.0]));
+        assert!(!nan.holds(&[1.0]));
+        // Both sides of a conjunction are walked, so a NaN that short-circuiting would skip is seen.
         let both = parse("p == 1 and 0 / (p - 1) > 1");
-        assert!(both.undefined(&[1.0, 0.0]));
-    }
-
-    #[test]
-    fn a_predicate_reports_the_axes_it_depends_on() {
-        assert_eq!(parse("p + q > 1 and p < 2").vars(), &[0, 1]);
-        assert_eq!(parse("p > 1").vars(), &[0]);
-        // First-seen order, so the same expression always reports the same list.
-        assert_eq!(parse("q > p").vars(), &[1, 0]);
+        assert!(both.undefined(&[1.0]));
     }
 
     #[test]
@@ -659,24 +658,30 @@ mod tests {
             "p > 1 and",
             "",
             "p > 1 % 2",
+            "1e",
         ] {
-            let error =
-                Predicate::parse(text, |n| if n == "p" || n == "q" { Some(0) } else { None })
-                    .expect_err("{text:?} must be refused");
+            let error = Predicate::parse(text).expect_err("{text:?} must be refused");
             assert!(!error.is_empty(), "{text:?} was accepted");
         }
+    }
+
+    #[test]
+    fn a_number_with_an_exponent_lexes_as_one_number() {
+        assert!(holds("p > 1e-3", &[0.002]));
+        assert!(!holds("p > 1e-3", &[0.0001]));
+        assert!(holds("p > 2.5e2", &[300.0]));
     }
 
     #[test]
     fn cross_check_with_the_runtime() {
         // The oracle and the instrument must not disagree about arithmetic; if they did, a boundary
         // disagreement would be a property of two evaluators rather than a fact about the model. Each
-        // fixture is a single comparison, compiled into a real model whose declared rule is the negation
-        // of that comparison, and evaluated by the interpreter over a grid. `violates` there must mean
-        // the same thing as `holds` here at every point.
+        // expression is compiled into a real model whose declared rule is the negation of the
+        // comparison, run by the interpreter over a grid, and this module's answer must match its at
+        // every point.
         use crate::corpus::violates;
         use aporia_dsl::lower::compile;
-        let fixtures = [
+        let lefts = [
             "p + q",
             "p * q",
             "(p - 0.5) * (p - 0.5) + (q - 0.5) * (q - 0.5)",
@@ -684,89 +689,65 @@ mod tests {
             "(p + q) * (p - q)",
             "p - q - 0.5",
         ];
-        for left in fixtures {
-            // One threshold per expression, so the rule `a <= threshold` fails exactly where the
-            // predicate `a > threshold` is true.
-            let threshold = 1.5;
+        let threshold = 1.5;
+        for left in lefts {
             let source = format!(
-                "model probe \"\" {{
-  input p in [0, 4]
-  input q in [0, 4]
-  let a =                  {left}
-  require a <= {threshold}
-}}
-"
+                "model probe \"\" {{\n  input p in [0, 4]\n  input q in [0, 4]\n  let a = {left}\n  \
+                 require a <= {threshold}\n}}\n"
             );
             let compiled = compile("probe.ap", &source);
             assert!(
                 !compiled.diagnostics.has_errors(),
-                "the cross-check model for {left} did not compile: {}
-{source}",
+                "the cross-check model for {left} did not compile: {}\n{source}",
                 compiled.diagnostics
             );
             let model = compiled.model;
             let predicate = parse(&format!("{left} > {threshold}"));
-            assert!(
-                !predicate.undefined(&[2.0, 2.0]),
-                "{left} is undefined at a grid point, which the fixtures must not be"
-            );
+            assert_eq!(predicate.vars(), &["p".to_string(), "q".to_string()]);
             let steps = 17;
-            let mut agreed = 0;
+            let mut checked = 0;
             for i in 0..steps {
                 for j in 0..steps {
                     let p = 4.0 * i as f64 / (steps - 1) as f64;
                     let q = 4.0 * j as f64 / (steps - 1) as f64;
-                    let here = predicate.holds(&[p, q]);
-                    assert_eq!(
-                        here,
-                        violates(&model, &[p, q]),
-                        "{left} > {threshold} at p={p} q={q}: the predicate said {here} and the                          runtime disagreed"
+                    assert!(
+                        !predicate.undefined(&[p, q]),
+                        "{left} is undefined at p={p} q={q}"
                     );
-                    agreed += 1;
+                    assert_eq!(
+                        predicate.holds(&[p, q]),
+                        violates(&model, &[p, q]),
+                        "{left} > {threshold} at p={p} q={q}: the predicate and the runtime \
+                         disagreed"
+                    );
+                    checked += 1;
                 }
             }
-            assert_eq!(agreed, steps * steps);
+            assert_eq!(
+                checked,
+                steps * steps,
+                "every fixture was crossed over the grid"
+            );
         }
     }
 
     #[test]
-    fn the_two_sides_of_a_curved_boundary_agree_where_the_rule_does_too() {
-        // The negative side of the cross-check: an expression that is *equal* at the boundary must
-        // not be reported as inside by one evaluator and outside by the other, because a curved
-        // region's whole purpose is that its boundary is not on an axis.
-        use crate::corpus::violates;
-        use aporia_dsl::lower::compile;
-        let source = "model diag \"\" {
-  input p in [0, 2]
-  input q in [0, 2]
-  let s =              p + q
-  require s <= 1
-}
-";
-        let compiled = compile("diag.ap", source);
-        assert!(
-            !compiled.diagnostics.has_errors(),
-            "{}",
-            compiled.diagnostics
-        );
-        let model = compiled.model;
+    fn a_diagonal_region_splits_the_domain_the_way_the_shape_says() {
+        // The negative side of the cross-check, and the reason the corpus needs this at all: a region
+        // defined by `p + q > 1` covers a share of a square that no axis-aligned box can, so the
+        // count of lattice points inside it is a fact about the shape rather than about the atlas.
+        // The lattice is 21x21 over [0,2]^2, so `p + q > 1` is exactly the points with i + j > 10:
+        // 441 minus the 66 on or below the diagonal. Pinned rather than bounded, because a parser
+        // that grouped the sum wrongly would land on a different count and say nothing.
         let predicate = parse("p + q > 1");
         let mut inside = 0;
         for i in 0..21 {
             for j in 0..21 {
                 let p = 2.0 * i as f64 / 20.0;
                 let q = 2.0 * j as f64 / 20.0;
-                assert_eq!(
-                    predicate.holds(&[p, q]),
-                    violates(&model, &[p, q]),
-                    "diagonal disagreement at p={p} q={q}"
-                );
                 inside += u64::from(predicate.holds(&[p, q]));
             }
         }
-        // The lattice is 21x21 over [0,2]^2, so `p + q > 1` is exactly the points with i + j > 10:
-        // 441 minus the 66 on or below the diagonal. Pinned rather than bounded, because a parser
-        // that grouped the sum wrongly would land on a different count and say nothing.
         assert_eq!(inside, 441 - 66, "diagonal inside count");
     }
 }
