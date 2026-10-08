@@ -304,7 +304,13 @@ pub fn to_parameters(model: &Model, unit: &[f64]) -> Vec<f64> {
         .collect()
 }
 
-/// Inverse of [`to_parameters`], for reporting where in `[0, 1]^n` a point sat.
+/// Inverse of [`to_parameters`], for reporting -- and for aiming -- where in `[0, 1]^n` a point sat.
+///
+/// A discrete axis used to answer `0.5` whatever the choice was, so every unit-space calculation built
+/// from it targeted the middle of the choice set rather than the leaf it named: a refinement aimed at
+/// the cell holding choice 4 could be quantised back onto choice 1. The centre of the choice's own
+/// slice of `[0, 1]` is what `to_parameters` inverts to, which makes the round trip exact for every
+/// declared value.
 #[must_use]
 pub fn to_unit(model: &Model, x: &[f64]) -> Vec<f64> {
     use aporia_ir::Domain;
@@ -316,6 +322,17 @@ pub fn to_unit(model: &Model, x: &[f64]) -> Vec<f64> {
             let v = *x.get(i).unwrap_or(&0.0);
             match &p.domain {
                 Domain::Interval { lo, hi } if hi > lo => ((v - lo) / (hi - lo)).clamp(0.0, 1.0),
+                Domain::Choices(values) if !values.is_empty() => {
+                    let mut best: Option<(usize, f64)> = None;
+                    for (at, choice) in values.iter().enumerate() {
+                        let distance = (choice - v).abs();
+                        if best.is_none_or(|(_, closest)| distance < closest) {
+                            best = Some((at, distance));
+                        }
+                    }
+                    let at = best.unwrap_or((0, 0.0)).0;
+                    (f64::from(at as u32) + 0.5) / values.len() as f64
+                }
                 _ => 0.5,
             }
         })

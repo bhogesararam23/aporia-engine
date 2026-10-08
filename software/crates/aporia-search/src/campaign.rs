@@ -976,14 +976,33 @@ fn rank(atlas: &Atlas, id: u32) -> f64 {
 
 /// A perturbed point along one axis, plus the relative step actually used. A slope without its
 /// denominator is not a number anyone can check, so the step is returned rather than assumed.
+///
+/// On a discrete axis the neighbour has to be a value the model *declares*. `base + width*1e-4`
+/// between two choices is a point the model never offered, and it used to be evaluated, recorded
+/// and filed into the atlas as if it were real evidence about a branch that cannot be taken; the
+/// relative step is then the gap between two adjacent choices, which is what a reader needs to know
+/// about a discrete perturbation -- it is large, and it is the only honest size.
 #[must_use]
 pub fn perturb(model: &Model, x: &[f64], axis: usize) -> Option<(Vec<f64>, f64)> {
     use aporia_ir::Domain;
     let p = model.params.get(axis)?;
     let mut y = x.to_vec();
+    let base = y[axis];
+    if let Domain::Choices(values) = &p.domain {
+        let width = values.last()?.to_owned() - values.first()?.to_owned();
+        if values.len() < 2 || width <= 0.0 || !width.is_finite() {
+            return None;
+        }
+        let at = choice_index(values, base)?;
+        // Move to a declared neighbour: down when there is one below, otherwise up. Deterministic,
+        // and it never invents a value between two branches.
+        let moved = if at > 0 { at - 1 } else { at + 1 };
+        let value = values.get(moved)?.to_owned();
+        y[axis] = value;
+        return Some((y, ((value - base).abs() / width).abs()));
+    }
     let (lo, hi) = match &p.domain {
         Domain::Interval { lo, hi } => (*lo, *hi),
-        Domain::Choices(v) if v.len() > 1 => (v[0], v[v.len() - 1]),
         Domain::Choices(_) => return None,
     };
     let width = hi - lo;
@@ -991,7 +1010,6 @@ pub fn perturb(model: &Model, x: &[f64], axis: usize) -> Option<(Vec<f64>, f64)>
         return None;
     }
     let step = width * 1e-4;
-    let base = y[axis];
     // Move away from the nearer bound so a probe never leaves the domain.
     let delta = if base - lo < step {
         step
@@ -1002,6 +1020,19 @@ pub fn perturb(model: &Model, x: &[f64], axis: usize) -> Option<(Vec<f64>, f64)>
     };
     y[axis] = base + delta;
     Some((y, (delta / width).abs()))
+}
+
+/// Which declared choice a value sits on, by nearest neighbour: a point the campaign holds for a
+/// discrete axis is one of these, and if it is not, the axis was never sampled honestly.
+fn choice_index(values: &[f64], value: f64) -> Option<usize> {
+    let mut best: Option<(usize, f64)> = None;
+    for (at, v) in values.iter().enumerate() {
+        let distance = (v - value).abs();
+        if best.is_none_or(|(_, closest)| distance < closest) {
+            best = Some((at, distance));
+        }
+    }
+    best.map(|(at, _)| at)
 }
 
 /// The interval a parameter is declared over, if it has one. A discrete choice set has no
