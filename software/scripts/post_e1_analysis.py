@@ -218,6 +218,13 @@ def main(protocol_id, out_path, trace_path):
             if k in sweep_of[arm]
         }
 
+    def detected_wide(arm):
+        return {
+            key
+            for key in sweep_of[arm]
+            if sweep_of[arm][key].get("detected_at_budget") is not None
+        }
+
     def detected(arm):
         return {
             k
@@ -280,6 +287,24 @@ def main(protocol_id, out_path, trace_path):
     per_removal, per_single = {}, {}
     for arm in sorted(a for a in arms if a != "full"):
         loc, det = localised(arm), detected(arm)
+        # The universe lists above are universe-scoped. The same pair counts over every swept entry are
+        # what E2 published and what a reader will look for beside them, so they travel with the arm.
+        wide = {
+            "corpus_wide_localisation_lost_from_full": sorted(
+                f"{e}:seed{seed}"
+                for (e, seed) in all_pairs
+                if sweep_of["full"][
+                    (e, seed)
+                ].get("localised_at_budget") is not None
+                and sweep_of[arm].get((e, seed), {}).get("localised_at_budget") is None
+                if (e, seed) in sweep_of["full"]
+            ),
+            "corpus_wide_detection_lost_from_full": sorted(
+                f"{e}:seed{seed}"
+                for (e, seed) in all_pairs
+                if (e, seed) in detected_wide("full") and (e, seed) not in detected_wide(arm)
+            ),
+        }
         entry = {
             "localisation_lost_from_full": sorted(
                 f"{e}:seed{s}" for (e, s) in set_f if loc.get((e, s)) is None
@@ -292,6 +317,7 @@ def main(protocol_id, out_path, trace_path):
                 f"{e}:seed{s}" for (e, s) in pairs if loc.get((e, s)) is not None and F.get((e, s)) is None
             ),
         }
+        entry.update(wide)
         (per_removal if arm.startswith("no-") else per_single)[arm] = entry
 
     volumes = {}
