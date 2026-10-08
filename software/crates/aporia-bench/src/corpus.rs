@@ -25,6 +25,10 @@ pub struct Entry {
     pub model: Option<Model>,
     /// Every diagnostic the frontend produced, at any severity, rendered with its line.
     pub diagnostics: Vec<String>,
+    /// How many of those were errors. The audit needs the distinction: the unit checker refuses a
+    /// scale mismatch at *warning* severity and the model still compiles, while an unbounded domain
+    /// is an error the IR will not lower. Both are "a diagnostic", and E1.3 measures the second one.
+    pub error_count: usize,
     pub truth: Truth,
     /// The first 16 hex digits of the SHA-256 of this entry's `truth.json` **bytes**, taken as they
     /// were read. It travels into the measurement identity so that editing a declared region
@@ -144,6 +148,7 @@ fn load_entry(family: &str, name: &str, dir: &Path) -> Result<Entry, String> {
         source,
         model,
         diagnostics: reported,
+        error_count: errors,
         truth,
         truth_digest: aporia_store::digest::sha256_hex(truth_text.as_bytes())[..16].to_string(),
     })
@@ -510,7 +515,7 @@ fn regions_inside_the_domain(e: &Entry, model: &Model) -> Vec<Problem> {
                 Domain::Interval { lo: dlo, hi: dhi } => {
                     if *lo < *dlo || *hi > *dhi {
                         Some(format!(
-                            "region {at}: axis {name:?} is declared over [{lo}, {hi}] but the model's                              domain is [{dlo}, {dhi}]"
+                            "region {at}: axis {name:?} is declared over [{lo}, {hi}] but the model's domain is [{dlo}, {dhi}]"
                         ))
                     } else {
                         None
@@ -524,7 +529,7 @@ fn regions_inside_the_domain(e: &Entry, model: &Model) -> Vec<Problem> {
                             || *hi > *values.last().unwrap_or(hi))
                     {
                         Some(format!(
-                            "region {at}: axis {name:?} is discrete, so its bounds have to be                              values the model enumerates; [{lo}, {hi}] names neither of {}",
+                            "region {at}: axis {name:?} is discrete, so its bounds have to be values the model enumerates; [{lo}, {hi}] names neither of {}",
                             values
                                 .iter()
                                 .map(ToString::to_string)
@@ -592,7 +597,7 @@ fn undeclared_axes(e: &Entry, model: &Model) -> Vec<Problem> {
             out.push(Problem {
                 entry: e.id(),
                 detail: format!(
-                    "a region's `where` expression names {axis:?}, which is not a parameter of this                      model"
+ "a region's `where` expression names {axis:?}, which is not a parameter of this model"
                 ),
             });
         }

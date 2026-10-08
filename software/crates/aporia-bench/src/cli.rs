@@ -34,6 +34,7 @@ pub fn dispatch(program: &str, command: &str, flags: &[String]) -> Result<i32, S
     match command {
         "list" => run_list(flags),
         "verify" => run_verify(flags),
+        "audit" => run_audit(flags),
         "run" => run_run(program, flags),
         "verdict" => run_verdict(flags),
         "scan" => run_scan(flags),
@@ -52,7 +53,9 @@ pub fn dispatch(program: &str, command: &str, flags: &[String]) -> Result<i32, S
 }
 
 /// The commands this module implements, in the order the usage text lists them.
-pub const COMMANDS: [&str; 7] = ["list", "verify", "run", "verdict", "scan", "explain", "e2"];
+pub const COMMANDS: [&str; 8] = [
+    "list", "verify", "audit", "run", "verdict", "scan", "explain", "e2",
+];
 
 #[must_use]
 pub fn usage(program: &str) -> String {
@@ -63,6 +66,8 @@ pub fn usage(program: &str) -> String {
         "usage: {program} <command> [flags]\n\
      \x20 list                      entries, faults and declared regions\n\
      \x20 verify [--grid N]         check the declarations against direct evaluation\n\
+     \x20 audit  [--grid N]         check the corpus as a corpus: duplicates, difficulty rungs,\n\
+     \x20                             unmapped discrete values, refusals that did not refuse\n\
      \x20 run [--budgets a,b,..] [--strategies {strategies}]\n\
      \x20     [--seeds n,..] [--grid N] [--out DIR] [--only family/name,..]\n\
      \x20     [--plan protocols/<id>.json --arm <name>]  run a frozen experiment definition;\n\
@@ -215,6 +220,45 @@ pub fn run_verify(flags: &[String]) -> Result<i32, String> {
     Ok(1)
 }
 
+/// The corpus-quality gate: what has to be true of the declarations *as a set*, which `verify`
+/// cannot see because it reads each entry on its own.
+fn run_audit(flags: &[String]) -> Result<i32, String> {
+    let mut args = Args::new(flags);
+    let grid = parse_grid(args.value("--grid")?)?;
+    args.reject_unknown()?;
+    let entries = load_corpus()?;
+    let problems = crate::audit::audit(&entries, grid);
+    for e in &entries {
+        if e.truth.static_expected {
+            println!("{:<34} refused before execution, as declared", e.id());
+            continue;
+        }
+        if let Some(model) = e.model.as_ref() {
+            let share = e.truth.total_fraction(model);
+            println!(
+                "{:<34} {:<12} {:>9.4}% of its domain, {} region(s), {}",
+                e.id(),
+                e.truth.method,
+                share * 100.0,
+                e.truth.regions.len(),
+                crate::audit::family_role(e)
+            );
+        }
+    }
+    if problems.is_empty() {
+        println!(
+            "\n{} entries pass the corpus audit on a {grid}-point-per-axis grid",
+            entries.len()
+        );
+        return Ok(0);
+    }
+    println!("\n{} audit problem(s):", problems.len());
+    for p in &problems {
+        println!("  {p}");
+    }
+    Ok(1)
+}
+
 fn parse_grid(value: Option<String>) -> Result<usize, String> {
     match value {
         None => Ok(harness::Plan::default().grid),
@@ -343,6 +387,17 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
     if !problems.is_empty() {
         eprintln!("ground truth does not hold, refusing to measure against it:");
         for p in &problems {
+            eprintln!("  {p}");
+        }
+        return Ok(1);
+    }
+    // The corpus-quality gate is enforced rather than advisory. An entry that duplicates a mechanism,
+    // sits at an unclaimed difficulty, or leaves a discrete value unclaimed produces rows that look
+    // like data and are not — and a sweep is the expensive place to find that out.
+    let unfit = crate::audit::audit(&selected, grid);
+    if !unfit.is_empty() {
+        eprintln!("the corpus fails its own audit, refusing to measure against it:");
+        for p in &unfit {
             eprintln!("  {p}");
         }
         return Ok(1);

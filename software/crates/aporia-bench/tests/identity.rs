@@ -69,6 +69,7 @@ fn entry_claimed(family: &str, name: &str, fault: &str, regions: usize, claim: &
         dir: PathBuf::from("benchmarks").join(family).join(name),
         source: SOURCE.to_string(),
         model: Some(model()),
+        error_count: 0,
         diagnostics: Vec::new(),
         // What the loader would have read off the file: the claim, digested. Two entries that claim
         // different things must not share a digest, or the identity would not notice an edit.

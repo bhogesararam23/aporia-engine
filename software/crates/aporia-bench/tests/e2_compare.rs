@@ -184,6 +184,7 @@ fn entry(name: &str, control: bool, boundaries: usize) -> corpus::Entry {
         dir: PathBuf::new(),
         source: String::new(),
         model: None,
+        error_count: 0,
         diagnostics: Vec::new(),
         truth_digest: format!("{name}-claim"),
         truth: aporia_bench::truth::Truth {

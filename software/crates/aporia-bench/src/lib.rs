@@ -15,6 +15,7 @@
 //! wrong ground truth is worse than no number at all. `aporia-bench verify` is not a convenience —
 //! it is the step that turns `benchmarks/` from a collection of opinions into a measuring instrument.
 
+pub mod audit;
 pub mod cli;
 pub mod corpus;
 pub mod e2;
