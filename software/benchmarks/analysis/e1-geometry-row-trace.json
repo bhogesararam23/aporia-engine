@@ -1,0 +1,3332 @@
+{
+  "schema": "aporia.row-trace/1",
+  "generated_by": "software/scripts/e13_row_trace.py",
+  "protocol": "e1-geometry",
+  "binary": ".scratch/e1x-bin/aporia-bench.exe",
+  "binary_sha256": "475e89db0a74fba6e14bb1c6114d4ed99b0dbf0b3c369c90757d5c9ae1bf199d",
+  "method": "single-row plans derived from the frozen protocol (budgets=[B], seeds=[S], one entry), each reproduced row compared with the committed document on every measured field and the whole census before its cells were read; archives written under .scratch and not committed",
+  "rows": [
+    {
+      "purpose": "the full instrument's single failing row",
+      "arm": "full",
+      "entry": "edge/overflow_tail",
+      "seed": 4,
+      "budget": 1280,
+      "reproduces_committed_row": true,
+      "fields_compared": [
+        "evaluations",
+        "instruction_steps",
+        "declared_regions",
+        "detected_regions",
+        "localised_regions",
+        "suspicious_volume",
+        "trusted_volume",
+        "unknown_volume",
+        "findings",
+        "unplaced",
+        "trusted_over_true",
+        "lattice_sensitive",
+        "first_true_failure",
+        "false_positive_fraction",
+        "duplicate_discovery_rate",
+        "census"
+      ],
+      "committed_trusted_over_true": 2.500000000016378e-06,
+      "committed_trusted_volume": 0.87109375,
+      "committed_unknown_volume": 0.12109375,
+      "committed_suspicious_volume": 0.0078125,
+      "committed_detected_regions": 0,
+      "committed_localised_regions": 0,
+      "committed_findings": 2,
+      "committed_unplaced": 0,
+      "declared_axes": [
+        "x"
+      ],
+      "declared_envelopes": [
+        [
+          [
+            3.99999,
+            4.0
+          ]
+        ]
+      ],
+      "leaves_total": 45,
+      "deepest_leaf": 8,
+      "finest_leaf_share_of_domain": 0.003906,
+      "leaves_touching_a_declared_envelope": 1,
+      "leaf_touching_the_region": {
+        "cell": 58,
+        "depth": 7,
+        "label": "TRUSTED",
+        "samples": 4,
+        "mean_risk": 0.0,
+        "max_risk": 0.0,
+        "facts": 0,
+        "measured": 2,
+        "channels": 0,
+        "share_of_domain": 0.007812,
+        "bounds": {
+          "axis0": [
+            3.96875,
+            4.0
+          ],
+          "axis1": null
+        }
+      },
+      "samples_inside_declared_envelope": 0,
+      "samples_total_recorded": 930,
+      "widest_sample_inside_envelope": null,
+      "largest_sample_anywhere": 3.989257634290457,
+      "trusted_leaves": 19,
+      "unknown_leaves": 24,
+      "suspicious_leaves": 2,
+      "best_leaf_inside_fraction_of_region": null,
+      "derived_overlap_of_region_in_leaf": 0.0003200204813129004
+    },
+    {
+      "purpose": "the passing sibling: same entry, arm and budget, one seed over",
+      "arm": "full",
+      "entry": "edge/overflow_tail",
+      "seed": 1,
+      "budget": 1280,
+      "reproduces_committed_row": true,
+      "fields_compared": [
+        "evaluations",
+        "instruction_steps",
+        "declared_regions",
+        "detected_regions",
+        "localised_regions",
+        "suspicious_volume",
+        "trusted_volume",
+        "unknown_volume",
+        "findings",
+        "unplaced",
+        "trusted_over_true",
+        "lattice_sensitive",
+        "first_true_failure",
+        "false_positive_fraction",
+        "duplicate_discovery_rate",
+        "census"
+      ],
+      "committed_trusted_over_true": 0.0,
+      "committed_trusted_volume": 0.84765625,
+      "committed_unknown_volume": 0.140625,
+      "committed_suspicious_volume": 0.01171875,
+      "committed_detected_regions": 0,
+      "committed_localised_regions": 0,
+      "committed_findings": 3,
+      "committed_unplaced": 0,
+      "declared_axes": [
+        "x"
+      ],
+      "declared_envelopes": [
+        [
+          [
+            3.99999,
+            4.0
+          ]
+        ]
+      ],
+      "leaves_total": 44,
+      "deepest_leaf": 8,
+      "finest_leaf_share_of_domain": 0.003906,
+      "leaves_touching_a_declared_envelope": 1,
+      "leaf_touching_the_region": null,
+      "samples_inside_declared_envelope": 0,
+      "samples_total_recorded": 930,
+      "widest_sample_inside_envelope": null,
+      "largest_sample_anywhere": 3.997904782066432,
+      "trusted_leaves": 17,
+      "unknown_leaves": 24,
+      "suspicious_leaves": 3,
+      "best_leaf_inside_fraction_of_region": null
+    },
+    {
+      "purpose": "the plainest failure: an arm whose channel computes nothing certifies the domain",
+      "arm": "only-behavioral",
+      "entry": "edge/overflow_tail",
+      "seed": 4,
+      "budget": 1280,
+      "reproduces_committed_row": true,
+      "fields_compared": [
+        "evaluations",
+        "instruction_steps",
+        "declared_regions",
+        "detected_regions",
+        "localised_regions",
+        "suspicious_volume",
+        "trusted_volume",
+        "unknown_volume",
+        "findings",
+        "unplaced",
+        "trusted_over_true",
+        "lattice_sensitive",
+        "first_true_failure",
+        "false_positive_fraction",
+        "duplicate_discovery_rate",
+        "census"
+      ],
+      "committed_trusted_over_true": 2.500000000016378e-06,
+      "committed_trusted_volume": 1.0,
+      "committed_unknown_volume": -0.0,
+      "committed_suspicious_volume": -0.0,
+      "committed_detected_regions": 0,
+      "committed_localised_regions": 0,
+      "committed_findings": 0,
+      "committed_unplaced": 0,
+      "declared_axes": [
+        "x"
+      ],
+      "declared_envelopes": [
+        [
+          [
+            3.99999,
+            4.0
+          ]
+        ]
+      ],
+      "leaves_total": 1,
+      "deepest_leaf": 0,
+      "finest_leaf_share_of_domain": 1.0,
+      "leaves_touching_a_declared_envelope": 1,
+      "leaf_touching_the_region": {
+        "cell": 0,
+        "depth": 0,
+        "label": "TRUSTED",
+        "samples": 1080,
+        "mean_risk": 0.0,
+        "max_risk": 0.0,
+        "facts": 0,
+        "measured": 1,
+        "channels": 0,
+        "share_of_domain": 1.0,
+        "bounds": {
+          "axis0": [
+            0.0,
+            4.0
+          ],
+          "axis1": null
+        }
+      },
+      "samples_inside_declared_envelope": 0,
+      "samples_total_recorded": 930,
+      "widest_sample_inside_envelope": null,
+      "largest_sample_anywhere": 3.996586770172813,
+      "trusted_leaves": 1,
+      "unknown_leaves": 0,
+      "suspicious_leaves": 0,
+      "best_leaf_inside_fraction_of_region": null,
+      "derived_overlap_of_region_in_leaf": 2.500000000016378e-06
+    },
+    {
+      "purpose": "a half-covered row: the pole sits exactly on a leaf boundary",
+      "arm": "no-physical",
+      "entry": "edge/pole_at_edge",
+      "seed": 4,
+      "budget": 1280,
+      "reproduces_committed_row": true,
+      "fields_compared": [
+        "evaluations",
+        "instruction_steps",
+        "declared_regions",
+        "detected_regions",
+        "localised_regions",
+        "suspicious_volume",
+        "trusted_volume",
+        "unknown_volume",
+        "findings",
+        "unplaced",
+        "trusted_over_true",
+        "lattice_sensitive",
+        "first_true_failure",
+        "false_positive_fraction",
+        "duplicate_discovery_rate",
+        "census"
+      ],
+      "committed_trusted_over_true": 1.2499999999526779e-06,
+      "committed_trusted_volume": 0.90625,
+      "committed_unknown_volume": 0.078125,
+      "committed_suspicious_volume": 0.015625,
+      "committed_detected_regions": 0,
+      "committed_localised_regions": 0,
+      "committed_findings": 4,
+      "committed_unplaced": 0,
+      "declared_axes": [
+        "x"
+      ],
+      "declared_envelopes": [
+        [
+          [
+            1.999995,
+            2.000005
+          ]
+        ]
+      ],
+      "leaves_total": 37,
+      "deepest_leaf": 8,
+      "finest_leaf_share_of_domain": 0.003906,
+      "leaves_touching_a_declared_envelope": 2,
+      "leaf_touching_the_region": {
+        "cell": 61,
+        "depth": 8,
+        "label": "TRUSTED",
+        "samples": 7,
+        "mean_risk": 0.0,
+        "max_risk": 0.0,
+        "facts": 0,
+        "measured": 17,
+        "channels": 0,
+        "share_of_domain": 0.003906,
+        "bounds": {
+          "axis0": [
+            2.0,
+            2.015625
+          ],
+          "axis1": null
+        }
+      },
+      "samples_inside_declared_envelope": 1,
+      "samples_total_recorded": 930,
+      "widest_sample_inside_envelope": 2.0,
+      "largest_sample_anywhere": 3.989257634290457,
+      "trusted_leaves": 17,
+      "unknown_leaves": 16,
+      "suspicious_leaves": 4,
+      "best_leaf_inside_fraction_of_region": null,
+      "derived_overlap_of_region_in_leaf": 0.00032002048129868864
+    },
+    {
+      "purpose": "a curved region that every arm sees and none encloses",
+      "arm": "full",
+      "entry": "geometry/narrow_oblique",
+      "seed": 1,
+      "budget": 1280,
+      "reproduces_committed_row": true,
+      "fields_compared": [
+        "evaluations",
+        "instruction_steps",
+        "declared_regions",
+        "detected_regions",
+        "localised_regions",
+        "suspicious_volume",
+        "trusted_volume",
+        "unknown_volume",
+        "findings",
+        "unplaced",
+        "trusted_over_true",
+        "lattice_sensitive",
+        "first_true_failure",
+        "false_positive_fraction",
+        "duplicate_discovery_rate",
+        "census"
+      ],
+      "committed_trusted_over_true": 5.7220458984375e-06,
+      "committed_trusted_volume": 0.767822265625,
+      "committed_unknown_volume": 0.22412109375,
+      "committed_suspicious_volume": 0.008056640625,
+      "committed_detected_regions": 1,
+      "committed_localised_regions": 0,
+      "committed_findings": 7,
+      "committed_unplaced": 0,
+      "declared_axes": [
+        "p",
+        "q"
+      ],
+      "declared_envelopes": [
+        [
+          [
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            2.0
+          ]
+        ]
+      ],
+      "leaves_total": 197,
+      "deepest_leaf": 12,
+      "finest_leaf_share_of_domain": 0.000244,
+      "leaves_touching_a_declared_envelope": 197,
+      "leaf_touching_the_region": null,
+      "samples_inside_declared_envelope": 814,
+      "samples_total_recorded": 814,
+      "widest_sample_inside_envelope": 1.999180285079634,
+      "largest_sample_anywhere": 1.999180285079634,
+      "trusted_leaves": 54,
+      "unknown_leaves": 136,
+      "suspicious_leaves": 7,
+      "best_leaf_inside_fraction_of_region": null,
+      "trusted_leaves_touching_the_region": [
+        {
+          "cell": 20,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 46,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 12,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              0.0,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 23,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 59,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.5
+            ],
+            "axis1": [
+              1.0,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 24,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 59,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.5,
+              1.0
+            ],
+            "axis1": [
+              1.0,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 25,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 67,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.5
+            ],
+            "axis1": [
+              1.5,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 26,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 75,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.5,
+              1.0
+            ],
+            "axis1": [
+              1.5,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 43,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 26,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              0.5,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 49,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 34,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.5
+            ],
+            "axis1": [
+              1.5,
+              1.75
+            ]
+          }
+        },
+        {
+          "cell": 50,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 39,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.5
+            ],
+            "axis1": [
+              1.75,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 52,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 37,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              1.75,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 53,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 15,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.25
+            ],
+            "axis1": [
+              0.0,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 55,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 17,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.25
+            ],
+            "axis1": [
+              0.25,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 61,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 11,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              0.0,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 62,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 16,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              0.0,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 64,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 25,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              0.25,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 69,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 23,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              1.0,
+              1.25
+            ]
+          }
+        },
+        {
+          "cell": 71,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 20,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              1.25,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 93,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 10,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.75,
+              2.0
+            ],
+            "axis1": [
+              0.75,
+              0.875
+            ]
+          }
+        },
+        {
+          "cell": 97,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 9,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              1.25,
+              1.375
+            ]
+          }
+        },
+        {
+          "cell": 98,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 12,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              1.375,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 109,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 7,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 16,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.25,
+              0.375
+            ],
+            "axis1": [
+              0.125,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 111,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 7,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 16,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.25,
+              0.375
+            ],
+            "axis1": [
+              0.25,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 112,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.375,
+              0.5
+            ],
+            "axis1": [
+              0.25,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 118,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 16,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.875,
+              1.0
+            ],
+            "axis1": [
+              0.0,
+              0.125
+            ]
+          }
+        },
+        {
+          "cell": 124,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.875,
+              1.0
+            ],
+            "axis1": [
+              0.25,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 129,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 18,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.75,
+              1.875
+            ],
+            "axis1": [
+              0.875,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 130,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 16,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.875,
+              2.0
+            ],
+            "axis1": [
+              0.875,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 131,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.375
+            ],
+            "axis1": [
+              1.0,
+              1.125
+            ]
+          }
+        },
+        {
+          "cell": 133,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.375
+            ],
+            "axis1": [
+              1.125,
+              1.25
+            ]
+          }
+        },
+        {
+          "cell": 140,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.875,
+              2.0
+            ],
+            "axis1": [
+              1.0,
+              1.125
+            ]
+          }
+        },
+        {
+          "cell": 148,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              0.5,
+              0.625
+            ],
+            "axis1": [
+              0.3125,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 168,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 8,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              0.375,
+              0.5
+            ],
+            "axis1": [
+              0.1875,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 177,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 16,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.75,
+              1.875
+            ],
+            "axis1": [
+              1.0,
+              1.0625
+            ]
+          }
+        },
+        {
+          "cell": 195,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 8,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.25
+            ],
+            "axis1": [
+              0.5,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 196,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 11,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              0.25,
+              0.5
+            ],
+            "axis1": [
+              0.5,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 197,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 12,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.25
+            ],
+            "axis1": [
+              0.75,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 198,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 12,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              0.25,
+              0.5
+            ],
+            "axis1": [
+              0.75,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 205,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 15,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.5,
+              1.75
+            ],
+            "axis1": [
+              1.5,
+              1.75
+            ]
+          }
+        },
+        {
+          "cell": 208,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 10,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              0.875,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 210,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.375,
+              0.5
+            ],
+            "axis1": [
+              0.375,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 211,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 9,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 16,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.5,
+              0.625
+            ],
+            "axis1": [
+              0.375,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 219,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.5,
+              1.625
+            ],
+            "axis1": [
+              1.375,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 260,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 11,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              0.5,
+              0.75
+            ],
+            "axis1": [
+              0.875,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 262,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 8,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              0.75,
+              1.0
+            ],
+            "axis1": [
+              0.875,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 265,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 7,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              0.5,
+              0.625
+            ]
+          }
+        },
+        {
+          "cell": 268,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 7,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.75,
+              2.0
+            ],
+            "axis1": [
+              1.625,
+              1.75
+            ]
+          }
+        },
+        {
+          "cell": 273,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              0.75,
+              0.875
+            ],
+            "axis1": [
+              0.375,
+              0.4375
+            ]
+          }
+        },
+        {
+          "cell": 281,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.625,
+              1.75
+            ],
+            "axis1": [
+              0.75,
+              0.8125
+            ]
+          }
+        },
+        {
+          "cell": 284,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 16,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.625,
+              1.75
+            ],
+            "axis1": [
+              1.4375,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 310,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.625,
+              0.75
+            ],
+            "axis1": [
+              0.5,
+              0.625
+            ]
+          }
+        },
+        {
+          "cell": 311,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.5,
+              0.625
+            ],
+            "axis1": [
+              0.625,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 312,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 7,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 20,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.625,
+              0.75
+            ],
+            "axis1": [
+              0.625,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 318,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.625,
+              0.75
+            ],
+            "axis1": [
+              0.75,
+              0.875
+            ]
+          }
+        },
+        {
+          "cell": 359,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.375,
+              1.5
+            ],
+            "axis1": [
+              0.625,
+              0.6875
+            ]
+          }
+        },
+        {
+          "cell": 369,
+          "depth": 12,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.433799,
+          "max_risk": 0.578511,
+          "facts": 0,
+          "measured": 19,
+          "channels": 16,
+          "share_of_domain": 0.000244,
+          "bounds": {
+            "axis0": [
+              1.875,
+              1.90625
+            ],
+            "axis1": [
+              1.15625,
+              1.1875
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "purpose": "the same region under the arm that reproduces the full instrument",
+      "arm": "only-physical",
+      "entry": "geometry/narrow_oblique",
+      "seed": 1,
+      "budget": 1280,
+      "reproduces_committed_row": true,
+      "fields_compared": [
+        "evaluations",
+        "instruction_steps",
+        "declared_regions",
+        "detected_regions",
+        "localised_regions",
+        "suspicious_volume",
+        "trusted_volume",
+        "unknown_volume",
+        "findings",
+        "unplaced",
+        "trusted_over_true",
+        "lattice_sensitive",
+        "first_true_failure",
+        "false_positive_fraction",
+        "duplicate_discovery_rate",
+        "census"
+      ],
+      "committed_trusted_over_true": 0.0018377304077148438,
+      "committed_trusted_volume": 0.91015625,
+      "committed_unknown_volume": 0.083984375,
+      "committed_suspicious_volume": 0.005859375,
+      "committed_detected_regions": 1,
+      "committed_localised_regions": 0,
+      "committed_findings": 4,
+      "committed_unplaced": 0,
+      "declared_axes": [
+        "p",
+        "q"
+      ],
+      "declared_envelopes": [
+        [
+          [
+            0.0,
+            2.0
+          ],
+          [
+            0.0,
+            2.0
+          ]
+        ]
+      ],
+      "leaves_total": 111,
+      "deepest_leaf": 12,
+      "finest_leaf_share_of_domain": 0.000244,
+      "leaves_touching_a_declared_envelope": 111,
+      "leaf_touching_the_region": null,
+      "samples_inside_declared_envelope": 814,
+      "samples_total_recorded": 814,
+      "widest_sample_inside_envelope": 1.999180285079634,
+      "largest_sample_anywhere": 1.999180285079634,
+      "trusted_leaves": 57,
+      "unknown_leaves": 50,
+      "suspicious_leaves": 4,
+      "best_leaf_inside_fraction_of_region": null,
+      "trusted_leaves_touching_the_region": [
+        {
+          "cell": 20,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 46,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              0.0,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 23,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 59,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.5
+            ],
+            "axis1": [
+              1.0,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 24,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 59,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.5,
+              1.0
+            ],
+            "axis1": [
+              1.0,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 25,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 67,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.5
+            ],
+            "axis1": [
+              1.5,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 26,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 75,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.5,
+              1.0
+            ],
+            "axis1": [
+              1.5,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 35,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 19,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.5
+            ],
+            "axis1": [
+              0.5,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 36,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 24,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.5
+            ],
+            "axis1": [
+              0.75,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 37,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 35,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              0.5,
+              1.0
+            ],
+            "axis1": [
+              0.5,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 38,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 30,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              0.5,
+              1.0
+            ],
+            "axis1": [
+              0.75,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 41,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 31,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.5
+            ],
+            "axis1": [
+              0.5,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 43,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 26,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              0.5,
+              0.75
+            ]
+          }
+        },
+        {
+          "cell": 49,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 34,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.5
+            ],
+            "axis1": [
+              1.5,
+              1.75
+            ]
+          }
+        },
+        {
+          "cell": 50,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 39,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.5
+            ],
+            "axis1": [
+              1.75,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 51,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 29,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              1.5,
+              1.75
+            ]
+          }
+        },
+        {
+          "cell": 52,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 37,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              1.75,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 53,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 15,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.25
+            ],
+            "axis1": [
+              0.0,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 55,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 17,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              0.25
+            ],
+            "axis1": [
+              0.25,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 61,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 11,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              0.0,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 62,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 16,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              0.0,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 63,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 14,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              0.25,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 64,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 25,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              0.25,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 65,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 18,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              0.75,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 69,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 23,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              1.0,
+              1.25
+            ]
+          }
+        },
+        {
+          "cell": 71,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 20,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.25
+            ],
+            "axis1": [
+              1.25,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 80,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 8,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              0.25,
+              0.5
+            ],
+            "axis1": [
+              0.375,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 86,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 14,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              0.5,
+              0.75
+            ],
+            "axis1": [
+              0.375,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 88,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 10,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              0.75,
+              1.0
+            ],
+            "axis1": [
+              0.375,
+              0.5
+            ]
+          }
+        },
+        {
+          "cell": 89,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 13,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              0.75,
+              0.875
+            ]
+          }
+        },
+        {
+          "cell": 91,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 7,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.5,
+              1.75
+            ],
+            "axis1": [
+              0.75,
+              0.875
+            ]
+          }
+        },
+        {
+          "cell": 93,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 10,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.75,
+              2.0
+            ],
+            "axis1": [
+              0.75,
+              0.875
+            ]
+          }
+        },
+        {
+          "cell": 97,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 9,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              1.25,
+              1.375
+            ]
+          }
+        },
+        {
+          "cell": 98,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 12,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.5
+            ],
+            "axis1": [
+              1.375,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 104,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 11,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.5,
+              1.75
+            ],
+            "axis1": [
+              1.375,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 106,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 13,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.75,
+              2.0
+            ],
+            "axis1": [
+              1.375,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 109,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 7,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.25,
+              0.375
+            ],
+            "axis1": [
+              0.125,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 111,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 7,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.25,
+              0.375
+            ],
+            "axis1": [
+              0.25,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 112,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.375,
+              0.5
+            ],
+            "axis1": [
+              0.25,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 118,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.875,
+              1.0
+            ],
+            "axis1": [
+              0.0,
+              0.125
+            ]
+          }
+        },
+        {
+          "cell": 120,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.875,
+              1.0
+            ],
+            "axis1": [
+              0.125,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 124,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              0.875,
+              1.0
+            ],
+            "axis1": [
+              0.25,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 129,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 18,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.75,
+              1.875
+            ],
+            "axis1": [
+              0.875,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 130,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.875,
+              2.0
+            ],
+            "axis1": [
+              0.875,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 131,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.375
+            ],
+            "axis1": [
+              1.0,
+              1.125
+            ]
+          }
+        },
+        {
+          "cell": 133,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.25,
+              1.375
+            ],
+            "axis1": [
+              1.125,
+              1.25
+            ]
+          }
+        },
+        {
+          "cell": 140,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.875,
+              2.0
+            ],
+            "axis1": [
+              1.0,
+              1.125
+            ]
+          }
+        },
+        {
+          "cell": 142,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.875,
+              2.0
+            ],
+            "axis1": [
+              1.125,
+              1.25
+            ]
+          }
+        },
+        {
+          "cell": 148,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              0.5,
+              0.625
+            ],
+            "axis1": [
+              0.3125,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 152,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.625,
+              1.75
+            ],
+            "axis1": [
+              0.9375,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 160,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              0.75,
+              0.875
+            ],
+            "axis1": [
+              0.3125,
+              0.375
+            ]
+          }
+        },
+        {
+          "cell": 161,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.625,
+              1.75
+            ],
+            "axis1": [
+              1.0,
+              1.0625
+            ]
+          }
+        },
+        {
+          "cell": 162,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.625,
+              1.75
+            ],
+            "axis1": [
+              1.0625,
+              1.125
+            ]
+          }
+        },
+        {
+          "cell": 168,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 8,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              0.375,
+              0.5
+            ],
+            "axis1": [
+              0.1875,
+              0.25
+            ]
+          }
+        },
+        {
+          "cell": 169,
+          "depth": 10,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.000977,
+          "bounds": {
+            "axis0": [
+              1.375,
+              1.4375
+            ],
+            "axis1": [
+              0.9375,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 177,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.75,
+              1.875
+            ],
+            "axis1": [
+              1.0,
+              1.0625
+            ]
+          }
+        },
+        {
+          "cell": 178,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.75,
+              1.875
+            ],
+            "axis1": [
+              1.0625,
+              1.125
+            ]
+          }
+        },
+        {
+          "cell": 181,
+          "depth": 10,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.000977,
+          "bounds": {
+            "axis0": [
+              0.375,
+              0.4375
+            ],
+            "axis1": [
+              0.0,
+              0.0625
+            ]
+          }
+        },
+        {
+          "cell": 197,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              1.5,
+              1.625
+            ],
+            "axis1": [
+              0.875,
+              0.9375
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "purpose": "a curved region that is enclosed, for contrast",
+      "arm": "full",
+      "entry": "geometry/diagonal_sum",
+      "seed": 1,
+      "budget": 320,
+      "reproduces_committed_row": true,
+      "fields_compared": [
+        "evaluations",
+        "instruction_steps",
+        "declared_regions",
+        "detected_regions",
+        "localised_regions",
+        "suspicious_volume",
+        "trusted_volume",
+        "unknown_volume",
+        "findings",
+        "unplaced",
+        "trusted_over_true",
+        "lattice_sensitive",
+        "first_true_failure",
+        "false_positive_fraction",
+        "duplicate_discovery_rate",
+        "census"
+      ],
+      "committed_trusted_over_true": 0.000732421875,
+      "committed_trusted_volume": 0.4423828125,
+      "committed_unknown_volume": 0.34716796875,
+      "committed_suspicious_volume": 0.21044921875,
+      "committed_detected_regions": 1,
+      "committed_localised_regions": 1,
+      "committed_findings": 20,
+      "committed_unplaced": 0,
+      "declared_axes": [
+        "p",
+        "q"
+      ],
+      "declared_envelopes": [
+        [
+          [
+            0.0,
+            4.0
+          ],
+          [
+            0.0,
+            4.0
+          ]
+        ]
+      ],
+      "leaves_total": 106,
+      "deepest_leaf": 12,
+      "finest_leaf_share_of_domain": 0.000244,
+      "leaves_touching_a_declared_envelope": 106,
+      "leaf_touching_the_region": null,
+      "samples_inside_declared_envelope": 202,
+      "samples_total_recorded": 202,
+      "widest_sample_inside_envelope": 3.9771118622852244,
+      "largest_sample_anywhere": 3.9771118622852244,
+      "trusted_leaves": 17,
+      "unknown_leaves": 51,
+      "suspicious_leaves": 38,
+      "best_leaf_inside_fraction_of_region": null,
+      "trusted_leaves_touching_the_region": [
+        {
+          "cell": 15,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 18,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              1.0
+            ],
+            "axis1": [
+              0.0,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 16,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 8,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              2.0
+            ],
+            "axis1": [
+              0.0,
+              1.0
+            ]
+          }
+        },
+        {
+          "cell": 17,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 13,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              1.0
+            ],
+            "axis1": [
+              1.0,
+              2.0
+            ]
+          }
+        },
+        {
+          "cell": 23,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 14,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              1.0
+            ],
+            "axis1": [
+              2.0,
+              3.0
+            ]
+          }
+        },
+        {
+          "cell": 25,
+          "depth": 4,
+          "label": "TRUSTED",
+          "samples": 16,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.0625,
+          "bounds": {
+            "axis0": [
+              0.0,
+              1.0
+            ],
+            "axis1": [
+              3.0,
+              4.0
+            ]
+          }
+        },
+        {
+          "cell": 31,
+          "depth": 5,
+          "label": "TRUSTED",
+          "samples": 14,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.03125,
+          "bounds": {
+            "axis0": [
+              1.0,
+              2.0
+            ],
+            "axis1": [
+              1.0,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 57,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              2.0,
+              2.5
+            ],
+            "axis1": [
+              1.0,
+              1.5
+            ]
+          }
+        },
+        {
+          "cell": 66,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 6,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              2.0,
+              2.5
+            ]
+          }
+        },
+        {
+          "cell": 67,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 6,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.5
+            ],
+            "axis1": [
+              2.5,
+              3.0
+            ]
+          }
+        },
+        {
+          "cell": 69,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.5
+            ],
+            "axis1": [
+              3.0,
+              3.5
+            ]
+          }
+        },
+        {
+          "cell": 71,
+          "depth": 6,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 23,
+          "channels": 4,
+          "share_of_domain": 0.015625,
+          "bounds": {
+            "axis0": [
+              1.0,
+              1.5
+            ],
+            "axis1": [
+              3.5,
+              4.0
+            ]
+          }
+        },
+        {
+          "cell": 105,
+          "depth": 7,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 2,
+          "channels": 0,
+          "share_of_domain": 0.007812,
+          "bounds": {
+            "axis0": [
+              1.5,
+              2.0
+            ],
+            "axis1": [
+              2.5,
+              2.75
+            ]
+          }
+        },
+        {
+          "cell": 147,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 5,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.5,
+              1.75
+            ],
+            "axis1": [
+              2.75,
+              3.0
+            ]
+          }
+        },
+        {
+          "cell": 154,
+          "depth": 8,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.003906,
+          "bounds": {
+            "axis0": [
+              1.75,
+              2.0
+            ],
+            "axis1": [
+              3.5,
+              3.75
+            ]
+          }
+        },
+        {
+          "cell": 178,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              2.75,
+              3.0
+            ],
+            "axis1": [
+              1.625,
+              1.75
+            ]
+          }
+        },
+        {
+          "cell": 180,
+          "depth": 9,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.001953,
+          "bounds": {
+            "axis0": [
+              3.0,
+              3.25
+            ],
+            "axis1": [
+              1.625,
+              1.75
+            ]
+          }
+        },
+        {
+          "cell": 195,
+          "depth": 10,
+          "label": "TRUSTED",
+          "samples": 4,
+          "mean_risk": 0.0,
+          "max_risk": 0.0,
+          "facts": 0,
+          "measured": 19,
+          "channels": 0,
+          "share_of_domain": 0.000977,
+          "bounds": {
+            "axis0": [
+              2.0,
+              2.125
+            ],
+            "axis1": [
+              3.375,
+              3.5
+            ]
+          }
+        }
+      ],
+      "deciding_suspicious_leaf": {
+        "cell": 62,
+        "depth": 6,
+        "label": "SUSPICIOUS",
+        "samples": 2,
+        "mean_risk": 1.0,
+        "max_risk": 1.0,
+        "facts": 2,
+        "measured": 2,
+        "channels": 2,
+        "share_of_domain": 0.015625,
+        "bounds": {
+          "axis0": [
+            3.5,
+            4.0
+          ],
+          "axis1": [
+            1.0,
+            1.5
+          ]
+        }
+      }
+    }
+  ]
+}

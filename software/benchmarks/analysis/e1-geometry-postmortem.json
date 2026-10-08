@@ -1,0 +1,4790 @@
+{
+  "schema": "aporia.postmortem/1",
+  "generated_by": "software/scripts/post_e1_analysis.py",
+  "inputs": {
+    "protocol": "benchmarks/protocols/e1-geometry.json",
+    "protocol_digest": "5199a5cfdfc7c479",
+    "result_documents": [
+      "results-022bde383614.json",
+      "results-03a200e9e593.json",
+      "results-0704da190c01.json",
+      "results-085c328014c2.json",
+      "results-3d9a9266bb80.json",
+      "results-77df45107e71.json",
+      "results-80a82d173196.json",
+      "results-c6842681d33d.json",
+      "results-e29495fd5b53.json",
+      "results-e78b3bbfc421.json",
+      "results-e921e2cf0d56.json"
+    ],
+    "row_trace": "e1-geometry-row-trace.json"
+  },
+  "question": "E2 measured that removing Physical loses 39 of 90 localisation events while keeping only Physical reproduces all 59 at the same budgets. Is Physical actually dominant, or did an axis-aligned corpus make an axis-aligned instrument look dominant?",
+  "hypotheses": {
+    "H-PHYS": "The five-channel model is effectively one channel plus explanation; only-Physical matches full on geometry the atlas does not partition along.",
+    "H-SHAPE": "Physical's E2 parity is a property of corpus shape; on curved, discrete or edge geometry the full instrument localises pairs that only-Physical does not."
+  },
+  "arms": {
+    "no-physical": {
+      "file": "results-022bde383614.json",
+      "identity": "022bde383614",
+      "mask": [
+        "physical"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 61
+    },
+    "only-physical": {
+      "file": "results-03a200e9e593.json",
+      "identity": "03a200e9e593",
+      "mask": [
+        "behavioral",
+        "differential",
+        "numerical",
+        "sensitivity"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 127
+    },
+    "full": {
+      "file": "results-0704da190c01.json",
+      "identity": "0704da190c01",
+      "mask": [],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 169
+    },
+    "no-differential": {
+      "file": "results-085c328014c2.json",
+      "identity": "085c328014c2",
+      "mask": [
+        "differential"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 168
+    },
+    "no-behavioral": {
+      "file": "results-3d9a9266bb80.json",
+      "identity": "3d9a9266bb80",
+      "mask": [
+        "behavioral"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 169
+    },
+    "no-numerical": {
+      "file": "results-77df45107e71.json",
+      "identity": "77df45107e71",
+      "mask": [
+        "numerical"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 132
+    },
+    "no-sensitivity": {
+      "file": "results-80a82d173196.json",
+      "identity": "80a82d173196",
+      "mask": [
+        "sensitivity"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 130
+    },
+    "only-numerical": {
+      "file": "results-c6842681d33d.json",
+      "identity": "c6842681d33d",
+      "mask": [
+        "behavioral",
+        "differential",
+        "physical",
+        "sensitivity"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 0
+    },
+    "only-behavioral": {
+      "file": "results-e29495fd5b53.json",
+      "identity": "e29495fd5b53",
+      "mask": [
+        "differential",
+        "numerical",
+        "physical",
+        "sensitivity"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 0
+    },
+    "only-sensitivity": {
+      "file": "results-e78b3bbfc421.json",
+      "identity": "e78b3bbfc421",
+      "mask": [
+        "behavioral",
+        "differential",
+        "numerical",
+        "physical"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 0
+    },
+    "only-differential": {
+      "file": "results-e921e2cf0d56.json",
+      "identity": "e921e2cf0d56",
+      "mask": [
+        "behavioral",
+        "numerical",
+        "physical",
+        "sensitivity"
+      ],
+      "sweeps": 75,
+      "rows": 225,
+      "evaluations": 168000,
+      "instruction_steps": 761600,
+      "refused": [
+        "domain/inverted",
+        "domain/unbounded_interval"
+      ],
+      "replayed": 15,
+      "replay_errors": 0,
+      "counterexample_rows": 0
+    }
+  },
+  "cost": {
+    "evaluations_per_arm": 168000,
+    "instruction_steps_per_arm": 761600,
+    "arms_cost_equal": true
+  },
+  "universe": {
+    "membership_rule": "protocol entries.run, minus entries.anchors, minus entries whose truth declares control, minus entries the plan refuses",
+    "entries": [
+      "geometry/diagonal_sum",
+      "geometry/curved_product",
+      "geometry/narrow_oblique",
+      "geometry/curved_arc",
+      "discrete/scheme_branch",
+      "discrete/mixed_magnitude",
+      "discrete/lattice_two",
+      "edge/overflow_tail",
+      "edge/pole_at_edge"
+    ],
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "budgets": [
+      320,
+      640,
+      1280
+    ],
+    "pairs": 45,
+    "anchors_excluded": [
+      "analytic/sqrt_domain",
+      "synthetic/one_pct_2d",
+      "electromagnetics/rlc_resonance",
+      "aerospace/projectile_clean"
+    ],
+    "controls_excluded": [
+      "aerospace/projectile_clean",
+      "discrete/clean_lattice",
+      "geometry/curved_clean"
+    ],
+    "refused_excluded": [
+      "domain/inverted",
+      "domain/unbounded_interval"
+    ]
+  },
+  "primary_metric": {
+    "name": "single-channel-sufficiency transfer",
+    "F": 28,
+    "O": 28,
+    "full_only": [],
+    "only_physical_only": [],
+    "shared": 28,
+    "shared_at_same_budget": 28,
+    "unresolved_pairs": [
+      [
+        "edge/overflow_tail",
+        1
+      ],
+      [
+        "edge/overflow_tail",
+        2
+      ],
+      [
+        "edge/overflow_tail",
+        3
+      ],
+      [
+        "edge/overflow_tail",
+        4
+      ],
+      [
+        "edge/overflow_tail",
+        5
+      ],
+      [
+        "edge/pole_at_edge",
+        1
+      ],
+      [
+        "edge/pole_at_edge",
+        2
+      ],
+      [
+        "edge/pole_at_edge",
+        3
+      ],
+      [
+        "edge/pole_at_edge",
+        4
+      ],
+      [
+        "edge/pole_at_edge",
+        5
+      ],
+      [
+        "geometry/curved_product",
+        2
+      ],
+      [
+        "geometry/curved_product",
+        4
+      ],
+      [
+        "geometry/narrow_oblique",
+        1
+      ],
+      [
+        "geometry/narrow_oblique",
+        2
+      ],
+      [
+        "geometry/narrow_oblique",
+        3
+      ],
+      [
+        "geometry/narrow_oblique",
+        4
+      ],
+      [
+        "geometry/narrow_oblique",
+        5
+      ]
+    ],
+    "decision_rule_satisfied": 3,
+    "decision_rule_text": "3. |F \\ O| = 0 and |O \\ F| = 0 and every pair agrees on the budget at which it localised -> H-PHYS supported: Physical dominance persists on curved, discrete and edge geometry."
+  },
+  "corpus_wide": {
+    "full": {
+      "pairs": 75,
+      "localised_pairs": 39,
+      "detected_pairs": 52
+    },
+    "no-behavioral": {
+      "pairs": 75,
+      "localised_pairs": 39,
+      "detected_pairs": 52
+    },
+    "no-differential": {
+      "pairs": 75,
+      "localised_pairs": 39,
+      "detected_pairs": 51
+    },
+    "no-numerical": {
+      "pairs": 75,
+      "localised_pairs": 39,
+      "detected_pairs": 51
+    },
+    "no-physical": {
+      "pairs": 75,
+      "localised_pairs": 0,
+      "detected_pairs": 11
+    },
+    "no-sensitivity": {
+      "pairs": 75,
+      "localised_pairs": 39,
+      "detected_pairs": 52
+    },
+    "only-behavioral": {
+      "pairs": 75,
+      "localised_pairs": 0,
+      "detected_pairs": 0
+    },
+    "only-differential": {
+      "pairs": 75,
+      "localised_pairs": 0,
+      "detected_pairs": 0
+    },
+    "only-numerical": {
+      "pairs": 75,
+      "localised_pairs": 0,
+      "detected_pairs": 0
+    },
+    "only-physical": {
+      "pairs": 75,
+      "localised_pairs": 39,
+      "detected_pairs": 51
+    },
+    "only-sensitivity": {
+      "pairs": 75,
+      "localised_pairs": 0,
+      "detected_pairs": 0
+    }
+  },
+  "per_single_removal": {
+    "no-behavioral": {
+      "localisation_lost_from_full": [],
+      "detection_lost_from_full": [],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    },
+    "no-differential": {
+      "localisation_lost_from_full": [],
+      "detection_lost_from_full": [],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    },
+    "no-numerical": {
+      "localisation_lost_from_full": [],
+      "detection_lost_from_full": [],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    },
+    "no-physical": {
+      "localisation_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5"
+      ],
+      "detection_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed5",
+        "edge/pole_at_edge:seed1",
+        "edge/pole_at_edge:seed2",
+        "edge/pole_at_edge:seed3",
+        "edge/pole_at_edge:seed4",
+        "edge/pole_at_edge:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed2",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5"
+      ],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    },
+    "no-sensitivity": {
+      "localisation_lost_from_full": [],
+      "detection_lost_from_full": [],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    }
+  },
+  "per_single_channel_arm": {
+    "only-behavioral": {
+      "localisation_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5"
+      ],
+      "detection_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "edge/pole_at_edge:seed1",
+        "edge/pole_at_edge:seed2",
+        "edge/pole_at_edge:seed3",
+        "edge/pole_at_edge:seed4",
+        "edge/pole_at_edge:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed2",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5",
+        "geometry/narrow_oblique:seed1",
+        "geometry/narrow_oblique:seed2",
+        "geometry/narrow_oblique:seed3",
+        "geometry/narrow_oblique:seed4",
+        "geometry/narrow_oblique:seed5"
+      ],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    },
+    "only-differential": {
+      "localisation_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5"
+      ],
+      "detection_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "edge/pole_at_edge:seed1",
+        "edge/pole_at_edge:seed2",
+        "edge/pole_at_edge:seed3",
+        "edge/pole_at_edge:seed4",
+        "edge/pole_at_edge:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed2",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5",
+        "geometry/narrow_oblique:seed1",
+        "geometry/narrow_oblique:seed2",
+        "geometry/narrow_oblique:seed3",
+        "geometry/narrow_oblique:seed4",
+        "geometry/narrow_oblique:seed5"
+      ],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    },
+    "only-numerical": {
+      "localisation_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5"
+      ],
+      "detection_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "edge/pole_at_edge:seed1",
+        "edge/pole_at_edge:seed2",
+        "edge/pole_at_edge:seed3",
+        "edge/pole_at_edge:seed4",
+        "edge/pole_at_edge:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed2",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5",
+        "geometry/narrow_oblique:seed1",
+        "geometry/narrow_oblique:seed2",
+        "geometry/narrow_oblique:seed3",
+        "geometry/narrow_oblique:seed4",
+        "geometry/narrow_oblique:seed5"
+      ],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    },
+    "only-physical": {
+      "localisation_lost_from_full": [],
+      "detection_lost_from_full": [],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    },
+    "only-sensitivity": {
+      "localisation_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5"
+      ],
+      "detection_lost_from_full": [
+        "discrete/lattice_two:seed1",
+        "discrete/lattice_two:seed2",
+        "discrete/lattice_two:seed3",
+        "discrete/lattice_two:seed4",
+        "discrete/lattice_two:seed5",
+        "discrete/mixed_magnitude:seed1",
+        "discrete/mixed_magnitude:seed2",
+        "discrete/mixed_magnitude:seed3",
+        "discrete/mixed_magnitude:seed4",
+        "discrete/mixed_magnitude:seed5",
+        "discrete/scheme_branch:seed1",
+        "discrete/scheme_branch:seed2",
+        "discrete/scheme_branch:seed3",
+        "discrete/scheme_branch:seed4",
+        "discrete/scheme_branch:seed5",
+        "edge/pole_at_edge:seed1",
+        "edge/pole_at_edge:seed2",
+        "edge/pole_at_edge:seed3",
+        "edge/pole_at_edge:seed4",
+        "edge/pole_at_edge:seed5",
+        "geometry/curved_arc:seed1",
+        "geometry/curved_arc:seed2",
+        "geometry/curved_arc:seed3",
+        "geometry/curved_arc:seed4",
+        "geometry/curved_arc:seed5",
+        "geometry/curved_product:seed1",
+        "geometry/curved_product:seed2",
+        "geometry/curved_product:seed3",
+        "geometry/curved_product:seed5",
+        "geometry/diagonal_sum:seed1",
+        "geometry/diagonal_sum:seed2",
+        "geometry/diagonal_sum:seed3",
+        "geometry/diagonal_sum:seed4",
+        "geometry/diagonal_sum:seed5",
+        "geometry/narrow_oblique:seed1",
+        "geometry/narrow_oblique:seed2",
+        "geometry/narrow_oblique:seed3",
+        "geometry/narrow_oblique:seed4",
+        "geometry/narrow_oblique:seed5"
+      ],
+      "detection_gained_over_full": [],
+      "localisation_gained_over_full": []
+    }
+  },
+  "volume_deltas_vs_full": {
+    "no-behavioral": {
+      "suspicious": -0.071289,
+      "trusted": -0.621094,
+      "unknown": 0.692383,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 0
+    },
+    "no-differential": {
+      "suspicious": -0.020264,
+      "trusted": -0.563477,
+      "unknown": 0.58374,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 0
+    },
+    "no-numerical": {
+      "suspicious": -0.347656,
+      "trusted": -12.102539,
+      "unknown": 12.450195,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 7
+    },
+    "no-physical": {
+      "suspicious": -14.075195,
+      "trusted": 11.857178,
+      "unknown": 2.218018,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 0
+    },
+    "no-sensitivity": {
+      "suspicious": -0.447266,
+      "trusted": 21.375977,
+      "unknown": -20.928711,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 14
+    },
+    "only-behavioral": {
+      "suspicious": -14.80957,
+      "trusted": 85.11499,
+      "unknown": -70.30542,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 21
+    },
+    "only-differential": {
+      "suspicious": -14.80957,
+      "trusted": -139.88501,
+      "unknown": 154.69458,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 0
+    },
+    "only-numerical": {
+      "suspicious": -14.80957,
+      "trusted": 44.11499,
+      "unknown": -29.30542,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 14
+    },
+    "only-physical": {
+      "suspicious": -0.464111,
+      "trusted": 33.072754,
+      "unknown": -32.608643,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 21
+    },
+    "only-sensitivity": {
+      "suspicious": -14.80957,
+      "trusted": -12.88501,
+      "unknown": 27.69458,
+      "rows_compared": 225,
+      "control_rows_trusted_more_than_full": 7
+    }
+  },
+  "safety_condition": {
+    "text": "volume deltas, and trusted_over_true: the fraction of the DOMAIN that is both labelled TRUSTED and inside a declared region, in the same units as suspicious_volume, sampled on the predicate lattice for a where region. It is an absolute volume and never a ratio of two volumes, so no arm can produce a 0/0 that would have to be read as either a pass or an absence. E1.3's pass condition, frozen now: on edge/overflow_tail and edge/pole_at_edge every arm must report trusted_over_true = 0. A non-zero value is the documented route being taken -- a cell labelled trustworthy on evidence that could not say anything -- reported by name, per (entry, seed, budget, arm).",
+    "edge_entries": [
+      "edge/overflow_tail",
+      "edge/pole_at_edge"
+    ],
+    "edge_rows": 330,
+    "failing_rows": 87,
+    "distinct_values": [
+      2.500000000016378e-06,
+      2.499999999960867e-06,
+      1.250000000008189e-06,
+      1.2499999999526779e-06
+    ],
+    "rows": [
+      {
+        "arm": "full",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 0.87109375,
+        "unknown_volume": 0.12109375,
+        "suspicious_volume": 0.0078125,
+        "findings": 2,
+        "unplaced": 0,
+        "silenced": [],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": false,
+        "trace": {
+          "purpose": "the full instrument's single failing row",
+          "leaf_touching_the_region": {
+            "cell": 58,
+            "depth": 7,
+            "label": "TRUSTED",
+            "samples": 4,
+            "mean_risk": 0.0,
+            "max_risk": 0.0,
+            "facts": 0,
+            "measured": 2,
+            "channels": 0,
+            "share_of_domain": 0.007812,
+            "bounds": {
+              "axis0": [
+                3.96875,
+                4.0
+              ],
+              "axis1": null
+            }
+          },
+          "derived_overlap_of_region_in_leaf": 0.0003200204813129004,
+          "trusted_leaves_touching_the_region": null,
+          "samples_inside_declared_envelope": 0,
+          "largest_sample_anywhere": 3.989257634290457,
+          "leaves_total": 45,
+          "deepest_leaf": 8,
+          "finest_leaf_share_of_domain": 0.003906,
+          "reproduces_committed_row": true
+        }
+      },
+      {
+        "arm": "no-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 0.87109375,
+        "unknown_volume": 0.12109375,
+        "suspicious_volume": 0.0078125,
+        "findings": 2,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": false
+      },
+      {
+        "arm": "no-differential",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 0.87109375,
+        "unknown_volume": 0.12109375,
+        "suspicious_volume": 0.0078125,
+        "findings": 2,
+        "unplaced": 0,
+        "silenced": [
+          "differential"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": false
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-sensitivity",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 3,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 3,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 3,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true,
+        "trace": {
+          "purpose": "the plainest failure: an arm whose channel computes nothing certifies the domain",
+          "leaf_touching_the_region": {
+            "cell": 0,
+            "depth": 0,
+            "label": "TRUSTED",
+            "samples": 1080,
+            "mean_risk": 0.0,
+            "max_risk": 0.0,
+            "facts": 0,
+            "measured": 1,
+            "channels": 0,
+            "share_of_domain": 1.0,
+            "bounds": {
+              "axis0": [
+                0.0,
+                4.0
+              ],
+              "axis1": null
+            }
+          },
+          "derived_overlap_of_region_in_leaf": 2.500000000016378e-06,
+          "trusted_leaves_touching_the_region": null,
+          "samples_inside_declared_envelope": 0,
+          "largest_sample_anywhere": 3.996586770172813,
+          "leaves_total": 1,
+          "deepest_leaf": 0,
+          "finest_leaf_share_of_domain": 1.0,
+          "reproduces_committed_row": true
+        }
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 1,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 2,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 3,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 3,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 3,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 320,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 640,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-physical",
+        "entry": "edge/overflow_tail",
+        "seed": 5,
+        "budget": 1280,
+        "trusted_over_true": 2.500000000016378e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "numerical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential",
+          "physical"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 1,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 1,
+        "budget": 640,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 1,
+        "budget": 1280,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 2,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 2,
+        "budget": 640,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 2,
+        "budget": 1280,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 3,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 3,
+        "budget": 640,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 3,
+        "budget": 1280,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 4,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 4,
+        "budget": 640,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 5,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 5,
+        "budget": 640,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-behavioral",
+        "entry": "edge/pole_at_edge",
+        "seed": 5,
+        "budget": 1280,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "differential",
+          "numerical",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 2,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 2,
+        "budget": 640,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 2,
+        "budget": 1280,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 3,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 3,
+        "budget": 640,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 3,
+        "budget": 1280,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 4,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 5,
+        "budget": 320,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "only-numerical",
+        "entry": "edge/pole_at_edge",
+        "seed": 5,
+        "budget": 640,
+        "trusted_over_true": 2.499999999960867e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 1.0,
+        "trusted_volume": 1.0,
+        "unknown_volume": -0.0,
+        "suspicious_volume": -0.0,
+        "findings": 0,
+        "unplaced": 0,
+        "silenced": [
+          "behavioral",
+          "differential",
+          "physical",
+          "sensitivity"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": true,
+        "observed_whole_domain_trusted": true
+      },
+      {
+        "arm": "no-physical",
+        "entry": "edge/pole_at_edge",
+        "seed": 1,
+        "budget": 640,
+        "trusted_over_true": 1.250000000008189e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 0.5,
+        "trusted_volume": 0.828125,
+        "unknown_volume": 0.1640625,
+        "suspicious_volume": 0.0078125,
+        "findings": 1,
+        "unplaced": 0,
+        "silenced": [
+          "physical"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": false,
+        "observed_whole_domain_trusted": false
+      },
+      {
+        "arm": "no-physical",
+        "entry": "edge/pole_at_edge",
+        "seed": 2,
+        "budget": 1280,
+        "trusted_over_true": 1.2499999999526779e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 0.5,
+        "trusted_volume": 0.7890625,
+        "unknown_volume": 0.19921875,
+        "suspicious_volume": 0.01171875,
+        "findings": 3,
+        "unplaced": 0,
+        "silenced": [
+          "physical"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": false,
+        "observed_whole_domain_trusted": false
+      },
+      {
+        "arm": "no-physical",
+        "entry": "edge/pole_at_edge",
+        "seed": 3,
+        "budget": 640,
+        "trusted_over_true": 1.2499999999526779e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 0.5,
+        "trusted_volume": 0.4453125,
+        "unknown_volume": 0.55078125,
+        "suspicious_volume": 0.00390625,
+        "findings": 1,
+        "unplaced": 0,
+        "silenced": [
+          "physical"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": false,
+        "observed_whole_domain_trusted": false
+      },
+      {
+        "arm": "no-physical",
+        "entry": "edge/pole_at_edge",
+        "seed": 4,
+        "budget": 320,
+        "trusted_over_true": 1.2499999999526779e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 0.5,
+        "trusted_volume": 0.4765625,
+        "unknown_volume": 0.51953125,
+        "suspicious_volume": 0.00390625,
+        "findings": 1,
+        "unplaced": 0,
+        "silenced": [
+          "physical"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": false,
+        "observed_whole_domain_trusted": false
+      },
+      {
+        "arm": "no-physical",
+        "entry": "edge/pole_at_edge",
+        "seed": 4,
+        "budget": 640,
+        "trusted_over_true": 1.2499999999526779e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 0.5,
+        "trusted_volume": 0.45703125,
+        "unknown_volume": 0.53515625,
+        "suspicious_volume": 0.0078125,
+        "findings": 2,
+        "unplaced": 0,
+        "silenced": [
+          "physical"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": false,
+        "observed_whole_domain_trusted": false
+      },
+      {
+        "arm": "no-physical",
+        "entry": "edge/pole_at_edge",
+        "seed": 4,
+        "budget": 1280,
+        "trusted_over_true": 1.2499999999526779e-06,
+        "declared_envelope_share": 2.5e-06,
+        "fraction_of_envelope_certified": 0.5,
+        "trusted_volume": 0.90625,
+        "unknown_volume": 0.078125,
+        "suspicious_volume": 0.015625,
+        "findings": 4,
+        "unplaced": 0,
+        "silenced": [
+          "physical"
+        ],
+        "channels_computing_nothing": [
+          "behavioral",
+          "differential"
+        ],
+        "causes": [
+          "semantics",
+          "granularity",
+          "coverage",
+          "labelling_by_absence_of_evidence"
+        ],
+        "observed_whole_envelope_certified": false,
+        "observed_whole_domain_trusted": false,
+        "trace": {
+          "purpose": "a half-covered row: the pole sits exactly on a leaf boundary",
+          "leaf_touching_the_region": {
+            "cell": 61,
+            "depth": 8,
+            "label": "TRUSTED",
+            "samples": 7,
+            "mean_risk": 0.0,
+            "max_risk": 0.0,
+            "facts": 0,
+            "measured": 17,
+            "channels": 0,
+            "share_of_domain": 0.003906,
+            "bounds": {
+              "axis0": [
+                2.0,
+                2.015625
+              ],
+              "axis1": null
+            }
+          },
+          "derived_overlap_of_region_in_leaf": 0.00032002048129868864,
+          "trusted_leaves_touching_the_region": null,
+          "samples_inside_declared_envelope": 1,
+          "largest_sample_anywhere": 3.989257634290457,
+          "leaves_total": 37,
+          "deepest_leaf": 8,
+          "finest_leaf_share_of_domain": 0.003906,
+          "reproduces_committed_row": true
+        }
+      }
+    ]
+  },
+  "over_claim_by_entry": [
+    {
+      "entry": "geometry/diagonal_sum",
+      "declared_envelope_share": 1.0,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 8,
+          "max": 0.00390625
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 8,
+          "max": 0.00390625
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 8,
+          "max": 0.00390625
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 8,
+          "max": 0.00390625
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.25
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 8,
+          "max": 0.00390625
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.25
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.25
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 8,
+          "max": 0.00390625
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.25
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 0.003906
+    },
+    {
+      "entry": "geometry/curved_product",
+      "declared_envelope_share": 0.09,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.004218750000000004
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.004218750000000004
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.004218750000000004
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.004218750000000004
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.004218750000000004
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.004218750000000004
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.004218750000000004
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.004218750000000004
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.004218750000000004
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.004218750000000004
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 0.046875
+    },
+    {
+      "entry": "geometry/narrow_oblique",
+      "declared_envelope_share": 1.0,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.00128936767578125
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 11,
+          "max": 0.001953125
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.00128936767578125
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.0012917518615722656
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 11,
+          "max": 0.0009765625
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 14,
+          "max": 0.0234375
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.0234375
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 5,
+          "max": 0.0234375
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.0234375
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 0.001289
+    },
+    {
+      "entry": "geometry/curved_arc",
+      "declared_envelope_share": 1.0,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.011962890625
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.011962890625
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.011962890625
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.011962890625
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 11,
+          "max": 0.20703125
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.011962890625
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.20703125
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 8,
+          "max": 0.20703125
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.011962890625
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.20703125
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 0.011963
+    },
+    {
+      "entry": "discrete/scheme_branch",
+      "declared_envelope_share": 0.306577480491,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 11,
+          "max": 0.14691767697881827
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.1393534002229654
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 10,
+          "max": 0.1393534002229654
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 0.1393534002229654
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 0.0
+    },
+    {
+      "entry": "discrete/mixed_magnitude",
+      "declared_envelope_share": 0.215997770346,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 11,
+          "max": 0.11148272017837235
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.11148272017837235
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.11148272017837235
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 9,
+          "max": 0.11148272017837235
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 0.0
+    },
+    {
+      "entry": "discrete/lattice_two",
+      "declared_envelope_share": 0.375,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.25
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.25
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.25
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 0.25
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 0.0
+    },
+    {
+      "entry": "edge/overflow_tail",
+      "declared_envelope_share": 2.5e-06,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 1,
+          "max": 2.500000000016378e-06
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 1,
+          "max": 2.500000000016378e-06
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 1,
+          "max": 2.500000000016378e-06
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 2.500000000016378e-06
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 2.500000000016378e-06
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 12,
+          "max": 2.500000000016378e-06
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 2.500000000016378e-06
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 1.0
+    },
+    {
+      "entry": "edge/pole_at_edge",
+      "declared_envelope_share": 2.5e-06,
+      "by_arm": {
+        "full": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-numerical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "no-physical": {
+          "rows": 15,
+          "nonzero_rows": 6,
+          "max": 1.250000000008189e-06
+        },
+        "no-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "only-behavioral": {
+          "rows": 15,
+          "nonzero_rows": 15,
+          "max": 2.499999999960867e-06
+        },
+        "only-differential": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        },
+        "only-numerical": {
+          "rows": 15,
+          "nonzero_rows": 9,
+          "max": 2.499999999960867e-06
+        },
+        "only-physical": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": 0.0
+        },
+        "only-sensitivity": {
+          "rows": 15,
+          "nonzero_rows": 0,
+          "max": -0.0
+        }
+      },
+      "fraction_of_envelope_certified_by_full": 0.0
+    }
+  ],
+  "testability_partition": [
+    {
+      "entry": "geometry/diagonal_sum",
+      "experiment": "E1.1",
+      "pairs": 5,
+      "full_localised": 5,
+      "only_physical_localised": 5,
+      "full_detected": 5,
+      "localised_by_any_arm": 5,
+      "detected_by_any_arm": 5,
+      "class": "exercised_physical_parity_every_pair",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 2,
+        "declared_regions": 1,
+        "carries_a_where": true,
+        "envelope_share_of_domain": 1.0,
+        "thinnest_declared_extent": 4.0,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.0625
+      },
+      "leaf_could_ever_enclose_region": true,
+      "traced_rows": [
+        {
+          "arm": "full",
+          "seed": 1,
+          "budget": 320,
+          "purpose": "a curved region that is enclosed, for contrast",
+          "leaves_total": 106,
+          "deepest_leaf": 12,
+          "finest_leaf_share_of_domain": 0.000244,
+          "trusted_leaves": 17,
+          "samples_inside_declared_envelope": 202,
+          "largest_sample_anywhere": 3.9771118622852244,
+          "leaf_touching_the_region": null,
+          "deciding_suspicious_leaf": {
+            "cell": 62,
+            "depth": 6,
+            "label": "SUSPICIOUS",
+            "samples": 2,
+            "mean_risk": 1.0,
+            "max_risk": 1.0,
+            "facts": 2,
+            "measured": 2,
+            "channels": 2,
+            "share_of_domain": 0.015625,
+            "bounds": {
+              "axis0": [
+                3.5,
+                4.0
+              ],
+              "axis1": [
+                1.0,
+                1.5
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "entry": "geometry/curved_product",
+      "experiment": "E1.1",
+      "pairs": 5,
+      "full_localised": 3,
+      "only_physical_localised": 3,
+      "full_detected": 4,
+      "localised_by_any_arm": 3,
+      "detected_by_any_arm": 4,
+      "class": "exercised_physical_parity_some_pairs",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 2,
+        "declared_regions": 1,
+        "carries_a_where": true,
+        "envelope_share_of_domain": 0.09,
+        "thinnest_declared_extent": 0.18000000000000016,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.03125
+      },
+      "leaf_could_ever_enclose_region": true,
+      "traced_rows": []
+    },
+    {
+      "entry": "geometry/narrow_oblique",
+      "experiment": "E1.1",
+      "pairs": 5,
+      "full_localised": 0,
+      "only_physical_localised": 0,
+      "full_detected": 5,
+      "localised_by_any_arm": 0,
+      "detected_by_any_arm": 5,
+      "class": "seen_by_some_arm_localised_by_none",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 2,
+        "declared_regions": 1,
+        "carries_a_where": true,
+        "envelope_share_of_domain": 1.0,
+        "thinnest_declared_extent": 2.0,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.03125
+      },
+      "leaf_could_ever_enclose_region": true,
+      "traced_rows": [
+        {
+          "arm": "full",
+          "seed": 1,
+          "budget": 1280,
+          "purpose": "a curved region that every arm sees and none encloses",
+          "leaves_total": 197,
+          "deepest_leaf": 12,
+          "finest_leaf_share_of_domain": 0.000244,
+          "trusted_leaves": 54,
+          "samples_inside_declared_envelope": 814,
+          "largest_sample_anywhere": 1.999180285079634,
+          "leaf_touching_the_region": null
+        },
+        {
+          "arm": "only-physical",
+          "seed": 1,
+          "budget": 1280,
+          "purpose": "the same region under the arm that reproduces the full instrument",
+          "leaves_total": 111,
+          "deepest_leaf": 12,
+          "finest_leaf_share_of_domain": 0.000244,
+          "trusted_leaves": 57,
+          "samples_inside_declared_envelope": 814,
+          "largest_sample_anywhere": 1.999180285079634,
+          "leaf_touching_the_region": null
+        }
+      ]
+    },
+    {
+      "entry": "geometry/curved_arc",
+      "experiment": "E1.1",
+      "pairs": 5,
+      "full_localised": 5,
+      "only_physical_localised": 5,
+      "full_detected": 5,
+      "localised_by_any_arm": 5,
+      "detected_by_any_arm": 5,
+      "class": "exercised_physical_parity_every_pair",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 2,
+        "declared_regions": 1,
+        "carries_a_where": true,
+        "envelope_share_of_domain": 1.0,
+        "thinnest_declared_extent": 4.0,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.0625
+      },
+      "leaf_could_ever_enclose_region": true,
+      "traced_rows": []
+    },
+    {
+      "entry": "discrete/scheme_branch",
+      "experiment": "E1.2",
+      "pairs": 5,
+      "full_localised": 5,
+      "only_physical_localised": 5,
+      "full_detected": 5,
+      "localised_by_any_arm": 5,
+      "detected_by_any_arm": 5,
+      "class": "exercised_physical_parity_every_pair",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 2,
+        "declared_regions": 3,
+        "carries_a_where": false,
+        "envelope_share_of_domain": 0.306577480491,
+        "thinnest_declared_extent": 0.5,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.046875
+      },
+      "leaf_could_ever_enclose_region": true,
+      "traced_rows": []
+    },
+    {
+      "entry": "discrete/mixed_magnitude",
+      "experiment": "E1.2",
+      "pairs": 5,
+      "full_localised": 5,
+      "only_physical_localised": 5,
+      "full_detected": 5,
+      "localised_by_any_arm": 5,
+      "detected_by_any_arm": 5,
+      "class": "exercised_physical_parity_every_pair",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 2,
+        "declared_regions": 2,
+        "carries_a_where": false,
+        "envelope_share_of_domain": 0.215997770346,
+        "thinnest_declared_extent": 0.5,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.046875
+      },
+      "leaf_could_ever_enclose_region": true,
+      "traced_rows": []
+    },
+    {
+      "entry": "discrete/lattice_two",
+      "experiment": "E1.2",
+      "pairs": 5,
+      "full_localised": 5,
+      "only_physical_localised": 5,
+      "full_detected": 5,
+      "localised_by_any_arm": 5,
+      "detected_by_any_arm": 5,
+      "class": "exercised_physical_parity_every_pair",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 2,
+        "declared_regions": 2,
+        "carries_a_where": false,
+        "envelope_share_of_domain": 0.375,
+        "thinnest_declared_extent": 0.5,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.03125
+      },
+      "leaf_could_ever_enclose_region": true,
+      "traced_rows": []
+    },
+    {
+      "entry": "edge/overflow_tail",
+      "experiment": "E1.3",
+      "pairs": 5,
+      "full_localised": 0,
+      "only_physical_localised": 0,
+      "full_detected": 0,
+      "localised_by_any_arm": 0,
+      "detected_by_any_arm": 0,
+      "class": "structurally_unlocalisable",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 1,
+        "declared_regions": 1,
+        "carries_a_where": true,
+        "envelope_share_of_domain": 2.5e-06,
+        "thinnest_declared_extent": 1.0000000000065512e-05,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.0009765625
+      },
+      "leaf_could_ever_enclose_region": false,
+      "traced_rows": [
+        {
+          "arm": "full",
+          "seed": 4,
+          "budget": 1280,
+          "purpose": "the full instrument's single failing row",
+          "leaves_total": 45,
+          "deepest_leaf": 8,
+          "finest_leaf_share_of_domain": 0.003906,
+          "trusted_leaves": 19,
+          "samples_inside_declared_envelope": 0,
+          "largest_sample_anywhere": 3.989257634290457,
+          "leaf_touching_the_region": {
+            "cell": 58,
+            "depth": 7,
+            "label": "TRUSTED",
+            "samples": 4,
+            "mean_risk": 0.0,
+            "max_risk": 0.0,
+            "facts": 0,
+            "measured": 2,
+            "channels": 0,
+            "share_of_domain": 0.007812,
+            "bounds": {
+              "axis0": [
+                3.96875,
+                4.0
+              ],
+              "axis1": null
+            }
+          },
+          "derived_overlap_of_region_in_leaf": 0.0003200204813129004
+        },
+        {
+          "arm": "full",
+          "seed": 1,
+          "budget": 1280,
+          "purpose": "the passing sibling: same entry, arm and budget, one seed over",
+          "leaves_total": 44,
+          "deepest_leaf": 8,
+          "finest_leaf_share_of_domain": 0.003906,
+          "trusted_leaves": 17,
+          "samples_inside_declared_envelope": 0,
+          "largest_sample_anywhere": 3.997904782066432,
+          "leaf_touching_the_region": null
+        },
+        {
+          "arm": "only-behavioral",
+          "seed": 4,
+          "budget": 1280,
+          "purpose": "the plainest failure: an arm whose channel computes nothing certifies the domain",
+          "leaves_total": 1,
+          "deepest_leaf": 0,
+          "finest_leaf_share_of_domain": 1.0,
+          "trusted_leaves": 1,
+          "samples_inside_declared_envelope": 0,
+          "largest_sample_anywhere": 3.996586770172813,
+          "leaf_touching_the_region": {
+            "cell": 0,
+            "depth": 0,
+            "label": "TRUSTED",
+            "samples": 1080,
+            "mean_risk": 0.0,
+            "max_risk": 0.0,
+            "facts": 0,
+            "measured": 1,
+            "channels": 0,
+            "share_of_domain": 1.0,
+            "bounds": {
+              "axis0": [
+                0.0,
+                4.0
+              ],
+              "axis1": null
+            }
+          },
+          "derived_overlap_of_region_in_leaf": 2.500000000016378e-06
+        }
+      ]
+    },
+    {
+      "entry": "edge/pole_at_edge",
+      "experiment": "E1.3",
+      "pairs": 5,
+      "full_localised": 0,
+      "only_physical_localised": 0,
+      "full_detected": 5,
+      "localised_by_any_arm": 0,
+      "detected_by_any_arm": 5,
+      "class": "structurally_unlocalisable",
+      "discriminates_between_arms": false,
+      "declared": {
+        "axes": 1,
+        "declared_regions": 1,
+        "carries_a_where": true,
+        "envelope_share_of_domain": 2.5e-06,
+        "thinnest_declared_extent": 9.999999999843467e-06,
+        "finest_permitted_leaf_share_of_domain": 0.000244140625,
+        "longest_side_of_finest_permitted_leaf": 0.0009765625
+      },
+      "leaf_could_ever_enclose_region": false,
+      "traced_rows": [
+        {
+          "arm": "no-physical",
+          "seed": 4,
+          "budget": 1280,
+          "purpose": "a half-covered row: the pole sits exactly on a leaf boundary",
+          "leaves_total": 37,
+          "deepest_leaf": 8,
+          "finest_leaf_share_of_domain": 0.003906,
+          "trusted_leaves": 17,
+          "samples_inside_declared_envelope": 1,
+          "largest_sample_anywhere": 3.989257634290457,
+          "leaf_touching_the_region": {
+            "cell": 61,
+            "depth": 8,
+            "label": "TRUSTED",
+            "samples": 7,
+            "mean_risk": 0.0,
+            "max_risk": 0.0,
+            "facts": 0,
+            "measured": 17,
+            "channels": 0,
+            "share_of_domain": 0.003906,
+            "bounds": {
+              "axis0": [
+                2.0,
+                2.015625
+              ],
+              "axis1": null
+            }
+          },
+          "derived_overlap_of_region_in_leaf": 0.00032002048129868864
+        }
+      ]
+    }
+  ],
+  "cause_classes": {
+    "semantics": "TRUSTED is earned by the cell's own quiet samples and says nothing about the part of the cell that was never sampled: Policy::classify grants it when the cell is not flagged, holds at least min_samples points, and has min_channels_applied channels *applied* inside it.",
+    "granularity": "the region is thinner than the finest leaf the atlas is permitted to build at max_depth, so no leaf can be half inside it and localisation is impossible by construction.",
+    "coverage": "no sample in the sweep entered the region, so the label was decided entirely by points outside it.",
+    "labelling_by_absence_of_evidence": "the arm's own census shows channels computing nothing, and the leaf was trusted anyway — silence under the channels that ran is what TRUSTED means here.",
+    "corpus": "the declared region sits where resolution is scarcest: pinned against a domain edge, or straddling a leaf boundary.",
+    "implementation": "the measured quantity does not equal the quantity the protocol defines. This audit reports no instance of it; the checks that would show one are listed under implementation_checks."
+  },
+  "implementation_checks": [
+    {
+      "check": "trusted_over_true equals the envelope arithmetic of the traced leaf",
+      "detail": "leaf share x region share of that leaf: 0.0078125 x 3.2e-4 = 2.5e-6 on the full arm's failing row, and 1.25e-6 where a leaf boundary cuts the band in half",
+      "result": "confirmed against the row trace"
+    },
+    {
+      "check": "the quantity is an absolute volume, not a ratio, so no 0/0 reads as a pass",
+      "result": "confirmed: it is a sum of cell volumes in the units of suspicious_volume"
+    },
+    {
+      "check": "no unplaced measurement hides behind a label",
+      "detail": "unplaced summed over every row of every arm = 0",
+      "result": "confirmed: 0"
+    },
+    {
+      "check": "UNKNOWN is excluded from the numerator, so a pass can mean only 'not enough samples'",
+      "detail": "the passing sibling of the failing row is UNKNOWN with 3 samples against min_samples 4 — the quantity can only fail when a leaf is trusted, and it can pass for a reason that has nothing to do with safety",
+      "result": "confirmed against the row trace"
+    },
+    {
+      "check": "a trusted cell overlapping several regions counts its largest, not their union",
+      "detail": "Truth::overlap_at takes max over regions, so on a multi-region entry the quantity is a lower bound of 'trusted volume inside any declared region'. It can only under-report a violation, never invent one, and both edge entries declare one region, so the frozen condition's arithmetic is unaffected",
+      "result": "confirmed by reading truth.rs::overlap_at; the direction is conservative"
+    },
+    {
+      "check": "the envelope denominator sums regions, which double-counts overlap between them",
+      "detail": "Truth::total_fraction adds each region's volume and the corpus keeps boxes disjoint, so `fraction_of_envelope_certified` is only exact where regions do not overlap; it is reported per entry and no entry in this protocol's edge pair has more than one region",
+      "result": "confirmed; flagged as a bound, not a correction"
+    },
+    {
+      "check": "a region that exists only at a domain endpoint is measured from interior midpoints",
+      "detail": "the lattice samples lo + (i+0.5) x width/N, so x = 4 is never a sample; the failing envelope's measure comes from points strictly inside it, which is why the derived overlap (3.2002e-4) matches 1e-5 / 0.03125 rather than an endpoint-inclusive count. `corpus::verify` hits the endpoints exactly and is a separate gate",
+      "result": "confirmed against the trace artifact"
+    },
+    {
+      "check": "a band narrower than the measure lattice is reported by the lattice, not by its own width",
+      "detail": "a `where` region's sampled share counts points of a fixed 32-per-axis lattice inside its envelope, so a band thinner than one lattice step is quantised: the artifact reports the sampled share, the step and the doubled step (the sensitivity lattice), and does not attempt a finer measure of its own. `lattice_sensitive` is false on every row of this run, which says the *localisation decisions* did not move when the lattice doubled; it does not say the measure is the region's true area",
+      "result": "confirmed: reported as a bound on interpretation, not corrected"
+    },
+    {
+      "check": "the metric is a volume, not a confidence statement",
+      "detail": "no sample count, no per-channel requirement and no uncertainty enters it; a leaf is trusted on four quiet points and the region inside it contributes its whole measure, so `trusted_over_true = 0` does not mean 'the region was checked' and a non-zero value does not carry a probability",
+      "result": "confirmed: it was never a statistical statement and must not be read as one"
+    },
+    {
+      "check": "a predicate region's measure is not re-derived by this audit",
+      "result": "confirmed by construction: envelopes here, carved sets from the instrument"
+    }
+  ],
+  "atlas_constants": {
+    "measure_lattice_per_axis": 32,
+    "sensitivity_lattice_per_axis": 64,
+    "max_depth": 12,
+    "localisation_bar": 0.5,
+    "min_samples": 4,
+    "min_channels_applied": 1,
+    "source": "aporia_boundary::Policy::default, which harness::Plan::config hands to every arm of every run of this protocol"
+  }
+}
