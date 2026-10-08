@@ -307,15 +307,27 @@ pub struct ControlSuspicion {
     sum: f64,
 }
 
-/// A control pair where the ablated arm trusted *more* of the domain than the full arm. Removing
-/// evidence cannot create trust; if it does, that is a defect to investigate, not a result, and
-/// the comparison names every occurrence rather than averaging it away.
+/// A control pair where the ablated arm trusted *more* of the domain than the full arm.
+///
+/// The three volumes always sum to the whole domain, so a trust gain is arithmetically always paid
+/// for by suspicion and ignorance falling — the informative split is **which** pool paid, and this
+/// record carries both. Trust bought by freeing false suspicion is the silenced channel's cost on
+/// a model that has nothing wrong with it; trust bought by promoting volume the full arm never had
+/// enough measurement to label is the arm declaring a region trustworthy on less evidence, which
+/// is the direction worth inspecting. The comparison names every pair and both sources; it does
+/// not decide the reading for the reader.
 #[derive(Debug)]
 pub struct TrustIncrease {
     pub entry: String,
     pub seed: u64,
     pub budget: u64,
     pub gain: f64,
+    /// Change in suspicious volume at the same pair, arm minus full. Negative means the arm called
+    /// less of the domain suspicious, so suspicion paid for the trust.
+    pub suspicion_from: f64,
+    /// Change in UNKNOWN volume at the same pair. Negative means the arm resolved ignorance the
+    /// full arm had kept, so unlabelled volume paid for the trust.
+    pub unknown_from: f64,
 }
 
 /// One channel's census, both sides of the pair.
@@ -470,6 +482,8 @@ impl Comparison {
                                 ("seed", Json::count(t.seed)),
                                 ("budget", Json::count(t.budget)),
                                 ("trusted_volume_gain", Json::number(t.gain)),
+                                ("paid_by_suspicion_change", Json::number(t.suspicion_from)),
+                                ("paid_by_unknown_change", Json::number(t.unknown_from)),
                             ])
                         })
                         .collect(),
@@ -685,6 +699,8 @@ pub fn compare(full: &Arm, arm: &Arm) -> Result<Comparison, String> {
                         seed: arm_sweep.seed,
                         budget: arm_outcome.budget,
                         gain,
+                        suspicion_from: arm_outcome.suspicious - full_outcome.suspicious,
+                        unknown_from: arm_outcome.unknown - full_outcome.unknown,
                     });
                 }
             }
@@ -868,17 +884,28 @@ pub fn report(full: &Arm, comparisons: &[Comparison]) -> String {
                 "  trust:        no control pair trusted more after ablation"
             );
         } else {
+            // The three volumes sum to the domain, so trust gained is always suspicion plus
+            // ignorance lost; naming which pool paid is the whole content of the line.
+            let suspicion_paid = c
+                .trust_increases
+                .iter()
+                .filter(|t| t.suspicion_from < 0.0)
+                .count();
+            let ignorance_paid = c.trust_increases.len() - suspicion_paid;
             let _ = writeln!(
                 out,
-                "  trust:        {} control pair(s) trusted MORE after ablation — a defect signal, \
-                 not a result:",
-                c.trust_increases.len()
+                "  trust:        {} control pair(s) trusted MORE after ablation ({} paid for by \
+                 freed suspicion, {} by resolved UNKNOWN volume):",
+                c.trust_increases.len(),
+                suspicion_paid,
+                ignorance_paid
             );
             for t in &c.trust_increases {
                 let _ = writeln!(
                     out,
-                    "    {} seed {} budget {}: trusted volume {:+.5}",
-                    t.entry, t.seed, t.budget, t.gain
+                    "    {} seed {} budget {}: trusted {:+.5}, from suspicion {:+.5} and unknown \
+                     {:+.5}",
+                    t.entry, t.seed, t.budget, t.gain, t.suspicion_from, t.unknown_from
                 );
             }
         }

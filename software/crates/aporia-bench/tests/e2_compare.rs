@@ -485,6 +485,31 @@ fn the_comparison_classifies_every_state_it_was_built_to_tell_apart() {
         "ablation bought trust on the control"
     );
     assert!((c.trust_increases[0].gain - 0.20).abs() < 1e-12);
+    // The ledger, which is the whole content of a trust gain: the three volumes sum to the domain,
+    // so trust gained is always suspicion plus ignorance lost, and the informative split is which
+    // pool paid. This fixture is the inspect-worthy direction — suspicion *grew* while trust grew,
+    // so the trust was paid for by volume the full arm had left unlabelled, not by freed false
+    // suspicion.
+    let t = &c.trust_increases[0];
+    assert!(
+        (t.suspicion_from - 0.02).abs() < 1e-12,
+        "suspicion rose, so it paid for nothing: {t:?}"
+    );
+    assert!(
+        (t.unknown_from + 0.22).abs() < 1e-12,
+        "UNKNOWN volume paid for the trust: {t:?}"
+    );
+    let control_pair = c
+        .pairs
+        .iter()
+        .find(|p| p.entry == "synthetic/control")
+        .expect("the control pairs");
+    let total_full = control_pair.suspicious.0 + control_pair.trusted.0 + control_pair.unknown.0;
+    let total_arm = control_pair.suspicious.1 + control_pair.trusted.1 + control_pair.unknown.1;
+    assert!(
+        (total_full - 1.0).abs() < 1e-12 && (total_arm - 1.0).abs() < 1e-12,
+        "the three pools sum to the domain on both sides"
+    );
 
     // The arm's label names both silenced channels.
     assert_eq!(c.label, "-physical+sensitivity");
