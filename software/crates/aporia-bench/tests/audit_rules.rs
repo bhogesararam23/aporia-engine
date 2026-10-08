@@ -405,6 +405,61 @@ fn a_refusal_that_did_not_refuse_is_refused() {
     );
 }
 
+/// The gate `bench run` applies before it spends a sweep: the audit reads the whole corpus, however
+/// few entries the command selected. The pilot learned this the hard way — eight entries chosen for a
+/// plumbing check, and every arm refused because the rungs they were measured against had been left
+/// out of the selection.
+#[must_use]
+fn run_gate(corpus_dir: &Path) -> Vec<String> {
+    let entries = corpus::load(corpus_dir).expect("the fixture corpus loads");
+    audit::audit(&entries, 41)
+        .iter()
+        .map(|p| p.detail.clone())
+        .collect()
+}
+
+#[test]
+fn a_subset_selection_is_gated_on_the_whole_corpus_not_on_itself() {
+    let dir = workspace("subset");
+    let paired = region("r", r#"{"p":[3,4]}"#, "");
+    let entries = load(
+        &dir,
+        &[
+            (
+                "geometry/pair_a",
+                THRESHOLD_SOURCE,
+                &truth(&paired, r#", "matched_to": "geometry/pair_b""#),
+            ),
+            (
+                "geometry/pair_b",
+                COPY_SOURCE,
+                &truth(&paired, r#", "matched_to": "geometry/pair_a""#),
+            ),
+        ],
+    );
+    // The refusal is about the pair, and a selection of one of them does not cause it.
+    let all = audit::audit(&entries, 41);
+    assert!(
+        all.iter().any(|p| p.detail.contains("counts one")),
+        "the fixture must fail the corpus-wide audit: {all:?}"
+    );
+    let one: Vec<_> = entries
+        .iter()
+        .filter(|e| e.id() == "geometry/pair_a")
+        .cloned()
+        .collect();
+    let alone = audit::audit(&one, 41);
+    assert!(
+        alone.iter().any(|p| p.detail.contains("pair_b")),
+        "auditing the selection alone hides the rung it names, which is the reason the run gate \
+         reads the whole corpus: {alone:?}"
+    );
+    assert!(
+        run_gate(&dir).iter().any(|d| d.contains("counts one")),
+        "the run gate must still refuse this corpus, rung partner or not"
+    );
+}
+
 #[test]
 fn a_boundary_with_no_tolerance_or_outside_the_domain_is_refused() {
     let truth_text = format!(

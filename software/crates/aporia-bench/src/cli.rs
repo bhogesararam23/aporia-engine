@@ -234,7 +234,9 @@ fn run_audit(flags: &[String]) -> Result<i32, String> {
             continue;
         }
         if let Some(model) = e.model.as_ref() {
-            let share = e.truth.total_fraction(model);
+            // A control claims nothing, and the arithmetic returns `-0.0` for it, which prints as a
+            // negative share of a domain and reads like a bug in the measure.
+            let share = e.truth.total_fraction(model).abs();
             println!(
                 "{:<34} {:<12} {:>9.4}% of its domain, {} region(s), {}",
                 e.id(),
@@ -394,7 +396,14 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
     // The corpus-quality gate is enforced rather than advisory. An entry that duplicates a mechanism,
     // sits at an unclaimed difficulty, or leaves a discrete value unclaimed produces rows that look
     // like data and are not — and a sweep is the expensive place to find that out.
-    let unfit = crate::audit::audit(&selected, grid);
+    //
+    // It runs over the whole corpus and not over the selection, because the properties it checks are
+    // corpus-wide: an entry's difficulty rung names another entry, and a duplicate is a duplicate of
+    // something. Auditing only the selection would refuse a `--only` run because the entry that pins
+    // its difficulty was left out of it — which is the pilot's first lesson, and the wrong reason.
+    // The stricter reading is the honest one: a subset of a corpus that is not sound is not sound
+    // either, and the sweep inherits whatever the corpus got wrong.
+    let unfit = crate::audit::audit(&entries, grid);
     if !unfit.is_empty() {
         eprintln!("the corpus fails its own audit, refusing to measure against it:");
         for p in &unfit {
