@@ -14,9 +14,23 @@ recorded as *not yet used* rather than credited in advance.
 ```
 benchmarks/
   registry.json                 families, entries, fault classes covered and not covered
+  protocols/<id>.json           an experiment specified in full before its corpus or its arms existed
   <family>/<name>/model.ap      the computation, in the Aporia DSL
   <family>/<name>/truth.json    the ground-truth region, its boundaries, and the derivation
 ```
+
+## Experiment protocols
+
+A results file says what was measured. A protocol file says what was *going* to be measured, and it
+has to exist first: a metric chosen after the arms are read is not a metric. `protocols/` holds them:
+the arms, the entry list, the budgets, the seeds, the rates, the deciding statistic and the decision
+rule, written down before the corpus they name exists.
+
+`protocols/e1-geometry.json` is E1.1/E1.2/E1.3 — whether E2's finding that one channel suffices
+transfers to corpus entries whose geometry does not match the atlas's axis-aligned partition. It was
+committed on 2026-10-08, and the entries its `entries` list names did not exist when it was written
+and are authored against it, not the other way round. Its arms, budgets, seeds and rates are E2's,
+unchanged on purpose: the only variable is the shape of the truth.
 
 ## What a `truth.json` says
 
