@@ -4,8 +4,9 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Twenty-six files are committed. The E1 ladder below is retained as the strategy comparison; the
-latest measurement is E2, the evidence ablation that tests H1.
+Thirty-seven files are committed. The E1 ladder below is retained as the strategy comparison, E2 as
+the evidence ablation that tests H1, and the latest measurement — the eleven `e1-geometry` documents —
+is the same ablation run against a corpus whose regions are not axis-aligned.
 
 | file | what it is |
 |---|---|
@@ -35,6 +36,17 @@ latest measurement is E2, the evidence ablation that tests H1.
 | `results-dbd76c01ba88.json` | E2 only-Numerical, identity `dbd76c01ba88` |
 | `results-e4c016d7b976.json` | E2 only-Differential, identity `e4c016d7b976` |
 | `results-7c174171f2c7.json` | E2 only-Sensitivity, identity `7c174171f2c7` |
+| `results-0704da190c01.json` | E1.1/E1.2/E1.3 full instrument: protocol `e1-geometry`, 17 entries named (15 swept, 2 refused), budgets 320/640/1280, seeds 1-5, 75 sweeps, 15 archives replayed (see "E1.1-E1.3") |
+| `results-3d9a9266bb80.json` | E1 −Behavioral, identity `3d9a9266bb80` |
+| `results-77df45107e71.json` | E1 −Numerical, identity `77df45107e71` |
+| `results-085c328014c2.json` | E1 −Differential, identity `085c328014c2` |
+| `results-80a82d173196.json` | E1 −Sensitivity, identity `80a82d173196` |
+| `results-022bde383614.json` | E1 −Physical, identity `022bde383614` |
+| `results-e29495fd5b53.json` | E1 only-Behavioral, identity `e29495fd5b53` |
+| `results-03a200e9e593.json` | E1 only-Physical, identity `03a200e9e593` |
+| `results-c6842681d33d.json` | E1 only-Numerical, identity `c6842681d33d` |
+| `results-e921e2cf0d56.json` | E1 only-Differential, identity `e921e2cf0d56` |
+| `results-e78b3bbfc421.json` | E1 only-Sensitivity, identity `e78b3bbfc421` |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
 `differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
@@ -483,6 +495,116 @@ holds 0.0078–0.0117 of the domain suspicious at every budget, while −Sensiti
 only-Physical hold none — and no arm detects or localises that entry at all, because its declared
 region is measure-zero. The extra channels are seeing something there; nothing in this run says they
 found the fault.
+
+## E1.1 / E1.2 / E1.3: the same ablation on a corpus that is not axis-aligned
+
+E2 found that −Physical loses 39 of 90 localisations while only-Physical reproduces all 59 the full
+instrument gets. The question 0037 pre-registered against that is not whether the number was right —
+the reproduction gate below re-measures it exactly — but whether it is a property of the instrument or
+of a corpus whose regions were all boxes aligned with the axes the atlas splits along. So the eleven
+arms ran again, on the same ladder, same rates, same seeds, against a corpus with a diagonal half-plane,
+four curved regions, three discrete-choice entries, two near-vertical edges and two domains the IR
+refuses. The protocol file is `benchmarks/protocols/e1-geometry.json`; every document below cites its
+bytes as digest `5199a5cfdfc7c479`, and no command-line flag was allowed to change a piece of it.
+
+**The deciding statistic, as frozen.** The universe is the nine region-bearing new entries × five seeds
+= 45 pairs. F = pairs where the full arm localises within the ladder, O = the same for only-Physical.
+Measured from these files: **|F| = 28, |O| = 28, |F \\ O| = 0, |O \\ F| = 0, and all 28 agree on the
+budget at which they localise.** That is decision rule 3: single-channel sufficiency transfers to the
+curved and discrete geometry this corpus tests. No tolerance, no rounding, no "close enough" was used —
+the arms are deterministic same-seed runs, so a difference would have been caused by the mask.
+
+| entry | full | only-Physical | −Physical | every single removal |
+|---|---|---|---|---|
+| geometry/diagonal_sum | 5/5 at 320 | 5/5 | 0/5 | 5/5 |
+| geometry/curved_arc | 5/5 at 320 | 5/5 | 0/5 | 5/5 |
+| geometry/curved_product | 3/5 (seed 5 at 640; seeds 1, 3 at 1280) | 3/5, same budgets | 0/5 | 3/5 |
+| discrete/scheme_branch | 5/5 at 320 | 5/5 | 0/5 | 5/5 |
+| discrete/mixed_magnitude | 5/5 at 320 | 5/5 | 0/5 | 5/5 |
+| discrete/lattice_two | 5/5 at 320 | 5/5 | 0/5 | 5/5 |
+| geometry/narrow_oblique | 0/5 | 0/5 | 0/5 | 0/5 |
+| edge/pole_at_edge | 0/5 | 0/5 | 0/5 | 0/5 |
+| edge/overflow_tail | 0/5 | 0/5 | 0/5 | 0/5 |
+
+Seventeen of the forty-five pairs are in neither F nor O, and the reason is the instrument rather than
+the channels. Fifteen of them are entries **no arm localises at all**:
+
+- `geometry/narrow_oblique` — a band 0.008 wide across a diagonal — is **detected on 5/5 seeds by the
+  full arm, by only-Physical and by −Physical alike**, and enclosed by no arm at any budget: seeing the
+  band needs either Physical or the other four channels together, and neither route ever produces a cell
+  that is at least half inside it. It is E2's `projectile_zero_gravity` pattern (suspicion without
+  localisation) on a region with real measure, and it is a geometric limitation, not an evidence-channel
+  one.
+- `edge/pole_at_edge` is detected 5/5 by full and by only-Physical, 0/5 by −Physical — so the pole is
+  one of the places where Physical's own readings do the work — and localised nowhere.
+- `edge/overflow_tail` is detected by **no arm at any budget on any seed**. Its declared tail is
+  0.0003% of the domain — 3·10⁻⁶ of it, about one column of the measure lattice wide — and 1280
+  evaluations never put a suspicious cell inside it. A corpus entry no arm can
+  see is a bad instrument, not a small effect, so this row is reported as untested rather than as a
+  null result about channels.
+
+The other two pairs are partial rather than absent: `geometry/curved_product` seed 2 detects at 1280
+and never encloses, and seed 4 detects nothing under any arm at any budget. The same entry therefore
+covers "seen, not localised", "not seen", and three seeds where full and only-Physical agree exactly —
+a sharper statement about this instrument's resolution on a curved region than the 3/5 in the table.
+
+**The two refusals arrived as refusals.** `domain/unbounded_interval` and `domain/inverted` are listed
+in every document's `refused` section with the IR's own diagnostic ("parameter `x` has an unbounded
+domain [0, inf]…", "the domain of `x` is empty: 5 to 1"). They are never swept, never enter F or O, and
+never appear as a label.
+
+**E1.3's frozen safety condition failed.** The protocol required `trusted_over_true = 0` on both edge
+entries for every arm — no cell labelled trustworthy sitting on top of a region the model really
+violates. Eighty-seven of the 330 edge rows report a non-zero value, and every one of them is
+2.5·10⁻⁶. Under the full arm it is one row in thirty: `edge/overflow_tail`, seed 4, budget 1280, where
+0.871 of the domain is TRUSTED, 0.121 UNKNOWN and 0.008 SUSPICIOUS, and the trusted cells cover
+2.5·10⁻⁶ of the domain inside the declared tail — the tail itself being 3·10⁻⁶ of the domain, so about
+eighty percent of the region this entry exists to describe is labelled trustworthy in that row. Under
+−Physical the whole domain is trusted on 15/15 rows, because an
+instrument that detects nothing has no evidence to withhold and the atlas reads "no evidence" as
+trustworthy — which is what TRUSTED has always meant here and is the reason 0036 refuses to call it
+"proven correct". No unplaced measurement appears anywhere: `unplaced` is 0 in all 2475 rows of all
+eleven documents, so nothing vanished off the atlas, and no NaN or unbounded reading was converted into
+a trust claim by that route. Whether a 2.5·10⁻⁶ residue counts as the route being taken is exactly the
+kind of question a frozen pass condition exists to answer, and it answers *yes, it failed* — recorded
+here rather than re-worded.
+
+**The other secondary readings.** No new entry's measure depends on the predicate lattice:
+`lattice_sensitive` is false on all six curved/edge predicate regions across all 165 of their rows.
+Behaviour is the channel that is *absent* rather than ineffective: −Behavioral changes no localisation
+and no detection on any new entry, and `bench e2` names the entries where the silenced channel computed
+nothing at all on the full arm (`discrete/lattice_two`, `discrete/mixed_magnitude`, `discrete/scheme_branch`,
+`geometry/diagonal_sum`, `synthetic/one_pct_2d`, `analytic/sqrt_domain` and others depending on the arm) —
+so those nulls are corpus facts, not evidence that Behavioral is harmless. Control trust still rises
+when channels are removed: 21 pairs under only-Physical and only-Behavioral, 14 under −Sensitivity and
+only-Numerical, 7 under −Numerical and only-Sensitivity, 0 under −Behavioral, −Differential and
+−Physical — and most of those rises are an UNKNOWN region resolving to TRUSTED rather than suspicion
+being freed, which is a labelling movement and not a discovery. The two new controls stay clean:
+`discrete/clean_lattice` is suspicious on 0/15 rows and `geometry/curved_clean` on 1/15, with the same
++0.0000 mean suspicion delta under every arm; `aerospace/projectile_clean` keeps the 8/15 rows E2
+already recorded for it.
+
+**Reproduction gate, and what was run.** Before any of this was read, the four anchor entries were
+re-measured with the new binary on seeds 1-2, all three budgets, all eleven arms, and compared against
+E2's committed documents by mask rather than by name: 264 (arm, entry, seed, budget) rows × 7 fields
+(localisation, detection, both cost columns, three volumes) — **identical, every one**. The pilot that
+came before it found a defect in the corpus audit rather than in a measurement, and that defect is fixed
+and tested in `5f8d0e3`. Every arm's archive replayed byte-exactly: 165 archived cases, 0 replay errors.
+The binary was `475e89db0a74fba6e14bb1c6114d4ed99b0dbf0b3c369c90757d5c9ae1bf199d`, built from commit
+`5f8d0e3` with a clean tree; `bench audit` and `bench verify --grid 41` were both green with that binary
+before the first arm started.
+
+**What this run does not settle.** Fusion's necessity is still not established: on the new geometry the
+full instrument localises nothing that only-Physical does not, and the single detection that needs two
+non-Physical channels together (`electromagnetics/rlc_resonance` seed 3, lost by −Numerical, −Differential
+*and* only-Physical) is an E2 anchor pair that localises in no arm, exactly as in E2. Physical's dominance
+is now measured on curved regions and discrete axes as well as boxes — which strengthens the reading that
+it is the instrument's centre of gravity, and simultaneously removes the specific criticism that it was an
+artefact of the axis-aligned corpus. It does not make the claim external: one author chose all thirty-five
+entries, none exceeds three parameters, and three of the nine new region-bearing entries could not be
+localised by any arm, so the experiment's ability to detect a fusion effect on the hardest geometry is
+itself in question. A next corpus has to make a curved narrow band *reachable*, or the geometry question
+stays untested rather than answered.
 
 ## The controls, and a correction to this file
 
