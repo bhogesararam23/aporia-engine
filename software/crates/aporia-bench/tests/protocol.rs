@@ -397,4 +397,67 @@ fn a_protocol_run_says_which_protocol_and_arm_wrote_it() {
         doc.get("question").and_then(Json::as_str),
         "without the protocol the question is inferred from the plan shape, which is a different claim"
     );
+    // ... and it pins the bytes that claim was read from. `plan` and `entries` are inside the
+    // identity; the metric, the decision rule and the wording tiers are not, so without this a
+    // pre-registration edited after the run would leave no trace in the file that cites it.
+    let file = protocol_text();
+    let digest = aporia_store::digest::sha256_hex(file.as_bytes());
+    let expected = &digest[..16];
+    assert_eq!(
+        record.get("digest").and_then(Json::as_str),
+        Some(expected),
+        "the document digests the protocol file it was read from"
+    );
+    assert_eq!(
+        bare.get("protocol"),
+        Some(&Json::Null),
+        "a command-line run cites no protocol, so it digests none"
+    );
+}
+
+#[test]
+fn an_edited_protocol_reads_as_a_different_document_than_the_one_it_was_frozen_in() {
+    let pristine = Protocol::load(&protocol_path()).expect("the frozen protocol parses");
+    let dir = std::env::temp_dir().join(format!("aporia-protocol-digest-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("a temporary directory");
+    let path = dir.join("e1-geometry.json");
+    // One string of the deciding metric's wording: the plan section is untouched, so the measurement
+    // identity does not move and only the digest can show the file differs from the one committed.
+    let text = protocol_text().replacen("localised_at", "localised_XY", 1);
+    assert_ne!(
+        text,
+        protocol_text(),
+        "the edit found the metric text it meant to edit"
+    );
+    std::fs::write(&path, text).expect("the edited copy is written");
+    let changed = Protocol::load(&path).expect("the edited copy is still a protocol");
+    std::fs::remove_dir_all(&dir).expect("the temporary directory is removed");
+
+    assert_ne!(
+        pristine.digest, changed.digest,
+        "two files that state different deciding text must not share a digest"
+    );
+    let file = protocol_text();
+    let digest = aporia_store::digest::sha256_hex(file.as_bytes());
+    assert_eq!(
+        pristine.digest.as_deref(),
+        Some(&digest[..16]),
+        "the digest is of the file's bytes, not of a re-rendered form of them"
+    );
+    let identity = |plan: &Plan| {
+        results_json(&[], &[], plan, &environment(), None)
+            .get("identity")
+            .and_then(Json::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    assert_eq!(
+        identity(&pristine.plan),
+        identity(&changed.plan),
+        "the difference is invisible to the identity, which is exactly why the digest exists"
+    );
+    // A protocol assembled from a value in memory has no bytes, and says so instead of inventing one.
+    let in_memory = Protocol::from_json(&Json::parse(&protocol_text()).expect("the file is JSON"))
+        .expect("the committed protocol reads");
+    assert_eq!(in_memory.digest, None);
 }

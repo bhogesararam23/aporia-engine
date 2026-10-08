@@ -306,6 +306,13 @@ pub struct Frozen {
     pub id: String,
     pub arm: String,
     pub question: String,
+    /// The digest of the protocol *file* this arm came from, or `None` when the protocol was
+    /// assembled from a value in memory and has no bytes to point at. Provenance rather than
+    /// identity: `id` and `arm` say which pre-registration was followed, and this says which
+    /// **version** of it — the deciding fields of a pre-registration live in prose the identity
+    /// deliberately does not hash, so without a digest a metric edited after the run would be
+    /// indistinguishable from a metric that was frozen.
+    pub protocol_digest: Option<String>,
 }
 
 /// An experiment specified in full before its corpus or its arms existed, as
@@ -327,6 +334,11 @@ pub struct Protocol {
     pub plan: Plan,
     pub arms: Vec<ProtocolArm>,
     pub entries: Vec<String>,
+    /// The first 16 hex digits of the SHA-256 of the file's bytes, set by `load` and absent for a
+    /// protocol built by `from_json`, which has no file. It travels into every results document that
+    /// arm writes, so an edit to a frozen pre-registration is visible as a different digest rather
+    /// than as a silent change of meaning.
+    pub digest: Option<String>,
 }
 
 impl Protocol {
@@ -337,7 +349,13 @@ impl Protocol {
         let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
         let value =
             aporia_store::Json::parse(&text).map_err(|e| format!("{}: {e}", path.display()))?;
-        Self::from_json(&value).map_err(|e| format!("{}: {e}", path.display()))
+        let digest = aporia_store::digest::sha256_hex(text.as_bytes())[..16].to_string();
+        Self::from_json(&value)
+            .map(|protocol| Protocol {
+                digest: Some(digest),
+                ..protocol
+            })
+            .map_err(|e| format!("{}: {e}", path.display()))
     }
 
     #[must_use]
@@ -363,6 +381,7 @@ impl Protocol {
                 id: self.id.clone(),
                 arm: arm.name.clone(),
                 question: self.question.clone(),
+                protocol_digest: self.digest.clone(),
             },
         ))
     }
@@ -473,6 +492,7 @@ impl Protocol {
             plan,
             arms,
             entries: names,
+            digest: None,
         })
     }
 }
@@ -832,6 +852,13 @@ pub fn results_json(
                 Json::object(vec![
                     ("id", Json::text(frozen.id.clone())),
                     ("arm", Json::text(frozen.arm.clone())),
+                    (
+                        "digest",
+                        frozen
+                            .protocol_digest
+                            .as_ref()
+                            .map_or(Json::Null, |d| Json::text(d.clone())),
+                    ),
                 ])
             }),
         ),
