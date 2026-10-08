@@ -65,6 +65,9 @@ pub fn usage(program: &str) -> String {
      \x20 verify [--grid N]         check the declarations against direct evaluation\n\
      \x20 run [--budgets a,b,..] [--strategies {strategies}]\n\
      \x20     [--seeds n,..] [--grid N] [--out DIR] [--only family/name,..]\n\
+     \x20     [--plan protocols/<id>.json --arm <name>]  run a frozen experiment definition;\n\
+     \x20        with --plan every flag that shapes what is measured is refused, because an\n\
+     \x20        override of a pre-registration is what a pre-registration forbids\n\
      \x20     [--archive DIR] [--differential-every N] [--numerical-every N]\n\
      \x20     [--ablate channel,..]  drop a channel's READINGS, not its evaluations:\n\
      \x20        every arm still runs the same points at the same cost, so the arms are\n\
@@ -259,6 +262,8 @@ fn parse_channels(texts: &[String]) -> Result<Vec<aporia_evidence::Channel>, Str
 
 pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
     let mut args = Args::new(flags);
+    let plan_path = args.value("--plan")?;
+    let arm_name = args.value("--arm")?;
     let budgets = parse_budgets(&args.list("--budgets")?)?;
     let strategies = parse_strategies(&args.list("--strategies")?)?;
     let seeds = parse_seeds(&args.list("--seeds")?)?;
@@ -285,16 +290,52 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
     let ablated = args.list("--ablate")?;
     let ablate = parse_channels(&ablated)?;
     args.reject_unknown()?;
-
     let entries = load_corpus()?;
-    let selected: Vec<_> = entries
-        .iter()
-        .filter(|e| only.is_empty() || only.contains(&e.id()))
-        .cloned()
-        .collect();
-    if selected.is_empty() {
-        return Err("no corpus entry matched the selection".to_string());
-    }
+
+    // A frozen protocol is a different kind of run. Its file states the arms, the entry list, the
+    // ladder and the rates *before* the corpus it names exists, so the only way the measurement can
+    // be trusted to match the pre-registration is for the runner to read the file rather than a
+    // command line that could have drifted from it. Every flag that shapes what is measured is
+    // therefore refused beside `--plan`; `--out` and `--archive`, which only say where bytes land,
+    // are not.
+    let (selected, plan, frozen) = if let Some(path) = plan_path {
+        let frozen_run = frozen_run(&path, arm_name, archive_dir, flags, &entries)?;
+        println!(
+            "protocol {} arm {} — {} entries, {} arm(s) frozen, budgets {:?}, seeds {:?}",
+            frozen_run.frozen.id,
+            frozen_run.frozen.arm,
+            frozen_run.entries.len(),
+            frozen_run.arms,
+            frozen_run.plan.budgets,
+            frozen_run.plan.seeds
+        );
+        (frozen_run.entries, frozen_run.plan, Some(frozen_run.frozen))
+    } else {
+        if arm_name.is_some() {
+            return Err("--arm selects an arm of a --plan, and no --plan was given".to_string());
+        }
+        let defaults = harness::Plan::default();
+        (
+            select(&only, &entries)?,
+            harness::Plan {
+                budgets: if budgets.is_empty() {
+                    defaults.budgets
+                } else {
+                    budgets
+                },
+                strategies,
+                seeds,
+                grid,
+                numerical_every,
+                differential_every,
+                ablate,
+                archive_dir,
+                ..harness::Plan::default()
+            },
+            None,
+        )
+    };
+    let grid = plan.grid;
 
     // A corpus that has not been verified cannot produce a measurement, so the check runs first and
     // a failure stops the run rather than being noted afterwards.
@@ -307,55 +348,167 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
         return Ok(1);
     }
 
-    let mut plan = harness::Plan {
-        budgets,
-        strategies,
-        seeds,
-        grid,
-        numerical_every,
-        differential_every,
-        ablate,
-        archive_dir,
-        ..harness::Plan::default()
-    };
-    if plan.budgets.is_empty() {
-        plan.budgets = harness::Plan::default().budgets;
-    }
     let sweeps = harness::run_corpus(&selected, &plan);
-    for s in &sweeps {
+    report_run(program, &plan, frozen.as_ref(), &sweeps, &selected);
+
+    write_results(&sweeps, &selected, &plan, out_dir, frozen.as_ref())
+}
+
+/// What a finished run says about itself, in the one sentence its plan can support.
+///
+/// A protocol arm and an ad-hoc ablation arm both have a single arm, so the strategy verdict would be
+/// a sentence about a comparison that did not happen; and the strategy verdict itself is only correct
+/// for a plan that measured more than one strategy.
+fn report_run(
+    program: &str,
+    plan: &harness::Plan,
+    frozen: Option<&harness::Frozen>,
+    sweeps: &[harness::Sweep],
+    selected: &[corpus::Entry],
+) {
+    for s in sweeps {
         println!("{}", s.row());
     }
     println!();
-    if plan.ablate.is_empty() {
-        print!(
+    match (frozen, plan.ablate.is_empty()) {
+        (Some(frozen), _) => println!(
+            "protocol {} arm {} — this file is one arm of a frozen comparison, not a strategy \
+             verdict. Compare it against the protocol's full arm with `{program} e2 \
+             <full-results.json> <this file>`.",
+            frozen.id, frozen.arm
+        ),
+        (None, true) => print!(
             "{}",
-            harness::verdict(&sweeps, &|id: &str| {
+            harness::verdict(sweeps, &|id: &str| {
                 selected
                     .iter()
                     .find(|e| e.id() == id)
                     .map(|e| e.truth.clone())
             })
-        );
-    } else {
-        // The strategy verdict is the wrong sentence for an arm whose only difference from the run
-        // beside it is the evidence it was allowed to keep: it would read "adaptive resolved,
-        // neither baseline did" about an experiment with one arm. The ablation-aware line says
-        // what this file is and how to compare it, which is the question the caller actually has.
-        let silenced = plan
-            .ablate
-            .iter()
-            .copied()
-            .map(aporia_evidence::Channel::name)
-            .collect::<Vec<_>>()
-            .join(",");
-        println!(
-            "ablation arm: silenced {silenced}. This file is one arm of E2, not a strategy \
-             comparison — compare it against the full arm's results with `{program} e2 \
-             <full-results.json> <this file>`"
-        );
+        ),
+        (None, false) => {
+            // The strategy verdict is the wrong sentence for an arm whose only difference from the run
+            // beside it is the evidence it was allowed to keep: it would read "adaptive resolved,
+            // neither baseline did" about an experiment with one arm. The ablation-aware line says
+            // what this file is and how to compare it, which is the question the caller actually has.
+            let silenced = plan
+                .ablate
+                .iter()
+                .copied()
+                .map(aporia_evidence::Channel::name)
+                .collect::<Vec<_>>()
+                .join(",");
+            println!(
+                "ablation arm: silenced {silenced}. This file is one arm of an ablation comparison, \
+                 not a strategy comparison — compare it against the full arm's results with \
+                 `{program} e2 <full-results.json> <this file>`"
+            );
+        }
     }
+}
 
-    write_results(&sweeps, &selected, &plan, out_dir)
+/// The flags that decide *what* a run measures, as opposed to where its bytes land. Beside `--plan`
+/// they are refused rather than honoured: a pre-registration that can be overruled from the command
+/// line is not a pre-registration.
+const FROZEN_OVERRIDES: [&str; 8] = [
+    "--budgets",
+    "--strategies",
+    "--seeds",
+    "--grid",
+    "--only",
+    "--ablate",
+    "--numerical-every",
+    "--differential-every",
+];
+
+/// The corpus rows one command will measure.
+fn select(only: &[String], entries: &[corpus::Entry]) -> Result<Vec<corpus::Entry>, String> {
+    let selected: Vec<_> = entries
+        .iter()
+        .filter(|e| only.is_empty() || only.contains(&e.id()))
+        .cloned()
+        .collect();
+    if selected.is_empty() {
+        return Err("no corpus entry matched the selection".to_string());
+    }
+    Ok(selected)
+}
+
+/// What a `--plan` command resolves to.
+struct FrozenRun {
+    entries: Vec<corpus::Entry>,
+    plan: harness::Plan,
+    frozen: harness::Frozen,
+    arms: usize,
+}
+
+/// What a `--plan` command means: the file's plan, one arm chosen by name, the entries the file
+/// names, and the provenance that says which protocol and arm produced the numbers.
+///
+/// An entry the protocol names and the corpus lacks is an error rather than a smaller run: a
+/// measurement taken over nine of seventeen entries is a different experiment, and the file that
+/// froze it says seventeen.
+fn frozen_run(
+    path: &str,
+    arm: Option<String>,
+    archive_dir: PathBuf,
+    flags: &[String],
+    entries: &[corpus::Entry],
+) -> Result<FrozenRun, String> {
+    if let Some(flag) = FROZEN_OVERRIDES
+        .iter()
+        .find(|flag| flags.iter().any(|a| a == *flag))
+    {
+        return Err(format!(
+            "{flag} cannot be used with --plan. The protocol file is the definition that was frozen \
+             before this corpus existed, and overriding a piece of it from the command line is what \
+             --plan exists to make impossible. Drop --plan to run an ad-hoc plan."
+        ));
+    }
+    let protocol = harness::Protocol::load(&PathBuf::from(path))?;
+    // The arm is chosen by name or the run does not happen: a file with eleven arms does not say
+    // which measurement was wanted, and defaulting to the full instrument would let a run claim to
+    // be an ablation arm it was not. `Protocol::arm` names the arms that do exist when the one
+    // asked for is not among them.
+    let (mut plan, frozen) = match arm {
+        Some(text) => protocol.arm(&text)?,
+        None => {
+            return Err(format!(
+                "--plan needs --arm, because a protocol with more than one arm does not say which \
+                 measurement is wanted. {} has: {}",
+                protocol.id,
+                protocol.arm_names().join(", ")
+            ));
+        }
+    };
+    plan.archive_dir = archive_dir;
+    let missing: Vec<&String> = protocol
+        .entries
+        .iter()
+        .filter(|name| !entries.iter().any(|e| e.id() == **name))
+        .collect();
+    if !missing.is_empty() {
+        return Err(format!(
+            "protocol {} names entries the corpus does not have: {}",
+            protocol.id,
+            missing
+                .iter()
+                .map(|name| (*name).as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    let selected: Vec<_> = entries
+        .iter()
+        .filter(|e| protocol.entries.iter().any(|name| *name == e.id()))
+        .cloned()
+        .collect();
+    Ok(FrozenRun {
+        entries: selected,
+        plan,
+        frozen,
+        arms: protocol.arms.len(),
+    })
 }
 
 /// What this build recorded about where the measurement happened. Provenance for the numbers, and
@@ -386,8 +539,9 @@ fn write_results(
     selected: &[corpus::Entry],
     plan: &harness::Plan,
     out_dir: Option<PathBuf>,
+    frozen: Option<&harness::Frozen>,
 ) -> Result<i32, String> {
-    let results = harness::results_json(sweeps, selected, plan, &measurement_environment());
+    let results = harness::results_json(sweeps, selected, plan, &measurement_environment(), frozen);
     let dir = out_dir.unwrap_or_else(crate::results_dir);
     std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     let identity = harness::results_identity(&results)

@@ -70,7 +70,7 @@ fn document(plan: &Plan, entries: &[Entry]) -> Json {
         "corpus".to_string(),
         aporia_bench::corpus_root().display().to_string(),
     ));
-    results_json(&[], entries, plan, &environment)
+    results_json(&[], entries, plan, &environment, None)
 }
 
 fn named(doc: &Json) -> String {
@@ -302,8 +302,8 @@ fn where_the_run_happened_does_not_name_it() {
     elsewhere
         .notes
         .push(("corpus".to_string(), "/b".to_string()));
-    let a = results_json(&[], &entries, &p, &here);
-    let b = results_json(&[], &entries, &p, &elsewhere);
+    let a = results_json(&[], &entries, &p, &here, None);
+    let b = results_json(&[], &entries, &p, &elsewhere, None);
     assert_eq!(named(&a), named(&b));
     assert_ne!(
         a.get("environment"),

@@ -151,7 +151,7 @@ fn each_arm_of_e2_is_a_different_measurement() {
         aporia_bench::corpus_root().display().to_string(),
     ));
     let identity = |plan: &Plan| -> String {
-        aporia_bench::harness::results_json(&[], &entries, plan, &environment)
+        aporia_bench::harness::results_json(&[], &entries, plan, &environment, None)
             .get("identity")
             .and_then(aporia_store::Json::as_str)
             .expect("a results document records its own identity")

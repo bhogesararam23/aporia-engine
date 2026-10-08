@@ -30,7 +30,7 @@ fn environment() -> Environment {
 }
 
 fn document(plan: &Plan, entries: &[corpus::Entry]) -> Json {
-    results_json(&[], entries, plan, &environment())
+    results_json(&[], entries, plan, &environment(), None)
 }
 
 fn arm_of(doc: &Json) -> Arm {
@@ -66,12 +66,14 @@ fn a_real_full_arm_and_a_real_ablated_arm_pair_end_to_end() {
         std::slice::from_ref(entry),
         &base,
         &environment(),
+        None,
     );
     let arm_doc = results_json(
         &arm_sweeps,
         std::slice::from_ref(entry),
         &ablated,
         &environment(),
+        None,
     );
     assert_ne!(
         full_doc.get("identity"),
@@ -415,8 +417,8 @@ fn fabricated(entry_evaluations: u64) -> (Json, Json) {
         ablate: vec![Channel::Physical, Channel::Sensitivity],
         ..full_plan.clone()
     };
-    let full_doc = results_json(&full_sweeps, &entries, &full_plan, &environment());
-    let arm_doc = results_json(&arm_sweeps, &entries, &arm_plan, &environment());
+    let full_doc = results_json(&full_sweeps, &entries, &full_plan, &environment(), None);
+    let arm_doc = results_json(&arm_sweeps, &entries, &arm_plan, &environment(), None);
     (full_doc, arm_doc)
 }
 

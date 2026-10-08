@@ -131,6 +131,350 @@ impl Plan {
         }
         mask
     }
+
+    /// Read a plan back from the JSON [`plan_json`] writes.
+    ///
+    /// Round-tripping matters because the frozen protocol files in `benchmarks/protocols/` are the
+    /// definition an experiment runs from, and a reader that accepts a partial object would let a
+    /// typo (`"budget"`, `"seed"`, `"caliberate_every"`) silently fall back to a default — which is
+    /// a measurement of an experiment nobody specified. So every field is required by name and every
+    /// unknown field is refused. `archive_dir` is not in the document, because where a run writes is
+    /// not part of what it measures.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let Json::Obj(fields) = value else {
+            return Err("a plan must be an object".to_string());
+        };
+        let known = [
+            "budgets",
+            "strategies",
+            "seeds",
+            "grid_per_axis",
+            "minimise_budget",
+            "ablate",
+            "probe_every",
+            "numerical_every",
+            "differential_every",
+            "symmetric_every",
+            "refine_every",
+            "calibrate_every",
+        ];
+        for (name, _) in fields {
+            if !known.contains(&name.as_str()) {
+                return Err(format!("plan: unknown field {name:?}"));
+            }
+        }
+        let at = |key: &str| -> Result<&Json, String> {
+            fields
+                .iter()
+                .find(|(name, _)| name.as_str() == key)
+                .map(|(_, value)| value)
+                .ok_or_else(|| format!("plan: {key} is missing"))
+        };
+        let count = |key: &str| -> Result<u64, String> {
+            at(key)?
+                .as_u64()
+                .ok_or_else(|| format!("plan: {key} needs a whole number"))
+        };
+        let items = |key: &str| -> Result<&[Json], String> {
+            at(key)?
+                .as_array()
+                .ok_or_else(|| format!("plan: {key} needs a list"))
+        };
+        let list = |key: &str| -> Result<Vec<u64>, String> {
+            items(key)?
+                .iter()
+                .map(|item| {
+                    item.as_u64()
+                        .ok_or_else(|| format!("plan: {key} holds {}", item.to_compact()))
+                })
+                .collect()
+        };
+        let names = |key: &str| -> Result<Vec<String>, String> {
+            items(key)?
+                .iter()
+                .map(|item| {
+                    item.as_str()
+                        .map(str::to_string)
+                        .ok_or_else(|| format!("plan: {key} holds {}", item.to_compact()))
+                })
+                .collect()
+        };
+        let budgets = list("budgets")?;
+        if budgets.is_empty() || budgets.contains(&0) {
+            return Err("plan: budgets must be non-empty and every budget above zero".to_string());
+        }
+        let strategies = plan_strategies(&names("strategies")?)?;
+        let seeds = list("seeds")?;
+        if seeds.is_empty() {
+            return Err("plan: seeds must be non-empty".to_string());
+        }
+        let grid = count("grid_per_axis")?;
+        if grid < 3 {
+            return Err(
+                "plan: grid_per_axis must be at least 3 so the domain edges are covered"
+                    .to_string(),
+            );
+        }
+        let ablate = plan_channels(&names("ablate")?, "plan")?;
+        Ok(Self {
+            budgets,
+            strategies,
+            seeds,
+            grid: grid as usize,
+            minimise_budget: count("minimise_budget")?,
+            probe_every: count("probe_every")?,
+            calibrate_every: count("calibrate_every")?,
+            refine_every: count("refine_every")?,
+            numerical_every: count("numerical_every")?,
+            symmetric_every: count("symmetric_every")?,
+            differential_every: count("differential_every")?,
+            ablate,
+            archive_dir: std::path::PathBuf::new(),
+        })
+    }
+}
+
+/// The strategy names a plan section may carry, refused by name rather than defaulted.
+///
+/// This is deliberately a second, stricter reader beside `cli::parse_strategies`: a command line can
+/// accept `--strategies adaptive,adaptive` as a no-op, but a frozen protocol file that repeats an arm
+/// is a file that does not say what it measures, so the plan reader checks emptiness here rather than
+/// leaving it to the caller.
+fn plan_strategies(names: &[String]) -> Result<Vec<Strategy>, String> {
+    let out = names
+        .iter()
+        .map(|text| {
+            Strategy::parse(text).ok_or_else(|| {
+                format!(
+                    "plan: unknown strategy {text:?}; this tool knows {}",
+                    Strategy::names().join(", ")
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if out.is_empty() {
+        return Err("plan: strategies must name at least one strategy".to_string());
+    }
+    if out.len() != names.len() {
+        return Err("plan: strategies repeats a strategy".to_string());
+    }
+    Ok(out)
+}
+
+/// The channel names an arm may silence, by the vocabulary of the type that owns them.
+///
+/// The rules a frozen file has to satisfy are stricter than the command line's: a repeated name is a
+/// defect in the file rather than a no-op, and an arm that silences all five channels would report a
+/// domain of TRUSTED cells built on nothing, which is why 0034 refused it at the CLI and why the
+/// reader refuses it here too.
+fn plan_channels(names: &[String], site: &str) -> Result<Vec<aporia_evidence::Channel>, String> {
+    let mut out = Vec::new();
+    for text in names {
+        let Some(channel) = aporia_evidence::Channel::parse(text) else {
+            return Err(format!(
+                "{site} does not know the channel {text:?}; the names are {}",
+                aporia_evidence::Channel::names().join(", ")
+            ));
+        };
+        if out.contains(&channel) {
+            return Err(format!("{site} silences the same channel twice"));
+        }
+        out.push(channel);
+    }
+    if out.len() == aporia_evidence::Channel::ALL.len() {
+        return Err(format!(
+            "{site} silences every channel, and an instrument with no evidence has nothing to \
+             search on"
+        ));
+    }
+    Ok(out)
+}
+
+/// One arm of a [`Protocol`]: a name, and the channels that arm was blind to.
+#[derive(Clone, Debug)]
+pub struct ProtocolArm {
+    pub name: String,
+    pub ablate: Vec<aporia_evidence::Channel>,
+}
+
+/// Who produced a measurement, when it came from a frozen protocol file rather than from a command
+/// line. Recorded in the results document and deliberately *not* in the measurement identity: the
+/// identity is the plan and the corpus, and two protocol files that state the same plan measure the
+/// same experiment.
+#[derive(Clone, Debug)]
+pub struct Frozen {
+    pub id: String,
+    pub arm: String,
+    pub question: String,
+}
+
+/// An experiment specified in full before its corpus or its arms existed, as
+/// `benchmarks/protocols/<id>.json` holds it and as the runner reads it.
+///
+/// The point of making the protocol a file the runner *must* read is that a pre-registration nobody
+/// executes is decoration: with `--plan`, the frozen budgets, seeds, rates, entry list and arm masks
+/// cannot drift from the run that cites them, and a results document says which protocol and which
+/// arm wrote it.
+///
+/// Strictness is asymmetric on purpose. Inside `plan` every field is required and unknown fields are
+/// refused, because a silent default there changes what is measured. At the top level the reader
+/// requires the sections that decide a result — the arms, the entries, and the primary metric with
+/// its decision rule — and ignores the prose that explains them.
+#[derive(Clone, Debug)]
+pub struct Protocol {
+    pub id: String,
+    pub question: String,
+    pub plan: Plan,
+    pub arms: Vec<ProtocolArm>,
+    pub entries: Vec<String>,
+}
+
+impl Protocol {
+    pub const SCHEMA: &'static str = "aporia.protocol/1";
+
+    /// Read a protocol from a file, naming the path in every refusal.
+    pub fn load(path: &std::path::Path) -> Result<Self, String> {
+        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let value =
+            aporia_store::Json::parse(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+        Self::from_json(&value).map_err(|e| format!("{}: {e}", path.display()))
+    }
+
+    #[must_use]
+    pub fn arm_names(&self) -> Vec<&str> {
+        self.arms.iter().map(|a| a.name.as_str()).collect()
+    }
+
+    /// The plan for one named arm. An arm is chosen by name and never defaulted: a run that silently
+    /// used the full instrument when the protocol lists seven arms is the defect this refuses.
+    pub fn arm(&self, name: &str) -> Result<(Plan, Frozen), String> {
+        let arm = self.arms.iter().find(|a| a.name == name).ok_or_else(|| {
+            format!(
+                "protocol {:?} has no arm {name:?}; it has {}",
+                self.id,
+                self.arm_names().join(", ")
+            )
+        })?;
+        let mut plan = self.plan.clone();
+        plan.ablate.clone_from(&arm.ablate);
+        Ok((
+            plan,
+            Frozen {
+                id: self.id.clone(),
+                arm: arm.name.clone(),
+                question: self.question.clone(),
+            },
+        ))
+    }
+
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        if value.get("schema").and_then(Json::as_str) != Some(Self::SCHEMA) {
+            return Err(format!(
+                "unrecognised protocol schema {:?}",
+                value
+                    .get("schema")
+                    .and_then(Json::as_str)
+                    .unwrap_or("<missing>")
+            ));
+        }
+        let text = |key: &str| -> Result<String, String> {
+            value
+                .get(key)
+                .and_then(Json::as_str)
+                .map(str::to_string)
+                .ok_or_else(|| format!("protocol: {key} is missing"))
+        };
+        let plan_value = value
+            .get("plan")
+            .ok_or_else(|| "protocol: plan is missing".to_string())?;
+        if plan_value.get("ablate").is_some() {
+            return Err(
+                "protocol: the plan section does not carry ablate — each arm states its own mask"
+                    .to_string(),
+            );
+        }
+        // `Plan::from_json` requires every field it reads, including the mask, because a results
+        // document that lost its `ablate` would otherwise be read as the full instrument. A protocol
+        // states no mask in its plan on purpose, so the empty mask is written in here rather than
+        // being allowed to become a default inside the plan reader.
+        let Json::Obj(plan_fields) = plan_value else {
+            return Err("protocol: plan must be an object".to_string());
+        };
+        let mut with_mask = plan_fields.clone();
+        with_mask.push(("ablate".to_string(), Json::Arr(Vec::new())));
+        let plan = Plan::from_json(&Json::Obj(with_mask))?;
+        let arms_value = value
+            .get("arms")
+            .and_then(Json::as_array)
+            .ok_or_else(|| "protocol: arms is missing or is not a list".to_string())?;
+        if arms_value.is_empty() {
+            return Err("protocol: arms is empty, so there is nothing to compare".to_string());
+        }
+        let mut arms = Vec::new();
+        for item in arms_value {
+            let name = item
+                .get("name")
+                .and_then(Json::as_str)
+                .ok_or_else(|| "protocol: an arm has no name".to_string())?
+                .to_string();
+            if arms.iter().any(|a: &ProtocolArm| a.name == name) {
+                return Err(format!("protocol: arm {name:?} is named twice"));
+            }
+            let masks = item
+                .get("ablate")
+                .and_then(Json::as_array)
+                .ok_or_else(|| format!("protocol: arm {name:?} has no ablate list"))?;
+            let silenced: Vec<String> = masks
+                .iter()
+                .map(|mask| mask.as_str().unwrap_or_default().to_string())
+                .collect();
+            let ablate = plan_channels(&silenced, &format!("protocol: arm {name:?}"))?;
+            arms.push(ProtocolArm { name, ablate });
+        }
+        let entries = value
+            .get("entries")
+            .and_then(|e| e.get("run"))
+            .and_then(Json::as_array)
+            .ok_or_else(|| "protocol: entries.run is missing or is not a list".to_string())?;
+        let mut names = Vec::new();
+        for item in entries {
+            let name = item
+                .as_str()
+                .ok_or_else(|| "protocol: entries.run holds a non-string".to_string())?;
+            if names.contains(&name.to_string()) {
+                return Err(format!("protocol: entries.run names {name:?} twice"));
+            }
+            names.push(name.to_string());
+        }
+        if names.is_empty() {
+            return Err("protocol: entries.run is empty".to_string());
+        }
+        // An experiment is only pre-registered if the thing that decides it is written down. A
+        // protocol file without a primary metric is a plan, not a protocol, and the runner refuses it
+        // rather than letting a measurement be produced whose decider would be chosen later.
+        let metric = value
+            .get("primary_metric")
+            .ok_or_else(|| "protocol: primary_metric is missing".to_string())?;
+        for key in ["name", "universe", "definition"] {
+            if metric.get(key).and_then(Json::as_str).is_none() {
+                return Err(format!("protocol: primary_metric.{key} is missing"));
+            }
+        }
+        let rule = metric
+            .get("decision_rule")
+            .and_then(Json::as_array)
+            .ok_or_else(|| "protocol: primary_metric.decision_rule is missing".to_string())?;
+        if rule.is_empty() {
+            return Err("protocol: primary_metric.decision_rule states no outcome".to_string());
+        }
+        Ok(Self {
+            id: text("id")?,
+            question: text("question")?,
+            plan,
+            arms,
+            entries: names,
+        })
+    }
 }
 
 /// The result of one (entry, strategy, seed) sweep.
@@ -454,24 +798,40 @@ pub fn results_json(
     entries: &[Entry],
     plan: &Plan,
     environment: &Environment,
+    frozen: Option<&Frozen>,
 ) -> Json {
     let plan_value = plan_json(plan);
     let entries_value = entries_json(entries);
     // A results document says which question its plan can answer, so an ablation arm carries H1's
-    // question rather than the strategy question its single arm cannot address. The question is
-    // not part of the identity — the plan is — so this is a reading aid, not a rename.
-    let question = if plan.ablate.is_empty() {
-        "can a computation-aware multi-evidence search discover and localise regions of distrust \
-         using fewer evaluations than simpler exploration strategies"
-    } else {
-        "does the five-channel evidence model localise regions that no strict subset of the \
-         channels localises at the same charged cost"
+    // question rather than the strategy question its single arm cannot address. A run that came from
+    // a frozen protocol quotes that file instead, because a protocol's question is decided before the
+    // arms exist — and an experiment about whether one channel's result transfers is neither of the
+    // two questions a plan shape can infer. The question is not part of the identity; the plan is.
+    let question = match frozen {
+        Some(frozen) => frozen.question.as_str(),
+        None if plan.ablate.is_empty() => {
+            "can a computation-aware multi-evidence search discover and localise regions of distrust \
+             using fewer evaluations than simpler exploration strategies"
+        }
+        None => {
+            "does the five-channel evidence model localise regions that no strict subset of the \
+             channels localises at the same charged cost"
+        }
     };
     Json::object(vec![
         ("schema", Json::text(RESULTS_SCHEMA)),
         (
             "identity",
             Json::text(identity_of(RESULTS_SCHEMA, &plan_value, &entries_value)),
+        ),
+        (
+            "protocol",
+            frozen.map_or(Json::Null, |frozen| {
+                Json::object(vec![
+                    ("id", Json::text(frozen.id.clone())),
+                    ("arm", Json::text(frozen.arm.clone())),
+                ])
+            }),
         ),
         ("question", Json::text(question)),
         ("plan", plan_value),

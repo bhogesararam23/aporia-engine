@@ -195,7 +195,7 @@ fn the_archive_and_the_results_file_say_which_arm_produced_them() {
         aporia_bench::corpus_root().display().to_string(),
     ));
     let identity = |plan: &Plan| -> String {
-        aporia_bench::harness::results_json(&[], &entries, plan, &environment)
+        aporia_bench::harness::results_json(&[], &entries, plan, &environment, None)
             .get("identity")
             .and_then(aporia_store::Json::as_str)
             .expect("a results document records its own identity")
