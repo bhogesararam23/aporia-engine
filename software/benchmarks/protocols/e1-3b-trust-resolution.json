@@ -3,8 +3,8 @@
   "id": "e1-3b-trust-resolution",
   "title": "E1.3b — does a truth-blind trust rule stop TRUSTED covering a violated region, and what does it cost?",
   "frozen": "2026-10-09",
-  "status": "FROZEN, NOT RUN, AND NOT RUNNABLE YET. It names no entry that exists, so `bench run --plan` refuses it; that refusal is the point. This definition was written before the corpus it will measure was authored and before any number from it exists.",
-  "promotion": "The schema is `aporia.protocol/draft-1` deliberately, and the strict reader refuses an unrecognised schema by name: until the two prerequisite instrument changes below exist and the resolvable entries are authored, this file cannot be read as a plan at all, which is a stronger guarantee than being readable and wrongly runnable. It becomes `aporia.protocol/1` in the commit that adds its entries, and that commit must not contain a measurement.",
+  "status": "FROZEN, NOT RUN, AND NOT RUNNABLE. Its `entries.run` is empty on purpose: the corpus it will measure does not exist yet, and the runner refuses an empty entry list, so there is no version of this file that can be measured against today. This definition was written before the entries were authored and before any number from it exists.",
+  "promotion": "The schema is `aporia.protocol/draft-1` deliberately, and the strict reader refuses an unrecognised schema by name: until the two prerequisite instrument changes below exist and the resolvable entries are authored, this file cannot be read as a plan at all, which is a stronger guarantee than being readable and wrongly runnable. It becomes `aporia.protocol/1` in the commit that fills `entries.run`, and that commit must not contain a measurement.",
   "supersedes_nothing": "E1.3's pass condition failed and stays failed. Nothing here reopens, re-reads or repairs E1.1/E1.2/E1.3, and no E1.x number is recomputed under a new rule.",
   "depends_on": [
     "0029 E13",
@@ -50,6 +50,7 @@
   ],
   "arms_reason": "Two dimensions, confounded with nothing: the channel masks E1.x used, and four truth-blind trust variants. `current-trust` is `Policy::default` exactly as measured in 0036 and 0037. `min-channels-2` requires two channels applied inside a leaf before it may be trusted — the cheapest test of whether trust is being granted on one sensor's silence. `nonfinite-blocks-trust` refuses TRUSTED where any reading in the leaf left the real numbers, which is the mechanism 0029 named. `both` is the conjunction, because two rules that each halve an over-claim are not one rule that halves it twice. −Physical and only-Physical carry through both dimensions because E2 and E1.x established Physical as load-bearing: a trust rule that works only on the full instrument is not a safety rule, it is an artefact of having four other channels talking.",
   "entries": {
+    "run": [],
     "resolvable": "To be authored after this file is committed. Each entry's declared region must be wide enough that a leaf the policy permits could be at least half inside it — the instrument's own reachability function decides that at load time, and an entry it calls unresolvable is refused from this set rather than reclassified.",
     "sub_granular": "The two E1.3 edge entries and `geometry/narrow_oblique`, unchanged, as the control set for the reachability claim. They are expected to over-claim under every variant; if they do not, 0038's account of why they failed is wrong, and that is the finding.",
     "note": "No entry is named that does not exist yet, which is why the runner refuses this file today: the corpus is authored after the freeze and before any arm runs."

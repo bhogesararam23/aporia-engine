@@ -478,6 +478,48 @@ fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
         "the refusal names the schema rather than a detail: {error}"
     );
 
+    // A freeze that cannot be promoted is a note rather than a pre-registration, so the file is
+    // checked as the definition it claims to be: with the draft schema replaced by the real one and
+    // nothing else changed, the *only* thing the reader may find missing is its corpus.
+    let promoted = text.replacen("aporia.protocol/draft-1", Protocol::SCHEMA, 1);
+    let value = Json::parse(&promoted).expect("the promoted copy is still JSON");
+    let error = Protocol::from_json(&value)
+        .err()
+        .unwrap_or_else(|| panic!("the freeze parsed with its entry list still empty"));
+    assert!(
+        error.contains("entries.run"),
+        "the refusal must be about the corpus it has not authored, got: {error}"
+    );
+    // Hand it three existing entries and nothing else changes: it must read as a protocol, with its
+    // frozen plan, arms and decider intact. That is the difference between a definition waiting for a
+    // corpus and a document that was never machine-checkable in the first place.
+    let filled = promoted.replacen(
+        "\"run\": [],",
+        "\"run\": [\"edge/overflow_tail\", \"edge/pole_at_edge\", \"geometry/narrow_oblique\"],",
+        1,
+    );
+    let value = Json::parse(&filled).expect("the filled copy is JSON");
+    let protocol = Protocol::from_json(&value)
+        .expect("the freeze is a readable protocol once its entries exist");
+    assert_eq!(protocol.arm_names().len(), 8);
+    assert_eq!(protocol.plan.budgets, vec![320, 640, 1280, 2560]);
+    assert_eq!(protocol.plan.grid, 41);
+    assert_eq!(protocol.plan.differential_every, 11);
+    assert!(
+        protocol.plan.ablate.is_empty(),
+        "the plan section states no mask: each arm names its own, or the file is two experiments"
+    );
+    assert!(
+        Protocol::load(&path).is_err(),
+        "and as committed, the runner cannot read the draft at all"
+    );
+    // Committing the file with an empty list is the discipline; a stray edit that fills it silently
+    // would turn the freeze into a runnable plan without a review.
+    assert!(
+        promoted.contains("\"run\": []"),
+        "the committed freeze must still name no entry"
+    );
+
     // What the freeze commits to, checked as fields so it cannot be quietly rewritten later.
     let field = |key: &str| -> Json {
         value
