@@ -123,28 +123,56 @@ impl Arm {
                 .ok_or_else(|| format!("{path} has a sweep with no outcomes"))?;
             let mut parsed = Vec::new();
             for o in outcomes {
-                let count = |k: &str| o.get(k).and_then(Json::as_u64);
-                let volume = |k: &str| o.get(k).and_then(Json::as_f64).unwrap_or(0.0);
-                let boundaries = o
-                    .get("boundaries")
-                    .and_then(Json::as_array)
-                    .map(|list| {
-                        list.iter()
-                            .map(|b| ArmBoundary {
-                                axis: b
-                                    .get("axis")
-                                    .and_then(Json::as_str)
-                                    .unwrap_or("?")
-                                    .to_string(),
-                                error: b.get("error").and_then(Json::as_f64),
-                                within: b
-                                    .get("within_tolerance")
-                                    .and_then(Json::as_bool)
-                                    .unwrap_or(false),
-                            })
-                            .collect()
+                // Every field below is refused by name when absent. A comparison is allowed to say
+                // "not measurable" about a quantity the run could not produce; it is never allowed
+                // to read a quantity the *file* does not contain as a zero, because that turns a
+                // truncated or hand-edited document into a measurement of something that did not
+                // happen. The writer emits all of these, so refusing costs nothing real.
+                let count = |k: &str| -> Result<u64, String> {
+                    o.get(k).and_then(Json::as_u64).ok_or_else(|| {
+                        format!("{path} has an outcome with no {k}; a missing number is refused, not read as 0")
                     })
-                    .unwrap_or_default();
+                };
+                let volume = |k: &str| -> Result<f64, String> {
+                    o.get(k).and_then(Json::as_f64).ok_or_else(|| {
+                        format!("{path} has an outcome with no {k}; a missing volume is refused, not read as 0")
+                    })
+                };
+                let boundaries = match o.get("boundaries") {
+                    None => {
+                        return Err(format!(
+                            "{path} has an outcome with no boundaries section; an entry that declares \
+                             no boundary writes an empty list, which is not the same as nothing"
+                        ));
+                    }
+                    Some(list) => list
+                        .as_array()
+                        .ok_or_else(|| {
+                            format!("{path} has a boundaries section that is not a list")
+                        })?
+                        .iter()
+                        .map(|b| {
+                            let axis = b
+                                .get("axis")
+                                .and_then(Json::as_str)
+                                .ok_or_else(|| format!("{path} has a boundary row with no axis"))?
+                                .to_string();
+                            let within = b
+                                .get("within_tolerance")
+                                .and_then(Json::as_bool)
+                                .ok_or_else(|| {
+                                    format!("{path} has a boundary row with no within_tolerance")
+                                })?;
+                            Ok::<_, String>(ArmBoundary {
+                                axis,
+                                // `error` is legitimately absent: the writer puts text there when no
+                                // band formed. That is the not-measurable state, read as such below.
+                                error: b.get("error").and_then(Json::as_f64),
+                                within,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                };
                 let census = o.get("census").and_then(Census::from_json).ok_or_else(|| {
                     format!(
                         "{path} has an outcome without a readable census; it predates the \
@@ -152,42 +180,59 @@ impl Arm {
                     )
                 })?;
                 parsed.push(ArmOutcome {
-                    budget: count("budget")
-                        .ok_or_else(|| format!("{path}: a budget is missing"))?,
-                    evaluations: count("evaluations").unwrap_or(0),
-                    instruction_steps: count("instruction_steps").unwrap_or(0),
-                    detected: count("detected_regions").unwrap_or(0),
-                    localised: count("localised_regions").unwrap_or(0),
-                    findings: count("findings").unwrap_or(0),
-                    suspicious: volume("suspicious_volume"),
-                    trusted: volume("trusted_volume"),
-                    unknown: volume("unknown_volume"),
+                    budget: count("budget")?,
+                    evaluations: count("evaluations")?,
+                    instruction_steps: count("instruction_steps")?,
+                    detected: count("detected_regions")?,
+                    localised: count("localised_regions")?,
+                    findings: count("findings")?,
+                    suspicious: volume("suspicious_volume")?,
+                    trusted: volume("trusted_volume")?,
+                    unknown: volume("unknown_volume")?,
                     boundaries,
                     census,
                 });
             }
+            let first = outcomes
+                .first()
+                .ok_or_else(|| format!("{path} has a sweep with no outcomes"))?;
             let sweep = ArmSweep {
                 entry: s
                     .get("entry")
                     .and_then(Json::as_str)
                     .ok_or_else(|| format!("{path} has a sweep with no entry"))?
                     .to_string(),
+                // The pairing key, all three of it: a sweep that does not say which arm and seed it
+                // is cannot be matched against the full arm, and defaulting would match it to any
+                // other sweep missing the same field.
                 strategy: s
                     .get("strategy")
                     .and_then(Json::as_str)
-                    .unwrap_or("?")
+                    .ok_or_else(|| format!("{path} has a sweep with no strategy"))?
                     .to_string(),
-                seed: s.get("seed").and_then(Json::as_u64).unwrap_or(0),
-                declared_regions: outcomes
-                    .first()
-                    .and_then(|o| o.get("declared_regions"))
+                seed: s
+                    .get("seed")
                     .and_then(Json::as_u64)
-                    .unwrap_or(0),
-                control: outcomes
-                    .first()
-                    .and_then(|o| o.get("control"))
+                    .ok_or_else(|| format!("{path} has a sweep with no seed"))?,
+                declared_regions: first
+                    .get("declared_regions")
+                    .and_then(Json::as_u64)
+                    .ok_or_else(|| {
+                        format!(
+                            "{path} has a sweep whose outcomes carry no declared_regions, the field \
+                             that decides whether localisation applies at all"
+                        )
+                    })?,
+                control: first
+                    .get("control")
                     .and_then(Json::as_bool)
-                    .unwrap_or(false),
+                    .ok_or_else(|| {
+                        format!(
+                            "{path} has a sweep whose outcomes do not say whether it is a control"
+                        )
+                    })?,
+                // Absent here means "no budget in the ladder reached it", which is the measured
+                // null and distinct from a missing field; the writer emits null, not nothing.
                 detected_at: s.get("detected_at_budget").and_then(Json::as_u64),
                 localised_at: s.get("localised_at_budget").and_then(Json::as_u64),
                 outcomes: parsed,

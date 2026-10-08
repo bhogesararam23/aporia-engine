@@ -645,3 +645,100 @@ fn explain_names_what_an_ablation_arm_withheld_and_what_each_channel_did() {
             .join("\n")
     );
 }
+
+/// Rebuild one outcome of a results document with a single field removed, leaving everything else
+/// byte-identical — the shape of a file truncated by an older writer or edited by hand.
+fn outcome_without(doc: &Json, field: &str) -> Json {
+    if let Json::Obj(top) = doc {
+        let mut rebuilt = Vec::new();
+        for (key, value) in top {
+            if key != "sweeps" {
+                rebuilt.push((key.clone(), value.clone()));
+                continue;
+            }
+            let Json::Arr(sweeps) = value else {
+                rebuilt.push((key.clone(), value.clone()));
+                continue;
+            };
+            let mut new_sweeps = Vec::new();
+            for sweep in sweeps {
+                if let Json::Obj(fields) = sweep {
+                    let mut sf = Vec::new();
+                    for (k, v) in fields {
+                        if k != "outcomes" {
+                            sf.push((k.clone(), v.clone()));
+                            continue;
+                        }
+                        let Json::Arr(outcomes) = v else {
+                            sf.push((k.clone(), v.clone()));
+                            continue;
+                        };
+                        let mut oc = Vec::new();
+                        for (i, o) in outcomes.iter().enumerate() {
+                            if i != 0 {
+                                oc.push(o.clone());
+                                continue;
+                            }
+                            if let Json::Obj(of) = o {
+                                oc.push(Json::Obj(
+                                    of.iter()
+                                        .filter(|(name, _)| name != field)
+                                        .cloned()
+                                        .collect(),
+                                ));
+                            } else {
+                                oc.push(o.clone());
+                            }
+                        }
+                        sf.push((k.clone(), Json::Arr(oc)));
+                    }
+                    new_sweeps.push(Json::Obj(sf));
+                } else {
+                    new_sweeps.push(sweep.clone());
+                }
+            }
+            rebuilt.push((key.clone(), Json::Arr(new_sweeps)));
+        }
+        return Json::Obj(rebuilt);
+    }
+    doc.clone()
+}
+
+#[test]
+fn a_results_file_missing_a_measurement_is_refused_rather_than_read_as_zero() {
+    // Phase 3's rule, enforced at the reader: "not measurable" is a state a run produced; a field
+    // the *file* does not contain is not that, and reading it as 0.0 would compare an invented
+    // measurement against a real one. Every one of these fields is written by the harness, so
+    // refusing costs nothing except the ability to be quietly wrong.
+    let (full_doc, arm_doc) = fabricated(320);
+    let full = Arm::from_document("full.json", &full_doc).expect("the real document reads");
+    for field in [
+        "suspicious_volume",
+        "trusted_volume",
+        "unknown_volume",
+        "detected_regions",
+        "localised_regions",
+        "findings",
+        "evaluations",
+        "instruction_steps",
+        "declared_regions",
+        "control",
+        "boundaries",
+    ] {
+        let damaged = outcome_without(&arm_doc, field);
+        let err = Arm::from_document("arm.json", &damaged).expect_err(&format!(
+            "{field} was absent and the document was accepted anyway"
+        ));
+        assert!(
+            err.contains(field),
+            "the refusal for a missing {field} should name it: {err}"
+        );
+        // And the same field removed from the *full* arm is refused there too, not just in one side.
+        let err = Arm::from_document("full.json", &outcome_without(&full_doc, field))
+            .expect_err(&format!("{field} missing from the full arm was accepted"));
+        assert!(err.contains(field), "{err}");
+        // Sanity: the untouched pair still compares, so the refusal is about the damage.
+        let clean = Arm::from_document("arm.json", &arm_doc).expect("undamaged arm reads");
+        compare(&full, &clean).expect("the undamaged pair compares");
+    }
+}
