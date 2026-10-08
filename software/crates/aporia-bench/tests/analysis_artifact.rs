@@ -325,6 +325,90 @@ fn the_safety_count_survives_being_recounted_from_the_documents() {
     );
 }
 
+/// The 45 pairs of the frozen universe land in exactly one class each, and the classes are the ones the
+/// prose quotes: 28 exercised by both arms, 11 seen by some arm and enclosed by none, 6 seen by nobody.
+#[test]
+fn every_pair_of_the_universe_lands_in_exactly_one_class() {
+    let postmortem = artifact("e1-geometry-postmortem.json");
+    let partition = postmortem
+        .get("pair_partition")
+        .expect("the artifact partitions the universe pair by pair");
+    let counts = match partition.get("counts").expect("counts by class") {
+        Json::Obj(pairs) => pairs.clone(),
+        other => panic!("the counts are not an object: {other:?}"),
+    };
+    let lookup = |key: &str| -> u64 {
+        counts
+            .iter()
+            .find(|(k, _)| k == key)
+            .and_then(|(_, v)| v.as_u64())
+            .unwrap_or_else(|| panic!("no class {key}"))
+    };
+    assert_eq!(lookup("exercised_by_both_arms"), 28);
+    assert_eq!(lookup("unresolved_seen_by_some_arm"), 11);
+    assert_eq!(lookup("unresolved_seen_by_no_arm"), 6);
+    let total: u64 = counts.iter().filter_map(|(_, v)| v.as_u64()).sum();
+    assert_eq!(
+        total, 45,
+        "the three classes cover the universe and nothing else"
+    );
+    assert_eq!(
+        partition.get("sum_equals_pairs").and_then(Json::as_bool),
+        Some(true),
+        "the artifact states that the classes are exhaustive"
+    );
+
+    // The lists, not just the counts: a pair in two classes would pass a length check and still be a
+    // double-counted unresolved case.
+    let list_of = |key: &str| -> Vec<String> {
+        partition
+            .get("pairs")
+            .and_then(|p| p.get(key))
+            .and_then(Json::as_array)
+            .map(|rows| {
+                rows.iter()
+                    .map(|row| match row {
+                        Json::Arr(parts) => format!(
+                            "{}:{}",
+                            parts[0].as_str().unwrap_or_default(),
+                            parts[1].as_u64().unwrap_or_default()
+                        ),
+                        other => panic!("a pair is not a list: {other:?}"),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let mut all = list_of("exercised_by_both_arms");
+    all.extend(list_of("unresolved_seen_by_some_arm"));
+    all.extend(list_of("unresolved_seen_by_no_arm"));
+    all.sort();
+    let distinct: Vec<&String> = {
+        let mut seen: Vec<&String> = Vec::new();
+        for pair in &all {
+            if !seen.contains(&pair) {
+                seen.push(pair);
+            }
+        }
+        seen
+    };
+    assert_eq!(distinct.len(), all.len(), "a pair is named by two classes");
+    assert_eq!(
+        all.len(),
+        45,
+        "and the three lists together are the universe"
+    );
+    // Every unresolved pair must be one of the entries the partition calls unreachable or unseen, so the
+    // two views of the same 45 cannot drift apart.
+    for pair in list_of("unresolved_seen_by_no_arm") {
+        let entry = pair.split(':').next().unwrap_or_default();
+        assert!(
+            entry.starts_with("edge/overflow_tail") || entry == "geometry/curved_product",
+            "{pair} is called unseen by no arm, which contradicts the trace"
+        );
+    }
+}
+
 /// Which entries the instrument could have reached at all, and the promise that every traced row
 /// reproduced its committed measurement before its cells were read.
 #[test]

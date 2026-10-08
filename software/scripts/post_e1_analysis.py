@@ -503,6 +503,21 @@ def main(protocol_id, out_path, trace_path):
             }
         )
 
+    # The entry-level classes above answer "what kind of entry is this"; a reader comparing E2's totals
+    # needs the same 45 pairs split pair by pair, which is what this is. The classes are exhaustive and
+    # disjoint by construction: every pair is either exercised by both arms, or unresolved because some
+    # arm saw it and none enclosed it, or unresolved because no arm saw it at all.
+    detected_full = detected("full")
+    pair_partition = {"exercised_by_both_arms": [], "unresolved_seen_by_some_arm": [],
+                      "unresolved_seen_by_no_arm": []}
+    for key in sorted(pairs):
+        if F.get(key) is not None or O.get(key) is not None:
+            pair_partition["exercised_by_both_arms"].append(list(key))
+        elif key in detected_full or any(key in detected(arm) for arm in arms):
+            pair_partition["unresolved_seen_by_some_arm"].append(list(key))
+        else:
+            pair_partition["unresolved_seen_by_no_arm"].append(list(key))
+
     unplaced_total = sum(o["unplaced"] for arm in arms for o in row_of[arm].values())
     artifact = {
         "schema": "aporia.postmortem/1",
@@ -558,6 +573,14 @@ def main(protocol_id, out_path, trace_path):
         },
         "over_claim_by_entry": over_claim,
         "testability_partition": partition,
+        "pair_partition": {
+            "rule": "a pair is exercised when either arm localises it; unresolved pairs are split by "
+            "whether any arm detected them at all, because 'seen and not enclosed' and 'never seen' say "
+            "different things about the instrument",
+            "counts": {k: len(v) for k, v in pair_partition.items()},
+            "sum_equals_pairs": sum(len(v) for v in pair_partition.values()) == len(pairs),
+            "pairs": pair_partition,
+        },
         "cause_classes": CAUSE,
         "implementation_checks": [
             {

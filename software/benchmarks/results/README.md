@@ -646,12 +646,20 @@ same files — an artifact that drifts from the measurements fails `cargo test`.
   can be half inside either region, so the 0.5 overlap bar that defines localisation cannot be met at any
   budget by any arm whatever the evidence. `overflow_tail` is not even detected by any arm.
 
-So the state of the intended question, family by family: E1.1 and E1.2 were exercised and Physical wins;
-E1.3 could not be decided by this instrument at this resolution; and **no pair anywhere in the universe
-is evidence that another channel is load-bearing**, because both difference sets are empty. The 17
-unresolved pairs are not evidence that no problem exists, and they are not evidence for Physical either —
-they are the atlas reporting the limit of its own granularity, which is why they are listed per entry in
-the artifact with their envelope shares beside them.
+So the state of the intended question, family by family: E1.1 and E1.2 were exercised and Physical matched
+the full instrument; E1.3 could not be decided by this instrument at this resolution; and **no pair
+anywhere in the universe is evidence that another channel is load-bearing**, because both difference sets
+are empty. The artifact splits the 45 pairs exhaustively rather than summarising the rest away:
+
+| pair class | pairs | where they come from |
+|---|---|---|
+| exercised by both arms, at the same budget | 28 | `diagonal_sum` 5, `curved_arc` 5, `scheme_branch` 5, `mixed_magnitude` 5, `lattice_two` 5, `curved_product` 3 |
+| unresolved: seen by some arm, enclosed by none | 11 | `narrow_oblique` 5, `pole_at_edge` 5, `curved_product` seed 2 |
+| unresolved: seen by no arm at any budget | 6 | `overflow_tail` 5, `curved_product` seed 4 |
+
+Those 17 unresolved pairs are not evidence that no problem exists, and they are not evidence for Physical
+either — they are the atlas reporting the limit of its own granularity, which is why the artifact lists
+them per entry with their envelope shares beside the depth floor they fail.
 
 One more reading the frozen condition did not ask for and the artifact makes unavoidable: under −Physical
 the over-claim is not confined to the edge entries. 11–15 of the 15 rows on *every* geometry and discrete
