@@ -515,12 +515,19 @@ fn read_region(at: usize, item: &Json, v2: bool) -> Result<Declared, String> {
             .get(1)
             .and_then(Json::as_f64)
             .ok_or_else(|| format!("region {at}: {name:?} has no high bound"))?;
+        if !lo.is_finite() || !hi.is_finite() {
+            return Err(format!(
+                "region {at}: {name:?} is bounded by [{lo}, {hi}], which is not finite: an open \
+                 edge claims an extent the lattice cannot measure, and `volume_fraction` would \
+                 report it as the whole axis"
+            ));
+        }
         spans.push((name.clone(), [lo, hi]));
     }
     let where_text = item.get("where").and_then(Json::as_str);
     if where_text.is_some() && !v2 {
         return Err(format!(
-            "region {at}: a `where` region needs schema {}, which says the box is an envelope              rather than the whole claim",
+            "region {at}: a `where` region needs schema {}, which says the box is an envelope rather than the whole claim",
             TRUTH_SCHEMAS[1]
         ));
     }
@@ -529,18 +536,28 @@ fn read_region(at: usize, item: &Json, v2: bool) -> Result<Declared, String> {
         Some(text) => {
             if spans.is_empty() {
                 return Err(format!(
-                    "region {at}: a `where` region needs a non-empty envelope to carve, so its                      measure stays bounded"
+                    "region {at}: a `where` region needs a non-empty envelope to carve, so its measure stays bounded"
                 ));
             }
             Some(Predicate::parse(text).map_err(|e| format!("region {at}: {e}"))?)
         }
     };
     Ok(Declared {
-        reason: item
-            .get("reason")
-            .and_then(Json::as_str)
-            .unwrap_or_default()
-            .to_string(),
+        reason: {
+            let text = item
+                .get("reason")
+                .and_then(Json::as_str)
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            if text.is_empty() {
+                return Err(format!(
+                    "region {at}: a declared region states no `reason`, so nothing can be asked \
+                     about why this box rather than none"
+                ));
+            }
+            text
+        },
         axes: spans,
         predicate,
     })
@@ -849,6 +866,32 @@ mod tests {
         let error =
             Truth::from_json(&Json::parse(text).unwrap()).expect_err("a region needs its axes");
         assert!(error.contains("region 0"), "{error}");
+    }
+
+    #[test]
+    fn a_region_without_a_reason_is_refused() {
+        // 0037's audit gate promised this one. A region whose author states no claim is a box that
+        // will be scored as if it were an answer, so the reader refuses rather than defaulting it to
+        // an empty string the report would print as nothing.
+        let text = r#"{"schema":"aporia.truth/1","method":"analytic","fault":"x","regions":[{"axes":{"x":[0,10]}}],"boundaries":[]}"#;
+        let error = Truth::from_json(&Json::parse(text).unwrap())
+            .expect_err("a region without a reason declares nothing");
+        assert!(error.contains("reason"), "{error}");
+    }
+
+    #[test]
+    fn a_non_finite_region_bound_is_refused() {
+        // An open edge is not a bounded region: the lattice would have no span to divide, and the
+        // unbounded domain's own refusal is a static entry's business, not a swept region's.
+        for bound in ["\"Infinity\"", "\"-Infinity\"", "\"NaN\"", "1e999"] {
+            let text = format!(
+                r#"{{"schema":"aporia.truth/1","method":"analytic","fault":"x","regions":[{{"reason":"r","axes":{{"x":[0,{bound}]}}}}],"boundaries":[]}}"#
+            );
+            let error = Truth::from_json(&Json::parse(&text).unwrap())
+                .err()
+                .unwrap_or_else(|| panic!("{bound} was read as a region bound"));
+            assert!(error.contains("not finite"), "{error}");
+        }
     }
 
     #[test]

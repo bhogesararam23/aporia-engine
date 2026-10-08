@@ -82,7 +82,7 @@ impl Arm {
     /// anything: the comparison is only as honest as the refusal that keeps unlike things apart.
     #[expect(
         clippy::too_many_lines,
-        reason = "one document read in one place: the sweep, the outcome and the census fields are                   the shape of the file, and splitting the reader would spread that shape over                   three functions that must agree"
+        reason = "one document read in one place: the sweep, the outcome and the census fields are the shape of the file, and splitting the reader would spread that shape over three functions that must agree"
     )]
     pub fn from_document(path: &str, doc: &Json) -> Result<Self, String> {
         let plan = doc
@@ -553,7 +553,7 @@ impl Comparison {
 /// run, or a pair that charged a different number of evaluations.
 #[expect(
     clippy::too_many_lines,
-    reason = "the comparison is one pass over the paired sweeps, and every tally it fills is a               local of that pass; extracting halves would hand the invariants between them to the               caller instead of proving them here"
+    reason = "the comparison is one pass over the paired sweeps, and every tally it fills is a local of that pass; extracting halves would hand the invariants between them to the caller instead of proving them here"
 )]
 pub fn compare(full: &Arm, arm: &Arm) -> Result<Comparison, String> {
     if !full.ablate.is_empty() {
