@@ -473,6 +473,11 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
         return Ok(1);
     }
 
+    // An archive is the bytes a reported number is later opened from, and `archive_name` does not name
+    // the experiment, so a run whose archives would sit on another measurement's is refused here — before
+    // a single campaign runs, and before the warning `sweep` prints has replaced anything.
+    archive_namespace_guard(&plan, &selected)?;
+
     let sweeps = harness::run_corpus(&selected, &plan);
     report_run(program, &plan, frozen.as_ref(), &sweeps, &selected);
 
@@ -757,6 +762,102 @@ fn unresolvable_reason(reach: &crate::reach::Reach) -> String {
         reach.max_depth,
         finest,
     )
+}
+
+/// The fields where a written archive and a pending run disagree, over the keys both state.
+///
+/// Recursing over the intersection rather than comparing two documents whole is the same history rule
+/// [`harness::Plan::from_json`] reads an omitted `trust` by: a key an older manifest does not carry is a
+/// key that did not exist when it was written, not a difference in what was measured. This build added
+/// `trust`, `min_channels_required` and `blocks_non_finite` to the recorded atlas block, so a
+/// byte-for-byte comparison would refuse to re-run E1.x's own archive — a refusal with nothing behind it
+/// but a wider provenance statement.
+fn shared_differences(
+    written: &aporia_store::Json,
+    pending: &aporia_store::Json,
+    path: &str,
+    out: &mut Vec<String>,
+) {
+    match (written, pending) {
+        (aporia_store::Json::Obj(left), aporia_store::Json::Obj(right)) => {
+            for (key, value) in left {
+                if let Some((_, other)) = right.iter().find(|(name, _)| name == key) {
+                    shared_differences(value, other, &format!("{path}.{key}"), out);
+                }
+            }
+        }
+        // Anything that is not a pair of objects is compared whole. `silenced` is the mask, and a mask
+        // in a different order is the same arm but a different claim about what was withheld.
+        (a, b) if a != b => out.push(path.to_string()),
+        _ => {}
+    }
+}
+
+/// Refuse a run that would write its archives over a differently-configured measurement.
+///
+/// [`harness::archive_name`] encodes the axes a plan moves — entry, strategy, seed, mask and trust rule —
+/// and not the experiment, because when it was written one protocol's arms were the only thing that could
+/// collide. E1.3b breaks that assumption: its `full-current-trust` arm shares an entry, a seed, a
+/// strategy, an empty mask and the current rule with E1.x's committed `full` arm, so the two ask for the
+/// same three directories at the three control entries, at a different largest budget. Replacing them
+/// would destroy the bytes a published number is opened from, and nothing in the repository would notice,
+/// because the replacement archive is self-consistent — it digests its own artefacts and replays its own
+/// records. So the runner looks before it measures.
+///
+/// A manifest records the configuration that produced it, which makes the check exact rather than
+/// heuristic: the same configuration is a rerun of the measurement that directory already holds, and
+/// [`harness::sweep`] already says so in a warning while writing the same bytes again; a different one is
+/// another experiment's evidence, and that is resolved with `--archive`, not by whoever ran last.
+pub fn archive_namespace_guard(
+    plan: &harness::Plan,
+    entries: &[corpus::Entry],
+) -> Result<(), String> {
+    if plan.archive_dir.as_os_str().is_empty() {
+        return Ok(()); // nothing is archived, so nothing can be replaced
+    }
+    // The archived campaign is the one at the largest budget and the first seed — see the `archiving`
+    // condition in `harness::sweep`. A guard that looked at any other pair would be checking directories
+    // that are never written.
+    let (Some(&seed), Some(&budget)) = (plan.seeds.first(), plan.budgets.last()) else {
+        return Ok(());
+    };
+    for strategy in &plan.strategies {
+        for entry in entries {
+            let dir = plan
+                .archive_dir
+                .join(harness::archive_name(entry, plan, *strategy, seed));
+            let manifest = dir.join("manifest.json");
+            if !manifest.exists() {
+                continue;
+            }
+            let text = std::fs::read_to_string(&manifest)
+                .map_err(|e| format!("{}: {e}", manifest.display()))?;
+            let written = aporia_store::Json::parse(&text)
+                .map_err(|e| format!("{} is not JSON: {e}", manifest.display()))?;
+            let Some(config) = written.get("config") else {
+                return Err(format!(
+                    "{} holds a manifest that records no configuration, so this run cannot tell whether \
+                     it would be replacing the measurement that directory belongs to",
+                    manifest.display()
+                ));
+            };
+            let pending = plan.config(*strategy, budget, seed).json();
+            let mut differences = Vec::new();
+            shared_differences(config, &pending, "config", &mut differences);
+            if !differences.is_empty() {
+                return Err(format!(
+                    "{} already holds an archive configured differently from this run: {} differ. \
+                     `archive_name` names the entry, strategy, seed, mask and rule but not the \
+                     experiment, so two protocols whose arms share those five ask for one directory. The \
+                     bytes a published number is opened from would be replaced by a run that means \
+                     something else; pass --archive DIR to give this measurement its own namespace.",
+                    dir.display(),
+                    differences.join(", ")
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// What this build recorded about where the measurement happened. Provenance for the numbers, and

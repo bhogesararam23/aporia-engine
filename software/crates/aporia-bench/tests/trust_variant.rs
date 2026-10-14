@@ -20,6 +20,7 @@
 //! - a row counts the non-real readings its own atlas holds, which is what makes the non-finite
 //!   variant's effect attributable rather than assumed.
 
+use aporia_bench::cli;
 use aporia_bench::corpus;
 use aporia_bench::e2::{Arm, compare};
 use aporia_bench::harness::{
@@ -819,4 +820,122 @@ fn a_row_counts_the_readings_its_trust_rule_acts_on() {
         row.non_finite_readings + 1,
         "one reading left the real numbers and the row did not notice"
     );
+}
+
+/// Two experiments' arms cannot be written into one archive directory.
+#[test]
+fn a_run_refuses_to_archive_over_another_experiments_measurement() {
+    // `archive_name` encodes the entry, the strategy, the seed, the mask and the rule — the axes a plan
+    // moves — and not the protocol. E1.3b's `full-current-trust` arm and E1.x's committed `full` arm
+    // therefore ask for the same directory at `edge/pole_at_edge` seed 1, at different largest budgets,
+    // and the runner that got there second would replace the bytes the first one's published number is
+    // opened from. The replacement is invisible to every other check in the repository, because an
+    // archive digests its own artefacts and replays its own records: so this is the one place it can be
+    // caught, and it is caught before a single campaign runs.
+    let entries = corpus::load(&aporia_bench::corpus_root()).expect("the corpus loads");
+    let path = aporia_bench::corpus_root()
+        .join("protocols")
+        .join("e1-3b-trust-resolution.json");
+    let protocol = Protocol::load(&path).expect("the promoted freeze reads");
+    let (mut plan, _frozen) = protocol
+        .arm("full-current-trust")
+        .expect("the reference arm selects");
+    let selected: Vec<corpus::Entry> = entries
+        .iter()
+        .filter(|e| protocol.entries.contains(&e.id()))
+        .cloned()
+        .collect();
+    let dir = aporia_bench::corpus_root().join("../.scratch/archive-guard");
+    std::fs::remove_dir_all(&dir).ok();
+    std::fs::create_dir_all(&dir).expect("the temporary namespace exists");
+    plan.archive_dir = dir.clone();
+    let strategy = plan.strategies[0];
+    let budget = *plan.budgets.last().expect("the freeze states a ladder");
+    let seed = plan.seeds[0];
+
+    // Nothing written yet, so nothing is being replaced and the run may go ahead.
+    cli::archive_namespace_guard(&plan, &selected).expect("an empty namespace cannot collide");
+
+    let entry = selected
+        .iter()
+        .find(|e| e.id() == "edge/pole_at_edge")
+        .expect("the control entry is in the freeze's corpus");
+    let name = archive_name(entry, &plan, strategy, seed);
+    let archive = dir.join(&name);
+    std::fs::create_dir_all(&archive).expect("the archive directory is created");
+    let manifest = archive.join("manifest.json");
+    let mine = plan.config(strategy, budget, seed).json();
+    // E1.x's archive of the same entry, seed, strategy, mask and rule: one configuration, whose largest
+    // budget is the ladder it ran, which is not this run's.
+    let written = with_field(&mine, "budget", &Json::count(1280));
+    std::fs::write(
+        &manifest,
+        Json::object(vec![("config", written)]).to_compact(),
+    )
+    .expect("the manifest is written");
+    let error = cli::archive_namespace_guard(&plan, &selected)
+        .expect_err("a differently-configured archive in this run's path must stop it");
+    assert!(
+        error.contains(&name) && error.contains("config.budget"),
+        "the refusal must name the directory and the field that differs: {error}"
+    );
+    assert!(
+        error.contains("--archive"),
+        "and say how to resolve it, rather than leaving the operator to guess: {error}"
+    );
+
+    // The same configuration, written by the same plan a minute earlier, is a rerun and not a collision.
+    std::fs::write(
+        &manifest,
+        Json::object(vec![("config", mine.clone())]).to_compact(),
+    )
+    .expect("the manifest is rewritten");
+    cli::archive_namespace_guard(&plan, &selected)
+        .expect("a rerun of the same measurement is allowed");
+
+    // And a manifest written before this build started recording the trust rule under `atlas` states
+    // less, not differently: the history rule that reads an omitted field as the one that was in force
+    // has to apply here too, or the guard would refuse to re-run the very archives it protects.
+    let older = without_atlas_fields(
+        &mine,
+        &["trust", "min_channels_required", "blocks_non_finite"],
+    );
+    std::fs::write(
+        &manifest,
+        Json::object(vec![("config", older)]).to_compact(),
+    )
+    .expect("the older manifest is written");
+    cli::archive_namespace_guard(&plan, &selected)
+        .expect("a manifest that states less is not one that states something else");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// One field of the recorded atlas block dropped, which is what an older manifest looks like.
+fn without_atlas_fields(value: &Json, drop: &[&str]) -> Json {
+    let Json::Obj(fields) = value else {
+        return value.clone();
+    };
+    Json::Obj(
+        fields
+            .iter()
+            .map(|(key, held)| {
+                if key != "atlas" {
+                    return (key.clone(), held.clone());
+                }
+                let Json::Obj(atlas) = held else {
+                    return (key.clone(), held.clone());
+                };
+                (
+                    key.clone(),
+                    Json::Obj(
+                        atlas
+                            .iter()
+                            .filter(|(name, _)| !drop.contains(&name.as_str()))
+                            .cloned()
+                            .collect(),
+                    ),
+                )
+            })
+            .collect(),
+    )
 }
