@@ -389,6 +389,18 @@ pub struct Protocol {
     pub plan: Plan,
     pub arms: Vec<ProtocolArm>,
     pub entries: Vec<String>,
+    /// Which of them the file declares resolvable, and which sub-granular, as an
+    /// [`Protocol::SCHEMA_V2`] file must say. Empty for a schema-1 file, whose meaning predates the
+    /// distinction and whose committed rows must not be re-sorted by a rule invented afterwards.
+    ///
+    /// The instrument checks the two lists against its own reachability arithmetic at load time, in one
+    /// direction: an entry named resolvable that the atlas cannot enclose is refused, because that is
+    /// the mistake 0038 found — a condition scored on rows the partition could never have resolved. The
+    /// other direction is *not* refused. An entry the file expects to be unresolvable and the instrument
+    /// finds enclosed is a finding about 0038's account, and refusing the run for it would be the
+    /// experiment editing its own control set to keep the story.
+    pub resolvable: Vec<String>,
+    pub sub_granular: Vec<String>,
     /// The first 16 hex digits of the SHA-256 of the file's bytes, set by `load` and absent for a
     /// protocol built by `from_json`, which has no file. It travels into every results document that
     /// arm writes, so an edit to a frozen pre-registration is visible as a different digest rather
@@ -594,24 +606,67 @@ impl Protocol {
                 }
             }
         }
-        let entries = value
-            .get("entries")
-            .and_then(|e| e.get("run"))
-            .and_then(Json::as_array)
-            .ok_or_else(|| "protocol: entries.run is missing or is not a list".to_string())?;
-        let mut names = Vec::new();
-        for item in entries {
-            let name = item
-                .as_str()
-                .ok_or_else(|| "protocol: entries.run holds a non-string".to_string())?;
-            if names.contains(&name.to_string()) {
-                return Err(format!("protocol: entries.run names {name:?} twice"));
+        let string_list = |key: &str| -> Result<Vec<String>, String> {
+            let items = value
+                .get("entries")
+                .and_then(|e| e.get(key))
+                .and_then(Json::as_array)
+                .ok_or_else(|| format!("protocol: entries.{key} is missing or is not a list"))?;
+            let mut out = Vec::new();
+            for item in items {
+                let name = item
+                    .as_str()
+                    .ok_or_else(|| format!("protocol: entries.{key} holds a non-string"))?;
+                if out.contains(&name.to_string()) {
+                    return Err(format!("protocol: entries.{key} names {name:?} twice"));
+                }
+                out.push(name.to_string());
             }
-            names.push(name.to_string());
-        }
+            Ok(out)
+        };
+        let names = string_list("run")?;
         if names.is_empty() {
             return Err("protocol: entries.run is empty".to_string());
         }
+        // A schema-2 experiment is defined by which rows can decide it, so the file has to say which
+        // entries it means by the resolvable set rather than leaving that to prose beside the numbers.
+        // The two lists must cover `run` exactly: an entry in neither is a row whose universe would be
+        // chosen by whoever read the file afterwards.
+        let (resolvable, sub_granular) = if v2 {
+            let resolvable = string_list("resolvable")?;
+            let sub_granular = string_list("sub_granular")?;
+            if resolvable.is_empty() {
+                return Err(
+                    "protocol: entries.resolvable names no entry, so the deciding set of this \
+                     experiment is empty before it is measured"
+                        .to_string(),
+                );
+            }
+            let shared: Vec<&str> = resolvable
+                .iter()
+                .filter(|name| sub_granular.contains(name))
+                .map(String::as_str)
+                .collect();
+            if !shared.is_empty() {
+                return Err(format!(
+                    "protocol: entries.resolvable and entries.sub_granular both name {}; an entry \
+                     cannot sit in the deciding set and in the control beside it",
+                    shared.join(", ")
+                ));
+            }
+            let covered: Vec<&String> = resolvable.iter().chain(sub_granular.iter()).collect();
+            if covered.len() != names.len() || !names.iter().all(|n| covered.contains(&n)) {
+                return Err(format!(
+                    "protocol: entries.resolvable and entries.sub_granular must cover entries.run \
+                     exactly: run holds {} entry/entries and the two sets hold {}",
+                    names.len(),
+                    covered.len()
+                ));
+            }
+            (resolvable, sub_granular)
+        } else {
+            (Vec::new(), Vec::new())
+        };
         // An experiment is only pre-registered if the thing that decides it is written down. A
         // protocol file without a primary metric is a plan, not a protocol, and the runner refuses it
         // rather than letting a measurement be produced whose decider would be chosen later.
@@ -636,6 +691,8 @@ impl Protocol {
             plan,
             arms,
             entries: names,
+            resolvable,
+            sub_granular,
             digest: None,
         })
     }
@@ -1051,6 +1108,21 @@ pub fn results_json(
         ("trust", Json::text(plan.trust.name())),
         ("plan", plan_value),
         ("entries", entries_value),
+        // Could the atlas have enclosed what each entry declares, at the granularity this policy
+        // permits? Computed here, at load time and from the atlas's own partition rule, because 0038's
+        // account of E1.3's failed condition turned on a limit that was only visible after the run:
+        // a region thinner than any leaf the depth cap allows cannot be localised by any trust rule,
+        // and a reader of these rows is entitled to know which ones that was before scoring them.
+        //
+        // Outside the identity, for the reason the paragraph above gives for `trust` in reverse: this
+        // says nothing about what was measured, only about what could be, and folding it into the
+        // hashed sections would have renamed every committed measurement the moment the check existed.
+        // It travels with each entry's `truth_digest`, so an edited declaration shows up as a different
+        // record rather than as an old class beside a new claim.
+        (
+            "reachability",
+            crate::reach::section(entries, &plan.trust.policy()),
+        ),
         ("environment", environment_json(environment)),
         (
             "sweeps",

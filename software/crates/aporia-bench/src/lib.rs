@@ -9,6 +9,8 @@
 //! - [`truth`] — the declaration format and the geometry it needs
 //! - [`metrics`] — the metric definitions, each next to the code that computes it
 //! - [`harness`] — the budget sweep across strategies, and the results document
+//! - [`reach`] — whether the partition this atlas is permitted to build could enclose a declared
+//!   region, decided before a run because it is a property of the geometry and the depth cap
 //! - [`e2`] — the ablation comparison: arms against the full instrument, from committed files
 //!
 //! The ordering matters: verification runs before measurement, because a detection rate against a
@@ -22,6 +24,7 @@ pub mod e2;
 pub mod harness;
 pub mod metrics;
 pub mod predicate;
+pub mod reach;
 pub mod risk;
 pub mod truth;
 

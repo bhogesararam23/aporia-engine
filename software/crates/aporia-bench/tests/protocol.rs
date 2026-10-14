@@ -503,7 +503,7 @@ fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
     // Hand it three existing entries and nothing else changes: it reads as a protocol, with its frozen
     // plan, its eight arms and its decider intact. That is the difference between a definition waiting
     // for a corpus and a document that was never machine-checkable in the first place.
-    let filled = with_run(&promoted, &FROZEN_SAMPLE);
+    let filled = with_lists(&promoted, &FROZEN_SAMPLE, &FROZEN_SAMPLE, &[]);
     let protocol = Protocol::from_json(&filled)
         .expect("the freeze is a readable protocol once its entries exist");
     assert_eq!(protocol.arm_names().len(), 8);
@@ -655,6 +655,18 @@ fn with_run(value: &Json, names: &[&str]) -> Json {
     })
 }
 
+/// The same protocol with all three entry lists written as the schema-2 reader requires them. As
+/// frozen, `resolvable` and `sub_granular` are prose about entries that do not exist yet; the
+/// promotion contract replaces that prose with the lists, and this is where the test says so.
+fn with_lists(value: &Json, run: &[&str], resolvable: &[&str], sub_granular: &[&str]) -> Json {
+    let list = |names: &[&str]| Json::Arr(names.iter().map(|n| Json::text(*n)).collect());
+    edited(value, "entries", |entries| {
+        let with_run = edited(entries, "run", |_| list(run));
+        let with_resolvable = edited(&with_run, "resolvable", |_| list(resolvable));
+        edited(&with_resolvable, "sub_granular", |_| list(sub_granular))
+    })
+}
+
 /// How many distinct values a list of names holds, without pulling in a set for one assertion.
 fn distinct(values: &[String]) -> usize {
     let mut seen: Vec<&String> = Vec::new();
@@ -764,7 +776,7 @@ fn the_frozen_arms_are_eight_measurements_once_the_rule_reaches_the_plan() {
     );
 
     // Promoted, the same eight arms are eight plans and eight identities.
-    let promoted = with_run(&promote(&value), &FROZEN_SAMPLE);
+    let promoted = with_lists(&promote(&value), &FROZEN_SAMPLE, &FROZEN_SAMPLE, &[]);
     let protocol = Protocol::from_json(&promoted).expect("a promoted freeze reads");
     assert_eq!(protocol.arms.len(), 8);
     for (name, rule) in FROZEN_RULES {

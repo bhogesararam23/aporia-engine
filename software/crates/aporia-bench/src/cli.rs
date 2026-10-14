@@ -35,6 +35,7 @@ pub fn dispatch(program: &str, command: &str, flags: &[String]) -> Result<i32, S
         "list" => run_list(flags),
         "verify" => run_verify(flags),
         "audit" => run_audit(flags),
+        "reach" => run_reach(flags),
         "run" => run_run(program, flags),
         "verdict" => run_verdict(flags),
         "scan" => run_scan(flags),
@@ -53,8 +54,8 @@ pub fn dispatch(program: &str, command: &str, flags: &[String]) -> Result<i32, S
 }
 
 /// The commands this module implements, in the order the usage text lists them.
-pub const COMMANDS: [&str; 8] = [
-    "list", "verify", "audit", "run", "verdict", "scan", "explain", "e2",
+pub const COMMANDS: [&str; 9] = [
+    "list", "verify", "audit", "reach", "run", "verdict", "scan", "explain", "e2",
 ];
 
 #[must_use]
@@ -68,6 +69,8 @@ pub fn usage(program: &str) -> String {
      \x20 verify [--grid N]         check the declarations against direct evaluation\n\
      \x20 audit  [--grid N]         check the corpus as a corpus: duplicates, difficulty rungs,\n\
      \x20                             unmapped discrete values, refusals that did not refuse\n\
+     \x20 reach                     can the atlas enclose what each entry declares? Decided from\n\
+     \x20                             the partition rule and the depth cap, before any run\n\
      \x20 run [--budgets a,b,..] [--strategies {strategies}]\n\
      \x20     [--seeds n,..] [--grid N] [--out DIR] [--only family/name,..]\n\
      \x20     [--plan protocols/<id>.json --arm <name>]  run a frozen experiment definition;\n\
@@ -261,6 +264,40 @@ fn run_audit(flags: &[String]) -> Result<i32, String> {
     Ok(1)
 }
 
+/// Whether the atlas could enclose what each entry declares, under the depth cap this build's policy
+/// carries.
+///
+/// The command exists because the answer is arithmetic rather than opinion, and a claim an experiment
+/// refuses to run on has to be checkable by a reader without one. It reports every entry the registry
+/// names, including the ones no protocol lists, because an unclassified entry is how a corpus quietly
+/// loses a case.
+fn run_reach(flags: &[String]) -> Result<i32, String> {
+    let args = Args::new(flags);
+    args.reject_unknown()?;
+    let entries = load_corpus()?;
+    let plan = harness::Plan::default();
+    let policy = plan.trust.policy();
+    println!(
+        "reachability under the atlas's own axis order, depth cap {}, localisation bar {}\n",
+        policy.max_depth,
+        crate::metrics::LOCALISATION_BAR
+    );
+    // Computed once and read twice: a curved region's carved share is sampled on the metric's lattice,
+    // and a table that measured the same entry twice could disagree with itself.
+    let records = crate::reach::reaches(&entries, &policy);
+    for reach in &records {
+        println!("{}", reach.row());
+    }
+    println!();
+    for class in crate::reach::Class::ALL {
+        let count = records.iter().filter(|r| r.class == class).count();
+        if count > 0 {
+            println!("{count:>3} entries classified {}", class.name());
+        }
+    }
+    Ok(0)
+}
+
 fn parse_grid(value: Option<String>) -> Result<usize, String> {
     match value {
         None => Ok(harness::Plan::default().grid),
@@ -304,6 +341,25 @@ fn parse_channels(texts: &[String]) -> Result<Vec<aporia_evidence::Channel>, Str
         );
     }
     Ok(out)
+}
+
+/// The two axes an arm is allowed to move, on the line that says which pre-registration is being run.
+///
+/// A trust variant reachable only through a frozen file is deliberate: there is no `--trust` flag, so an
+/// ad-hoc command cannot produce a variant row that no protocol said it was measuring.
+#[must_use]
+fn announce_axes(plan: &harness::Plan) -> String {
+    let silenced = if plan.ablate.is_empty() {
+        "nothing".to_string()
+    } else {
+        plan.ablate
+            .iter()
+            .copied()
+            .map(aporia_evidence::Channel::name)
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    format!("  trust rule {}  silences {}", plan.trust.name(), silenced)
 }
 
 pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
@@ -355,26 +411,11 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
             frozen_run.plan.budgets,
             frozen_run.plan.seeds
         );
-        // The two axes an arm is allowed to move, both printed on the line that says which
-        // pre-registration is being run. A variant reachable only through a frozen file is deliberate:
-        // there is no `--trust` flag, so an ad-hoc command cannot produce a variant row that no
-        // protocol said it was measuring.
-        println!(
-            "  trust rule {}  silences {}",
-            frozen_run.plan.trust.name(),
-            if frozen_run.plan.ablate.is_empty() {
-                "nothing".to_string()
-            } else {
-                frozen_run
-                    .plan
-                    .ablate
-                    .iter()
-                    .copied()
-                    .map(aporia_evidence::Channel::name)
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            }
-        );
+        println!("{}", announce_axes(&frozen_run.plan));
+        // The protocol's rows, and what the instrument noticed about them on the way in.
+        for note in &frozen_run.notes {
+            println!("  note: {note}");
+        }
         (frozen_run.entries, frozen_run.plan, Some(frozen_run.frozen))
     } else {
         if arm_name.is_some() {
@@ -524,6 +565,10 @@ struct FrozenRun {
     plan: harness::Plan,
     frozen: harness::Frozen,
     arms: usize,
+    /// What the instrument noticed about the corpus the file named, which is printed rather than
+    /// refused: see [`frozen_run`]'s asymmetry between an entry claimed resolvable and an entry
+    /// expected to be unresolvable.
+    notes: Vec<String>,
 }
 
 /// What a `--plan` command means: the file's plan, one arm chosen by name, the entries the file
@@ -587,12 +632,131 @@ fn frozen_run(
         .filter(|e| protocol.entries.iter().any(|name| *name == e.id()))
         .cloned()
         .collect();
+    let notes = reachability_gate(&protocol, &selected, &plan)?;
     Ok(FrozenRun {
         entries: selected,
         plan,
         frozen,
         arms: protocol.arms.len(),
+        notes,
     })
+}
+
+/// Check a frozen protocol's claims about what its corpus can resolve, against the arithmetic the
+/// instrument performs rather than the prose the file was written with.
+///
+/// Refused, by name and with the numbers behind it:
+///
+/// - an entry the file lists as resolvable that no permitted leaf could enclose. This is the mistake
+///   0038 found in 0037: a safety condition scored on rows whose localisation was unreachable for
+///   geometry, which a trust rule cannot fix and a reader cannot tell from a failed row.
+/// - an entry the instrument cannot classify at all — no model, or a partition too deep to enumerate.
+///   An unclassified row is not a row that passed.
+///
+/// Not refused, but reported: an entry the file expects to be unresolvable that the instrument finds
+/// enclosed. That asymmetry is deliberate. A control the atlas can reach is news about 0038's account,
+/// and refusing the run for it would let the experiment's control set be edited by the reading the
+/// experiment was written to test.
+///
+/// A schema-1 protocol states no such lists, and its committed rows are not re-sorted by a rule that
+/// did not exist when they were measured: the gate is inert for those files, which is what lets the
+/// reproduction gate run them unchanged.
+fn reachability_gate(
+    protocol: &harness::Protocol,
+    selected: &[corpus::Entry],
+    plan: &harness::Plan,
+) -> Result<Vec<String>, String> {
+    let policy = plan.trust.policy();
+    let mut notes = Vec::new();
+    let mut refused: Vec<String> = Vec::new();
+    for entry in selected {
+        let reach = crate::reach::reach(entry, &policy);
+        let claimed = protocol.resolvable.contains(&reach.entry);
+        let expected_unreachable = protocol.sub_granular.contains(&reach.entry);
+        if !claimed && !expected_unreachable && protocol.resolvable.is_empty() {
+            // A file with no resolvable set makes no claim to check.
+            continue;
+        }
+        if claimed {
+            if !reach.class.resolvable() {
+                refused.push(format!(
+                    "{} is listed as resolvable and the atlas cannot enclose it: {}",
+                    reach.entry,
+                    unresolvable_reason(&reach)
+                ));
+            }
+            continue;
+        }
+        // Not claimed as resolvable. An entry the instrument cannot classify at all is a refusal
+        // whatever the file expected: an unclassified row is not a row that passed.
+        if matches!(
+            reach.class,
+            crate::reach::Class::Uncappable | crate::reach::Class::NoModel
+        ) {
+            refused.push(format!(
+                "{} cannot be classified by the reachability check at all: {}. An entry whose \
+                 resolvability is unknown is not an entry that passed.",
+                reach.entry,
+                unresolvable_reason(&reach)
+            ));
+        } else if expected_unreachable && reach.class.resolvable() {
+            notes.push(format!(
+                "{} is listed as sub-granular and the atlas can enclose it: reported, not refused, \
+                 because a control the instrument reaches is a finding about the account that \
+                 expected it",
+                reach.entry
+            ));
+        }
+    }
+    if !refused.is_empty() {
+        return Err(format!(
+            "protocol {} names entries its own corpus cannot answer:\n  {}",
+            protocol.id,
+            refused.join("\n  ")
+        ));
+    }
+    Ok(notes)
+}
+
+/// The arithmetic behind a reachability refusal, spelled out so the message is actionable rather than
+/// a label: which class, how close the best permitted leaf came to the bar the metric scores on, how
+/// many candidate leaves existed and how many were measured, and how fine the finest leaf the depth
+/// cap permits actually is. A reader who disagrees with a class has the numbers to recompute it from.
+#[must_use]
+fn unresolvable_reason(reach: &crate::reach::Reach) -> String {
+    let finest = reach
+        .regions
+        .first()
+        .and_then(|r| {
+            r.finest_leaf_share
+                .iter()
+                .copied()
+                .reduce(f64::min)
+                .map(|w| format!("{w:.6}"))
+        })
+        .unwrap_or_else(|| "not enumerated".to_string());
+    format!(
+        "class {}, best envelope share {:.6} of a leaf against a bar of {}, best declared share \
+         {:.6}, {} of {} candidate leaf(s) measured, {} permitted leaf/leaves at depth cap {}, \
+         finest permitted leaf {} of the axis",
+        reach.class.name(),
+        reach
+            .regions
+            .iter()
+            .map(|r| r.best_envelope_share)
+            .fold(0.0f64, f64::max),
+        crate::metrics::LOCALISATION_BAR,
+        reach
+            .regions
+            .iter()
+            .map(|r| r.best_declared_share)
+            .fold(0.0f64, f64::max),
+        reach.regions.iter().map(|r| r.examined).sum::<usize>(),
+        reach.regions.iter().map(|r| r.candidates).sum::<usize>(),
+        reach.permitted_cells,
+        reach.max_depth,
+        finest,
+    )
 }
 
 /// What this build recorded about where the measurement happened. Provenance for the numbers, and

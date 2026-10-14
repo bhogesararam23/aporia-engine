@@ -116,6 +116,35 @@ fn with_plan_field(doc: &Json, key: &str, value: Json) -> Json {
     with_field(doc, "plan", &Json::Obj(plan))
 }
 
+/// The same protocol as a schema-2 file: the two entry lists that schema requires, written from its own
+/// `entries.run`. Which of them the atlas can actually enclose is not what this test is about — that is
+/// decided at load time by `frozen_run` and covered in `tests/reachability.rs` — so the split here is
+/// the trivial one, every named entry in the resolvable set, none in the control.
+fn as_schema_two(value: &Json) -> Json {
+    let with_schema = with_field(value, "schema", &Json::text(Protocol::SCHEMA_V2));
+    let entries_value = with_schema
+        .get("entries")
+        .expect("a protocol states its entries");
+    let run = entries_value
+        .get("run")
+        .and_then(Json::as_array)
+        .expect("entries.run is a list")
+        .to_vec();
+    let mut entries = fields_of(entries_value);
+    for (name, held) in &mut entries {
+        if name == "resolvable" {
+            *held = Json::Arr(run.clone());
+        }
+    }
+    if !entries.iter().any(|(name, _)| name == "resolvable") {
+        entries.push(("resolvable".to_string(), Json::Arr(run)));
+    }
+    if !entries.iter().any(|(name, _)| name == "sub_granular") {
+        entries.push(("sub_granular".to_string(), Json::Arr(Vec::new())));
+    }
+    with_field(&with_schema, "entries", &Json::Obj(entries))
+}
+
 /// One committed E1.x document, found by the arm name it records.
 fn committed(arm: &str) -> (Json, PathBuf) {
     let mut found: Option<(Json, PathBuf)> = None;
@@ -428,7 +457,7 @@ fn a_frozen_arm_of_the_new_schema_must_state_its_rule_and_the_old_one_may_not() 
         "a schema-1 file has no other rule to mean"
     );
     // Promote the same bytes to schema 2: an arm that names no rule is now not a definition of an arm.
-    let promoted = with_field(&protocol, "schema", &Json::text(Protocol::SCHEMA_V2));
+    let promoted = as_schema_two(&protocol);
     let error =
         Protocol::from_json(&promoted).expect_err("a schema-2 arm that states no rule is refused");
     assert!(

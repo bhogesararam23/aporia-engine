@@ -46,8 +46,8 @@ fn usage() -> &'static str {
      \x20 compare <dir-a> <dir-b>     say what differs between two stored runs\n\
      \x20     [--json] for the machine-readable form: every section, whether it could be\n\
      \x20     compared, and the counts — the text form prints only what moved\n\
-     \x20 bench <command> [flags]    the measurement harness: list, verify, run, verdict, scan,\n\
-     \x20                            explain, e2 (bare `bench` shows its own usage)\n\
+     \x20 bench <command> [flags]    the measurement harness: list, verify, audit, reach, run,\n\
+     \x20                            verdict, scan, explain, e2 (bare `bench` shows its own usage)\n\
      \x20 help                        show this text\n\
      \x20 version                     which build of aporia this is\n\
      exit: 0 clean (or archives identical), 1 suspicious regions reported, 2 usage,\n\
