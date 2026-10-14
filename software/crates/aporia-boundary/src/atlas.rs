@@ -182,6 +182,124 @@ impl Label {
     }
 }
 
+/// Which truth-blind extra requirement a quiet leaf must satisfy before it may be called `Trusted`.
+///
+/// A named variant rather than a knob, and the reason is the one E1.3 left behind. `min_channels` and
+/// a non-finite rule are both reachable already from a caller that builds a [`Policy`] by hand, so
+/// what a measurement means cannot be "whatever numbers the caller happened to set": it has to be the
+/// rule the report names. `Current` is not a neutral default sitting beside three interesting
+/// options — it *is* the semantics that produced every committed number in this repository, and an
+/// experiment that names it is obliged to produce those numbers again unchanged. The other three are
+/// the two live mechanisms 0038's post-mortem found, plus their conjunction: a leaf certified on one
+/// sensor's silence, a leaf certified although it holds a reading that is not a real number, and both
+/// at once — because two rules that each remove some over-claim are not one rule that removes it
+/// twice, and that has to be measured rather than assumed.
+///
+/// None of them reads a declared region. That is a requirement and not a style preference: a trust
+/// rule that consulted truth would make the instrument mark its own homework, which is what 0037's
+/// correction C8 was written to keep out of the corpus. Every variant here is a function of
+/// statistics the atlas already holds for its own reasons.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Trust {
+    /// Today's rule and every committed measurement's: `min_samples` evaluations, at least
+    /// [`Policy::min_channels`] channels applied, nothing flagged. Adding a variant must leave the
+    /// numbers this one produces exactly where they are.
+    Current,
+    /// At least two distinct channels must have been applied inside the leaf before it may be
+    /// trusted, whatever the policy's own floor says. One sensor looking at a quiet region and
+    /// finding nothing is a thinner claim than two doing it.
+    MinChannelsTwo,
+    /// A leaf holding a reading that is not a real number may be suspicious and may be unknown, but
+    /// it may not be trusted.
+    ///
+    /// This is wider than it sounds. `classify` already refuses NaN, because every comparison against
+    /// NaN is false and a poisoned cell used to fall out of the bottom of that function labelled
+    /// `Trusted`. What it does *not* do is look at the readings: an aggregate can hide one.
+    /// [`Cell::recompute`] folds `risk_max` starting at `0.0`, so a leaf whose only unusual reading is
+    /// `-inf` keeps a finite maximum and a mean below the flag bar, and under [`Trust::Current`] a
+    /// leaf like that is a trusted one.
+    NonFiniteBlocksTrust,
+    /// Both of the above, because their interaction is exactly the kind of thing an experiment runs to
+    /// find out.
+    BothRules,
+}
+
+impl Trust {
+    /// Every variant, in the order a report lists them, [`Trust::Current`] first because it is the one
+    /// every other is measured against.
+    pub const ALL: [Trust; 4] = [
+        Trust::Current,
+        Trust::MinChannelsTwo,
+        Trust::NonFiniteBlocksTrust,
+        Trust::BothRules,
+    ];
+
+    /// The names a plan, a protocol file and an archive use for a variant. One name each, in both
+    /// directions — the discipline that killed the `halton` alias in `aporia_search::Strategy`.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Current => "current",
+            Self::MinChannelsTwo => "min-channels-2",
+            Self::NonFiniteBlocksTrust => "non-finite-blocks-trust",
+            Self::BothRules => "both-trust-rules",
+        }
+    }
+
+    /// Exactly the names [`Trust::name`] produces, so a refusal can never list a vocabulary the parser
+    /// has stopped accepting.
+    #[must_use]
+    pub fn names() -> [&'static str; 4] {
+        [
+            Self::Current.name(),
+            Self::MinChannelsTwo.name(),
+            Self::NonFiniteBlocksTrust.name(),
+            Self::BothRules.name(),
+        ]
+    }
+
+    /// Parse a variant name. An unknown name is `None` and every caller of this refuses it: a trust
+    /// rule that fell back to a default would silently re-measure a published experiment.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        Some(match text {
+            "current" => Self::Current,
+            "min-channels-2" => Self::MinChannelsTwo,
+            "non-finite-blocks-trust" => Self::NonFiniteBlocksTrust,
+            "both-trust-rules" => Self::BothRules,
+            _ => return None,
+        })
+    }
+
+    /// The channel floor this variant demands on top of the policy's own, or zero when it demands
+    /// none. Zero rather than one so that [`Policy::min_channels_required`] is the *stricter* of the
+    /// two numbers and never a third opinion.
+    #[must_use]
+    pub fn min_channels_floor(self) -> u32 {
+        match self {
+            Self::Current | Self::NonFiniteBlocksTrust => 0,
+            Self::MinChannelsTwo | Self::BothRules => 2,
+        }
+    }
+
+    /// Whether a non-real reading inside a leaf blocks `Trusted` under this variant.
+    #[must_use]
+    pub fn blocks_non_finite(self) -> bool {
+        matches!(self, Self::NonFiniteBlocksTrust | Self::BothRules)
+    }
+
+    /// The policy a variant names, over the default thresholds. This is the one place a name becomes a
+    /// [`Policy`]; a plan that carries a variant uses it here rather than keeping a second copy of the
+    /// numbers.
+    #[must_use]
+    pub fn policy(self) -> Policy {
+        Policy {
+            trust: self,
+            ..Policy::default()
+        }
+    }
+}
+
 /// The thresholds that decide a label, and nothing else. Held apart from the partition so an
 /// experiment can record exactly what it meant by "suspicious".
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -221,6 +339,14 @@ pub struct Policy {
     /// numbers — clears the bar on its own, because that is not an opinion about the model's
     /// behaviour but a fact against the model's own declaration.
     pub suspicious_channels: u32,
+    /// Which extra truth-blind requirement [`Policy::classify`] applies before it hands out `Trusted`.
+    ///
+    /// [`Trust::Current`] is the semantics every committed measurement in this repository was made
+    /// under, and it is not decoration around the numbers above: the variant is part of what a run
+    /// means, so it travels into the recorded configuration, into the experiment plan and its
+    /// measurement identity whenever it is not `Current`, and into the archive directory name. See
+    /// [`Trust`].
+    pub trust: Trust,
 }
 
 impl Default for Policy {
@@ -233,11 +359,31 @@ impl Default for Policy {
             max_depth: 12,
             refine_below: 0.12,
             suspicious_channels: 2,
+            trust: Trust::Current,
         }
     }
 }
 
 impl Policy {
+    /// How many distinct channels must have been applied inside a leaf for this policy to trust it:
+    /// the policy's own floor, or the trust variant's, whichever is *stricter*.
+    ///
+    /// Deliberately a maximum rather than an override. Two places could otherwise state the bar — the
+    /// field and the variant — and a caller that set `min_channels: 1` under `Trust::MinChannelsTwo`
+    /// would be measured under whichever number the code happened to read last. Under
+    /// [`Trust::Current`] the floor is zero and this returns [`Policy::min_channels`] exactly, which is
+    /// what keeps the committed measurements' bar where it was.
+    #[must_use]
+    pub fn min_channels_required(&self) -> u32 {
+        self.min_channels.max(self.trust.min_channels_floor())
+    }
+
+    /// Whether a leaf holding a reading that is not a real number may be trusted under this policy.
+    #[must_use]
+    pub fn blocks_non_finite(&self) -> bool {
+        self.trust.blocks_non_finite()
+    }
+
     /// Classify one cell from its accumulated statistics.
     #[must_use]
     pub fn classify(&self, cell: &Cell) -> Label {
@@ -267,7 +413,21 @@ impl Policy {
         if cell.samples < self.min_samples {
             return Label::Unknown;
         }
-        if cell.measured.count_ones() < self.min_channels {
+        if self.blocks_non_finite() && cell.points.iter().any(|p| !p.risk.is_finite()) {
+            // Reachable as a code path only under a variant: the branch above already catches a NaN
+            // aggregate and everything at or above the peak bar, so what is left here is a leaf whose
+            // *individual* reading left the real numbers without moving either aggregate. A `-inf`
+            // risk is that case — [`Cell::recompute`] folds the maximum from `0.0`, so it does not
+            // lower `risk_max`, and a mean below the bar keeps the cell unflagged.
+            //
+            // Whether any campaign ever produces such a reading is a measurement and not a fact of this
+            // function: `aporia_evidence::fuse` clamps its score into `[0, 1]`, so a search built on
+            // fused scores has no non-real risk to record. E1.3b counts non-finite readings per row for
+            // exactly that reason — a variant that never fires is reported as never firing, not as a
+            // rule that made the instrument safer.
+            return Label::Unknown;
+        }
+        if cell.measured.count_ones() < self.min_channels_required() {
             return Label::Unknown;
         }
         Label::Trusted
@@ -1385,5 +1545,249 @@ mod tests {
             measured: 0,
             points: Vec::new(),
         }
+    }
+
+    /// Cells whose label every variant has to be able to state: the clean case, the under-sampled
+    /// case, the one-channel-silence case, the corroboration case, and the two ways a reading can
+    /// leave the real numbers without tripping the flag bar.
+    fn a_table() -> Vec<Cell> {
+        let quiet = || {
+            let mut c = a_cell(vec![[0.0, 1.0]]);
+            c.samples = 8;
+            c.measured = 0b11111;
+            c.channels = 0;
+            c.risk_sum = 8.0 * 0.01;
+            c.risk_max = 0.01;
+            c.points = (0..8)
+                .map(|i| Point {
+                    observation: i,
+                    x: vec![0.1 * (f64::from(i as u32) + 1.0)],
+                    risk: 0.01,
+                    channels: 0b10,
+                    measured: 0b11111,
+                    fact: false,
+                })
+                .collect();
+            c.recompute();
+            c.label = Label::Unknown;
+            c
+        };
+        let mut one_channel = quiet();
+        for p in &mut one_channel.points {
+            p.measured = 0b00010;
+        }
+        one_channel.recompute();
+        let mut under_sampled = quiet();
+        under_sampled.points.truncate(3);
+        under_sampled.recompute();
+        let mut negative_infinity = quiet();
+        negative_infinity.points.push(Point {
+            observation: 99,
+            x: vec![0.5],
+            risk: f64::NEG_INFINITY,
+            channels: 0b10,
+            measured: 0b11111,
+            fact: false,
+        });
+        negative_infinity.recompute();
+        let mut poisoned = quiet();
+        poisoned.points.push(Point {
+            observation: 98,
+            x: vec![0.6],
+            risk: f64::NAN,
+            channels: 0b10,
+            measured: 0b11111,
+            fact: false,
+        });
+        poisoned.recompute();
+        let mut loud = quiet();
+        loud.points.push(Point {
+            observation: 97,
+            x: vec![0.7],
+            risk: 0.95,
+            channels: 0b10010,
+            measured: 0b11111,
+            fact: false,
+        });
+        loud.recompute();
+        vec![
+            quiet(),
+            one_channel,
+            under_sampled,
+            negative_infinity,
+            poisoned,
+            loud,
+        ]
+    }
+
+    #[test]
+    fn the_current_variant_is_the_committed_rule_and_not_a_restatement_of_it() {
+        // The requirement E1.3b puts on this enum: naming today's rule must reproduce today's
+        // numbers. Every cell in the table is classified twice — once by the plain default policy, as
+        // it has been since before the variant existed, and once by `Trust::Current` through the new
+        // path — and a difference is a changed measurement wearing an old name.
+        let before = Policy {
+            trust: Trust::Current,
+            ..Policy::default()
+        };
+        let committed = Policy::default();
+        assert_eq!(before, committed, "a default policy is the current variant");
+        for cell in a_table() {
+            assert_eq!(
+                committed.classify(&cell),
+                before.classify(&cell),
+                "the variant path moved a label under the default variant"
+            );
+        }
+        // The effective bar is the stricter of the two numbers, and under `Current` the variant adds
+        // nothing to it: `min_channels` still means exactly what it meant.
+        assert_eq!(committed.min_channels_required(), committed.min_channels);
+        assert!(!committed.blocks_non_finite());
+    }
+
+    #[test]
+    fn a_variant_names_the_two_rules_that_can_stop_a_trusted_and_nothing_else() {
+        let table = a_table();
+        let clean = &table[0];
+        assert_eq!(Policy::default().classify(clean), Label::Trusted);
+        for variant in [
+            Trust::MinChannelsTwo,
+            Trust::NonFiniteBlocksTrust,
+            Trust::BothRules,
+        ] {
+            let policy = variant.policy();
+            // A leaf measured by five channels is unaffected by the channel floor, and a leaf whose
+            // readings are all real is unaffected by the non-finite rule. Nothing here touches a
+            // suspicious cell: the variants refuse trust, they do not manufacture evidence.
+            assert_eq!(policy.classify(clean), Label::Trusted, "{variant:?}");
+            assert_eq!(policy.classify(&table[5]), Label::Suspicious);
+        }
+        // The channel rule: one sensor's silence is enough for `Current` and not for the two variants
+        // that ask for two.
+        let one = &table[1];
+        assert_eq!(one.measured.count_ones(), 1);
+        assert_eq!(Policy::default().classify(one), Label::Trusted);
+        for variant in [Trust::MinChannelsTwo, Trust::BothRules] {
+            assert_eq!(
+                variant.policy().classify(one),
+                Label::Unknown,
+                "{variant:?} should not trust a leaf one channel was applied to"
+            );
+        }
+        for variant in [Trust::Current, Trust::NonFiniteBlocksTrust] {
+            assert_eq!(variant.policy().classify(one), Label::Trusted);
+        }
+        // The non-finite rule, on the cell that is reachable rather than theoretical: a `-inf`
+        // reading leaves `risk_max` at 0.01 because the fold starts there, keeps the mean below the
+        // bar, and so was trusted — which is the mechanism 0029 named and 0038 found in the trace.
+        let negative = &table[3];
+        assert!(negative.points.iter().any(|p| !p.risk.is_finite()));
+        assert!(
+            negative.risk_max.is_finite(),
+            "this test is about a leaf whose aggregates hide the reading"
+        );
+        assert_eq!(Policy::default().classify(negative), Label::Trusted);
+        for variant in [Trust::NonFiniteBlocksTrust, Trust::BothRules] {
+            assert_eq!(
+                variant.policy().classify(negative),
+                Label::Unknown,
+                "{variant:?} should refuse to trust a leaf holding a non-real reading"
+            );
+        }
+        // A NaN is already refused by the aggregate guard, so this variant adds no second route to the
+        // same answer — stated because a reader would otherwise expect it to.
+        assert_eq!(Policy::default().classify(&table[4]), Label::Unknown);
+        assert_eq!(
+            Trust::BothRules.policy().classify(&table[4]),
+            Label::Unknown
+        );
+    }
+
+    #[test]
+    fn a_trust_variant_has_one_name_and_refuses_a_fifth() {
+        for variant in Trust::ALL {
+            assert_eq!(Trust::parse(variant.name()), Some(variant));
+        }
+        // `names()` is derived from `name()` in the enum's own order rather than written out again
+        // beside it, so a refusal can never list a vocabulary the parser has stopped accepting.
+        assert_eq!(
+            Trust::names().to_vec(),
+            Trust::ALL.iter().map(|v| v.name()).collect::<Vec<_>>()
+        );
+        // One name per variant: two variants under one word would make an arm's identity a guess.
+        let mut unique: Vec<&str> = Trust::names().to_vec();
+        unique.sort_unstable();
+        let count = unique.len();
+        unique.dedup();
+        assert_eq!(count, unique.len(), "two trust variants share a name");
+        // The names a frozen protocol uses, spelled here once so a typo in a protocol file is a
+        // refusal rather than a silently different experiment.
+        assert_eq!(Trust::parse("current"), Some(Trust::Current));
+        assert_eq!(Trust::parse("min-channels-2"), Some(Trust::MinChannelsTwo));
+        assert_eq!(
+            Trust::parse("non-finite-blocks-trust"),
+            Some(Trust::NonFiniteBlocksTrust)
+        );
+        assert_eq!(Trust::parse("both-trust-rules"), Some(Trust::BothRules));
+        for wrong in [
+            "",
+            "Current",
+            "min_channels_2",
+            "min-channels-3",
+            "nonfinite-blocks-trust",
+            "both",
+            "trust-default",
+        ] {
+            assert_eq!(
+                Trust::parse(wrong),
+                None,
+                "{wrong:?} is not in the vocabulary"
+            );
+        }
+        // Four variants, and each is a different rule except where the conjunction is defined to
+        // repeat one: two rules that each halve an over-claim are not one rule that halves it twice,
+        // so `Both` is not derivable from the other two and stays its own name.
+        assert_eq!(Trust::ALL.len(), 4);
+        assert_eq!(
+            Trust::BothRules.min_channels_floor(),
+            Trust::MinChannelsTwo.min_channels_floor()
+        );
+        assert!(Trust::BothRules.blocks_non_finite());
+    }
+
+    #[test]
+    fn a_variant_never_reads_a_region_into_the_label() {
+        // The prohibition E1.3b states as an instrument requirement: `classify` decides from cell
+        // statistics. This asserts the shape of the thing rather than its behaviour, because a
+        // `Cell` that gained a truth reference would pass every other test in this file and make the
+        // experiment measure the answer key.
+        let p = Policy::default();
+        let c = a_cell(vec![[0.0, 1.0]]);
+        let label: Label = p.classify(&c);
+        let _ = label;
+        // Every field a variant can consult is one the atlas maintains for its own reasons.
+        let mut cell = c.clone();
+        cell.samples = 4;
+        cell.measured = 0b1;
+        cell.risk_sum = 0.0;
+        cell.risk_max = 0.0;
+        assert_eq!(
+            p.classify(&cell),
+            Label::Trusted,
+            "4 samples, 1 channel, quiet"
+        );
+        cell.points = vec![Point {
+            observation: 0,
+            x: vec![0.5],
+            risk: 0.0,
+            channels: 0,
+            measured: 0b1,
+            fact: false,
+        }];
+        assert_eq!(
+            p.classify(&cell),
+            Label::Trusted,
+            "a point with no evidence in it does not change the answer"
+        );
     }
 }
