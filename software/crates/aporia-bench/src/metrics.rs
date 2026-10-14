@@ -268,6 +268,13 @@ pub struct Outcome {
     /// Evidence that reached no cell can support no label, so 0029 pinned this at zero for a
     /// `Choices` axis and E1.2 reports it per sweep rather than assuming it.
     pub unplaced: u64,
+    /// Readings inside the finished partition's leaves whose risk is not a real number, from the atlas
+    /// itself. E1.3b's frozen protocol asks for this per row because the `non-finite-blocks-trust`
+    /// variant acts on exactly these readings: if it refuses trust in a row that holds none, something
+    /// other than the rule the variant names did it — and if no row ever holds one, the honest report is
+    /// that the rule cannot fire on this corpus, not that it made the instrument safer. Counted, not
+    /// assumed, because `aporia_evidence::fuse` clamps a score into `[0, 1]`.
+    pub non_finite_readings: u64,
     /// Fraction of the *domain* that is labelled TRUSTED and lies inside a declared region, in the
     /// same units as `suspicious_volume`. It is the mirror of `false_positive_fraction` and the
     /// safety direction: volume an instrument called trustworthy where the model's own rules fail.
@@ -415,6 +422,7 @@ impl Outcome {
             boundaries,
             census: Census::of(campaign),
             unplaced: u64::from(campaign.atlas.coverage().unplaced),
+            non_finite_readings: campaign.atlas.non_finite_readings(),
             trusted_over_true: leaves
                 .iter()
                 .filter(|c| c.label == Label::Trusted)
@@ -475,6 +483,7 @@ impl Outcome {
             ),
             ("census", self.census.to_json()),
             ("unplaced", Json::count(self.unplaced)),
+            ("non_finite_readings", Json::count(self.non_finite_readings)),
             ("trusted_over_true", Json::number(self.trusted_over_true)),
             (
                 "lattice_sensitive",

@@ -283,6 +283,7 @@ fn outcome(
         },
         counterexamples: Vec::new(),
         unplaced: 0,
+        non_finite_readings: 0,
         trusted_over_true: 0.0,
         lattice_sensitive: None,
         census,

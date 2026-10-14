@@ -115,7 +115,13 @@ impl Default for Plan {
 }
 
 impl Plan {
-    fn config(&self, strategy: Strategy, budget: u64, seed: u64) -> Config {
+    /// The campaign configuration this plan runs: the one place a plan becomes the thing that measures.
+    ///
+    /// Public because a test that wants the real ladder otherwise hand-copies these rates into a
+    /// `Config`, and a copy is a second definition of the experiment that silently drifts from the
+    /// first. A caller that wants to know what a variant does to a campaign asks *this* function, so the
+    /// answer is the one a run would have produced.
+    pub fn config(&self, strategy: Strategy, budget: u64, seed: u64) -> Config {
         Config {
             budget,
             strategy,
@@ -1410,6 +1416,13 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
         coverage.suspicious,
         coverage.trusted,
         coverage.unknown
+    );
+    let _ = writeln!(
+        out,
+        "non-finite readings in leaves {} — what {} has to work on, and the reason a label that moved \
+         under a non-finite rule was moved by it or by something else",
+        campaign.atlas.non_finite_readings(),
+        trust.name()
     );
     let _ = writeln!(
         out,

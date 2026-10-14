@@ -16,7 +16,9 @@
 //!   names none;
 //! - archives of two variants cannot land in one directory;
 //! - `compare` pairs a variant against the current rule and refuses a comparison whose reference is
-//!   itself a variant.
+//!   itself a variant;
+//! - a row counts the non-real readings its own atlas holds, which is what makes the non-finite
+//!   variant's effect attributable rather than assumed.
 
 use aporia_bench::corpus;
 use aporia_bench::e2::{Arm, compare};
@@ -760,4 +762,61 @@ fn a_variant_run_writes_the_rule_into_the_bytes_it_names_itself_with() {
         }
     }
     let _ = std::fs::remove_file(&path);
+}
+
+/// A measured row counts the readings its trust rule would act on, taken from the atlas that produced
+/// the row rather than from a constant a caller remembered to pass.
+#[test]
+fn a_row_counts_the_readings_its_trust_rule_acts_on() {
+    // E1.3b's third secondary metric is the number of non-real readings per row. It exists because
+    // `non-finite-blocks-trust` can only have moved a label in a leaf that holds one, and because
+    // `aporia_evidence::fuse` clamps its score into `[0, 1]` — so whether the rule has anything to work
+    // on is a measurement this instrument does not get to assume either way. A row that disagreed with
+    // its own partition would make the variant unattributable, which is what this checks.
+    let entry = anchor();
+    let model = entry
+        .model
+        .as_ref()
+        .expect("the anchor entry compiles to a model");
+    let plan = Plan {
+        trust: Trust::NonFiniteBlocksTrust,
+        budgets: vec![320],
+        ..Plan::default()
+    };
+    let mut campaign = aporia_search::run(model, plan.config(Strategy::Adaptive, 320, 1));
+    let row =
+        aporia_bench::metrics::Outcome::measure(&entry, &campaign, 0, Strategy::Adaptive, 320);
+    assert_eq!(
+        row.non_finite_readings,
+        campaign.atlas.non_finite_readings(),
+        "the row reports a number that is not its own atlas's"
+    );
+    let json = row.to_json();
+    assert_eq!(
+        json.get("non_finite_readings").and_then(Json::as_u64),
+        Some(row.non_finite_readings),
+        "the analysis reads the count out of the row, so the row has to carry it"
+    );
+    // Poison one reading in one leaf and the next row says one more. This is the half that a field
+    // hard-wired to zero would pass, which is why the count is taken from the partition instead.
+    let leaf = campaign
+        .atlas
+        .leaf_ids()
+        .iter()
+        .copied()
+        .find(|id| {
+            campaign
+                .atlas
+                .cell(*id)
+                .is_some_and(|c| !c.points.is_empty())
+        })
+        .expect("a finished campaign leaves evidence in some leaf");
+    campaign.atlas.cells[leaf as usize].points[0].risk = f64::NEG_INFINITY;
+    let after =
+        aporia_bench::metrics::Outcome::measure(&entry, &campaign, 0, Strategy::Adaptive, 320);
+    assert_eq!(
+        after.non_finite_readings,
+        row.non_finite_readings + 1,
+        "one reading left the real numbers and the row did not notice"
+    );
 }
