@@ -1,0 +1,173 @@
+{
+  "schema": "aporia.reproduction-gate/1",
+  "generated_by": "software/scripts/e13b_repro_gate.py",
+  "purpose": "E1.3b's frozen reproduction gate: the trust refactor must relabel nothing that was already measured, because the experiment's reference arm is the rule that produced these files.",
+  "binary": {
+    "path": "software/.scratch/e1x-bin/aporia-bench.exe",
+    "sha256": "c6b8010b73c607d9fec45c5b118db14577737fe707a571f2d910299612c79695",
+    "built_from_commit": "ff12271"
+  },
+  "protocol": "benchmarks/protocols/e1-geometry.json",
+  "namespaces": {
+    "results": "software/.scratch/e13b-repro-results",
+    "archives": "software/.scratch/e13b-repro-archives",
+    "why": "a replay is not a second measurement, and the committed identity is already taken by the file this gate is checked against"
+  },
+  "compared": [
+    "identity",
+    "plan section",
+    "entries and their truth digests",
+    "protocol block (id, arm, digest)",
+    "environment",
+    "refused entries",
+    "cross-arm comparison block",
+    "every sweep's summary fields",
+    "every row's every declared field"
+  ],
+  "excluded": {
+    "row_fields": [
+      "wall_ms"
+    ],
+    "reason": "wall-clock is a property of the machine that ran, declared non-identity in the frozen protocol before any of this was measured",
+    "added_by_this_build": {
+      "top_level": [
+        "reachability",
+        "trust"
+      ],
+      "row": [
+        "non_finite_readings"
+      ],
+      "note": "outside the measurement identity; any other added or missing key is a problem and this gate would have stopped"
+    }
+  },
+  "arms": [
+    {
+      "arm": "no-physical",
+      "document": "results-022bde383614.json",
+      "identity": "022bde383614",
+      "identity_replayed": "022bde383614",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 1044,
+      "wall_ms_replayed": 911,
+      "verdict": "identical"
+    },
+    {
+      "arm": "only-physical",
+      "document": "results-03a200e9e593.json",
+      "identity": "03a200e9e593",
+      "identity_replayed": "03a200e9e593",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 1033,
+      "wall_ms_replayed": 928,
+      "verdict": "identical"
+    },
+    {
+      "arm": "full",
+      "document": "results-0704da190c01.json",
+      "identity": "0704da190c01",
+      "identity_replayed": "0704da190c01",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 1089,
+      "wall_ms_replayed": 1141,
+      "verdict": "identical"
+    },
+    {
+      "arm": "no-differential",
+      "document": "results-085c328014c2.json",
+      "identity": "085c328014c2",
+      "identity_replayed": "085c328014c2",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 1046,
+      "wall_ms_replayed": 1063,
+      "verdict": "identical"
+    },
+    {
+      "arm": "no-behavioral",
+      "document": "results-3d9a9266bb80.json",
+      "identity": "3d9a9266bb80",
+      "identity_replayed": "3d9a9266bb80",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 1102,
+      "wall_ms_replayed": 1128,
+      "verdict": "identical"
+    },
+    {
+      "arm": "no-numerical",
+      "document": "results-77df45107e71.json",
+      "identity": "77df45107e71",
+      "identity_replayed": "77df45107e71",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 972,
+      "wall_ms_replayed": 1229,
+      "verdict": "identical"
+    },
+    {
+      "arm": "no-sensitivity",
+      "document": "results-80a82d173196.json",
+      "identity": "80a82d173196",
+      "identity_replayed": "80a82d173196",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 1032,
+      "wall_ms_replayed": 1140,
+      "verdict": "identical"
+    },
+    {
+      "arm": "only-numerical",
+      "document": "results-c6842681d33d.json",
+      "identity": "c6842681d33d",
+      "identity_replayed": "c6842681d33d",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 856,
+      "wall_ms_replayed": 1263,
+      "verdict": "identical"
+    },
+    {
+      "arm": "only-behavioral",
+      "document": "results-e29495fd5b53.json",
+      "identity": "e29495fd5b53",
+      "identity_replayed": "e29495fd5b53",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 775,
+      "wall_ms_replayed": 869,
+      "verdict": "identical"
+    },
+    {
+      "arm": "only-sensitivity",
+      "document": "results-e78b3bbfc421.json",
+      "identity": "e78b3bbfc421",
+      "identity_replayed": "e78b3bbfc421",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 943,
+      "wall_ms_replayed": 814,
+      "verdict": "identical"
+    },
+    {
+      "arm": "only-differential",
+      "document": "results-e921e2cf0d56.json",
+      "identity": "e921e2cf0d56",
+      "identity_replayed": "e921e2cf0d56",
+      "sweeps": 75,
+      "rows": 225,
+      "wall_ms_committed": 827,
+      "wall_ms_replayed": 865,
+      "verdict": "identical"
+    }
+  ],
+  "totals": {
+    "arms": 11,
+    "rows_compared": 2475,
+    "problems": 0
+  },
+  "problems": [],
+  "verdict": "PASSED"
+}
