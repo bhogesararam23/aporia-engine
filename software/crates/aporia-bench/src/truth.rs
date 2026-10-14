@@ -31,7 +31,15 @@ pub const LATTICE_PER_AXIS: usize = 32;
 pub const LATTICE_SENSITIVITY_PER_AXIS: usize = 64;
 
 /// The truth schemas a reader of this build understands.
-pub const TRUTH_SCHEMAS: [&str; 2] = ["aporia.truth/1", "aporia.truth/2"];
+///
+/// `aporia.truth/3` adds the record an E1.3b entry has to carry: what the model computes, what each
+/// declared variable *is* (its unit and its span, so the audit can compare them against the model
+/// rather than against prose), the failure mechanism as a key the corpus can test for uniqueness, the
+/// channels the entry expects to speak, an explicit resolvability claim the instrument checks against
+/// its own arithmetic, and where the truth came from. None of it changes a measure: the regions, the
+/// predicates and the lattice are `/2`'s, unchanged, which is why `/2` files stay readable and their
+/// digests stay put.
+pub const TRUTH_SCHEMAS: [&str; 3] = ["aporia.truth/1", "aporia.truth/2", "aporia.truth/3"];
 
 /// One axis interval of a declared region, in parameter-name space.
 #[derive(Clone, Debug, PartialEq)]
@@ -269,6 +277,22 @@ pub struct ChoiceClaim {
     pub expect: String,
 }
 
+/// One declared parameter of the model, as the entry describes it.
+///
+/// The `unit` is in the IR's own canonical form — `m`, `m/s^2`, `1` for a dimensionless quantity — so
+/// the audit can compare it against what the model actually declares with the parser that produced it
+/// ([`aporia_ir::Dimension::parse_canonical`]) instead of against a second vocabulary of units invented
+/// here. `lo` and `hi` are the declared span, checked the same way against the model's domain: a truth
+/// file that describes a different model than the one beside it is a claim about nothing.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Variable {
+    pub name: String,
+    pub unit: String,
+    pub role: String,
+    pub lo: f64,
+    pub hi: f64,
+}
+
 /// A boundary the entry claims, with the tolerance the metric is allowed.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Boundary {
@@ -311,12 +335,179 @@ pub struct Truth {
     /// reader refuses the other way round, so a curved region can never be silently measured as the
     /// box around it — which would widen the region and flatter every metric that reads it.
     pub schema: String,
+    /// What the model computes, in the entry's own words. `aporia.truth/3` only.
+    pub meaning: String,
+    /// Every declared parameter, with the unit and span the entry says it has. The audit insists that
+    /// this list is exactly the model's own parameter list, which is what makes it a check rather than
+    /// a caption: an entry that describes a different model than the one it points at measures nothing.
+    /// `aporia.truth/3` only.
+    pub variables: Vec<Variable>,
+    /// The failure mechanism as a key. Two entries with one mechanism are one case counted twice, and
+    /// the audit compares this string across the corpus — which is why it is a field and not a phrase
+    /// buried in `derivation`, where no comparison could reach it. `aporia.truth/3` only.
+    pub mechanism: String,
+    /// Which evidence channels the entry expects to have something to say about its region. Recorded
+    /// before the run, so an arm that goes quiet on a channel this entry named is a finding and not a
+    /// surprise. `aporia.truth/3` only.
+    pub channels: Vec<String>,
+    /// The author's claim about whether the atlas can enclose this entry's regions at all. Checked
+    /// against the instrument's own reachability arithmetic, not against the prose beside it: an entry
+    /// that claims to be resolvable and is not is refused before it is run, and an entry that states no
+    /// claim cannot be in the resolvable set. `aporia.truth/3` only.
+    pub resolvable: Option<bool>,
+    /// The resolvability calculation, in numbers a reader can reproduce: the leaf width the depth cap
+    /// permits, the region's own width, and how many leaves fit across it. `aporia.truth/3` only.
+    pub resolvability: String,
+    /// Where the truth came from that is not this instrument. A closed form, a standard, an identity —
+    /// never a run's output, which is the defect 0037's correction C8 was written to keep out of the
+    /// corpus and which `/3` makes a field the audit can actually look at. `aporia.truth/3` only.
+    pub source: String,
+    /// Why this entry belongs to E1.3b rather than to the experiment that ran before it. `aporia.truth/3`
+    /// only.
+    pub why: String,
+}
+
+/// The fields only `aporia.truth/3` defines. Named once so the refusal and the reader cannot disagree
+/// about which fields belong to which schema.
+const TRUTH3_FIELDS: [&str; 8] = [
+    "meaning",
+    "variables",
+    "mechanism",
+    "channels",
+    "resolvable",
+    "resolvability",
+    "source",
+    "why",
+];
+
+/// Refuse a file that states the `/3` record under an older schema.
+///
+/// The reason is the same one that makes a `where` a refused field under `/1`: a reader that drops a
+/// claim silently is a reader that measured a different entry than the file describes. Here the dropped
+/// claim would be the entry's own resolvability, which is the field E1.3b's deciding universe is built
+/// from, so an ignored `resolvable` would put an entry in a set it never claimed to be in.
+fn refuse_outside_schema(value: &Json, schema: &str, v3: bool) -> Result<(), String> {
+    if v3 {
+        return Ok(());
+    }
+    for key in TRUTH3_FIELDS {
+        if value.get(key).is_some() {
+            return Err(format!(
+                "{schema} files may not state {key:?}: only aporia.truth/3 defines what it means,                  and a reader that ignored it would measure an entry with no resolvability claim"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The boundaries a file claims, with the tolerance the metric is allowed.
+///
+/// A malformed boundary row is dropped rather than refused, as it always has been: `at` and `tolerance`
+/// are checked by name by the corpus audit, which is where an unusable boundary becomes a refusal with a
+/// message a reader can act on.
+#[must_use]
+fn read_boundaries(value: &Json) -> Vec<Boundary> {
+    value
+        .get("boundaries")
+        .and_then(Json::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    Some(Boundary {
+                        axis: item.get("axis")?.as_str()?.to_string(),
+                        at: item.get("at")?.as_f64()?,
+                        tolerance: item.get("tolerance")?.as_f64()?,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Per-value claims about discrete axes, exactly as `/2` introduced them.
+#[must_use]
+fn read_choice_claims(value: &Json) -> Vec<ChoiceClaim> {
+    value
+        .get("choice_claims")
+        .and_then(Json::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let axis = item.get("axis")?.as_str()?.to_string();
+                    let value_at = item.get("value")?.as_f64()?;
+                    let expect = item.get("expect")?.as_str()?.to_string();
+                    Some(ChoiceClaim {
+                        axis,
+                        value: value_at,
+                        expect,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Every declared variable, read strictly: a name, a unit in the IR's canonical form, a role, and a
+/// finite span. A half-stated variable is refused here rather than compared against the model later,
+/// because a missing field would be found "equal" to whatever the comparison defaulted to.
+fn read_variables(value: &Json) -> Result<Vec<Variable>, String> {
+    let items = value
+        .get("variables")
+        .and_then(Json::as_array)
+        .ok_or_else(|| "truth: variables is missing".to_string())?;
+    let mut out = Vec::new();
+    for (at, item) in items.iter().enumerate() {
+        let number = |k: &str| -> Result<f64, String> {
+            item.get(k)
+                .and_then(Json::as_f64)
+                .ok_or_else(|| format!("truth: variable {at} has no {k}"))
+        };
+        let name = item
+            .get("name")
+            .and_then(Json::as_str)
+            .ok_or_else(|| format!("truth: variable {at} has no name"))?
+            .to_string();
+        let lo = number("lo")?;
+        let hi = number("hi")?;
+        if !lo.is_finite() || !hi.is_finite() {
+            return Err(format!(
+                "truth: variable {name:?} declares a non-finite span [{lo}, {hi}]"
+            ));
+        }
+        let unit = item
+            .get("unit")
+            .and_then(Json::as_str)
+            .ok_or_else(|| format!("truth: variable {name:?} declares no unit in canonical form"))?
+            .to_string();
+        let role = item
+            .get("role")
+            .and_then(Json::as_str)
+            .ok_or_else(|| format!("truth: variable {name:?} declares no role"))?
+            .to_string();
+        out.push(Variable {
+            name,
+            unit,
+            role,
+            lo,
+            hi,
+        });
+    }
+    Ok(out)
 }
 
 impl Truth {
     /// Read a `truth.json`. An unknown schema is refused; unknown flag fields are ignored, so a newer
     /// corpus file can still be measured by an older harness — but a file that uses a `where` cannot,
     /// because an older reader would drop the predicate and measure its envelope instead.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one document read in one function: the fields of a truth file are the shape of the \
+                  corpus's claim, and splitting the rest of them into helpers that each return a piece \
+                  would put the requirement that a schema permits a field somewhere other than where \
+                  the field is read"
+    )]
     pub fn from_json(value: &Json) -> Result<Self, String> {
         let schema = value
             .get("schema")
@@ -326,7 +517,29 @@ impl Truth {
         if !TRUTH_SCHEMAS.contains(&schema.as_str()) {
             return Err(format!("unrecognised truth schema {schema:?}"));
         }
-        let v2 = schema == TRUTH_SCHEMAS[1];
+        // `/3` is `/2` plus the record an E1.3b entry carries, so every `/2` feature is available to it
+        // and nothing about a region's shape or measure changed on the way up.
+        let v2 = schema != TRUTH_SCHEMAS[0];
+        let v3 = schema == TRUTH_SCHEMAS[2];
+        // The `/3` fields are refused under an older schema rather than ignored, and read in full under
+        // it: see [`refuse_outside_schema`] for why dropping one silently would be the worse failure.
+        refuse_outside_schema(value, &schema, v3)?;
+        let text = |k: &str| -> String {
+            if v3 {
+                value
+                    .get(k)
+                    .and_then(Json::as_str)
+                    .unwrap_or_default()
+                    .to_string()
+            } else {
+                String::new()
+            }
+        };
+        let variables = if v3 {
+            read_variables(value)?
+        } else {
+            Vec::new()
+        };
         let flag = |k: &str| value.get(k).and_then(Json::as_bool).unwrap_or(false);
         let mut regions = Vec::new();
         if let Some(items) = value.get("regions").and_then(Json::as_array) {
@@ -334,22 +547,7 @@ impl Truth {
                 regions.push(read_region(at, item, v2)?);
             }
         }
-        let boundaries = value
-            .get("boundaries")
-            .and_then(Json::as_array)
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|item| {
-                        Some(Boundary {
-                            axis: item.get("axis")?.as_str()?.to_string(),
-                            at: item.get("at")?.as_f64()?,
-                            tolerance: item.get("tolerance")?.as_f64()?,
-                        })
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
+        let boundaries = read_boundaries(value);
         Ok(Self {
             method: value
                 .get("method")
@@ -387,28 +585,36 @@ impl Truth {
                 None
             },
             choice_claims: if v2 {
+                read_choice_claims(value)
+            } else {
+                Vec::new()
+            },
+            meaning: text("meaning"),
+            variables,
+            mechanism: text("mechanism"),
+            channels: if v3 {
                 value
-                    .get("choice_claims")
+                    .get("channels")
                     .and_then(Json::as_array)
                     .map(|items| {
                         items
                             .iter()
-                            .filter_map(|item| {
-                                let axis = item.get("axis")?.as_str()?.to_string();
-                                let value_at = item.get("value")?.as_f64()?;
-                                let expect = item.get("expect")?.as_str()?.to_string();
-                                Some(ChoiceClaim {
-                                    axis,
-                                    value: value_at,
-                                    expect,
-                                })
-                            })
+                            .filter_map(Json::as_str)
+                            .map(str::to_string)
                             .collect()
                     })
                     .unwrap_or_default()
             } else {
                 Vec::new()
             },
+            resolvable: if v3 {
+                value.get("resolvable").and_then(Json::as_bool)
+            } else {
+                None
+            },
+            resolvability: text("resolvability"),
+            source: text("source"),
+            why: text("why"),
             schema,
         })
     }

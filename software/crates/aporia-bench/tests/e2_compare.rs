@@ -216,6 +216,16 @@ fn entry(name: &str, control: bool, boundaries: usize) -> corpus::Entry {
             curved: false,
             degenerate: false,
             expects: String::new(),
+            // A `/1` truth states none of the `/3` record, and this builder is `/1`: the fields are
+            // empty because the schema they belong to is not the one being read.
+            meaning: String::new(),
+            variables: Vec::new(),
+            mechanism: String::new(),
+            channels: Vec::new(),
+            resolvable: None,
+            resolvability: String::new(),
+            source: String::new(),
+            why: String::new(),
         },
     }
 }
