@@ -4,9 +4,10 @@ This directory holds the output of `aporia-bench run`, and this file explains wh
 including where they say the method does not work, and where an earlier version of this file said
 something the data does not support.
 
-Thirty-seven files are committed. The E1 ladder below is retained as the strategy comparison, E2 as
-the evidence ablation that tests H1, and the latest measurement — the eleven `e1-geometry` documents —
-is the same ablation run against a corpus whose regions are not axis-aligned.
+Forty-five files are committed. The E1 ladder below is retained as the strategy comparison, E2 as the
+evidence ablation that tests H1, the eleven `e1-geometry` documents as the same ablation run against a
+corpus whose regions are not axis-aligned, and the eight `e1-3b-trust-resolution` documents as the first
+experiment whose second axis is the rule that decides when a leaf may be called trusted.
 
 | file | what it is |
 |---|---|
@@ -47,6 +48,14 @@ is the same ablation run against a corpus whose regions are not axis-aligned.
 | `results-c6842681d33d.json` | E1 only-Numerical, identity `c6842681d33d` |
 | `results-e921e2cf0d56.json` | E1 only-Differential, identity `e921e2cf0d56` |
 | `results-e78b3bbfc421.json` | E1 only-Sensitivity, identity `e78b3bbfc421` |
+| `results-57df85b26d89.json` | E1.3b `full-current-trust`: the reference arm, today's trust rule, identity `57df85b26d89` |
+| `results-b27144fd2b06.json` | E1.3b `full-min-channels-2`, identity `b27144fd2b06` |
+| `results-5b2cb430341d.json` | E1.3b `full-nonfinite-blocks-trust`, identity `5b2cb430341d` |
+| `results-92b377030d57.json` | E1.3b `full-both-trust-rules`, identity `92b377030d57` |
+| `results-0926754f96d3.json` | E1.3b `no-physical-current-trust`, identity `0926754f96d3` |
+| `results-0b9c90d6963d.json` | E1.3b `no-physical-both-trust-rules`, identity `0b9c90d6963d` |
+| `results-3cf4f9cc3d2d.json` | E1.3b `only-physical-current-trust`, identity `3cf4f9cc3d2d` |
+| `results-ecc765727d4b.json` | E1.3b `only-physical-both-trust-rules`, identity `ecc765727d4b` |
 
 Every `plan` block now records the rates that cost evaluations (`probe_every`, `numerical_every`,
 `differential_every`, `symmetric_every`, `refine_every`, `calibrate_every`): a measurement whose
@@ -704,6 +713,122 @@ entries, none exceeds three parameters, and three of the nine new region-bearing
 localised by any arm, so the experiment's ability to detect a fusion effect on the hardest geometry is
 itself in question. A next corpus has to make a curved narrow band *reachable*, or the geometry question
 stays untested rather than answered.
+
+## E1.3b: what a truth-blind trust rule bought, and what it was paid for
+
+E1.3's safety condition failed on two entries whose declared regions no leaf the atlas is permitted to
+build could be half inside — 0038 established that, and it made the condition unanswerable rather than
+false. E1.3b is the experiment that can answer it: the same instrument, a corpus chosen so its regions
+*are* reachable, and a second axis beside the channel mask — the rule that decides when a leaf may be
+called trusted. The protocol is `benchmarks/protocols/e1-3b-trust-resolution.json`, frozen 2026-10-09,
+promoted with its corpus in `d89142b`; all eight documents below cite its bytes as digest
+`ea5b9d7140131dc9`, and `scripts/e13b-run.sh` passed no flag that shapes what is measured.
+
+**What was true before any variant was read.** The reproduction gate re-measured all eleven committed
+E1.x arms — 2475 rows — and got back the same identity and the same value in every field those documents
+declare, `wall_ms` except. The replay writes three fields those files predate: the top-level `trust`
+mirror, the top-level `reachability` section, and each row's `non_finite_readings`. All three are outside
+the measurement identity, and the gate refuses any *other* added or missing key rather than leaving the
+allowance open (`benchmarks/analysis/e1-3b-reproduction-gate.json`). The pilot then ran this protocol's own
+arms into scratch namespaces and checked four properties rather than a hypothesis: one arm twice writes
+4480 identical row fields; a variant writes a different identity into directories carrying
+`-trust-min-channels-2` and leaves the reference arm's 530 archive files byte-identical; all 160 (entry,
+seed, budget) pairs charge the same `evaluations` and `instruction_steps` under both rules; and every
+replayed archive matched all of its records. The binary was `1fe2d45f…`, built from `93ad7c2` — its tree
+differed only in two files' line endings, with no content difference — and `bench audit` and
+`bench verify --grid 41` were both green with it before the first arm started.
+
+**The deciding quantity, on the resolvable set, per arm.** One hundred rows per arm: the five `granular`
+entries × five seeds × the 320/640/1280/2560 ladder. `over` is rows with `trusted_over_true` strictly
+positive; `largest` is that volume as a fraction of the domain, and `of the region` the same number over
+the entry's declared share of its domain; `unk` and `trs` are mean UNKNOWN and TRUSTED volume; `loc` is
+summed localisations; the last two columns are differences against the *same mask* under the rule already
+in force.
+
+| arm | rule | over | largest | of the region | unk | trs | loc | Δover | Δunk |
+|---|---|---|---|---|---|---|---|---|---|
+| full | current | 9 | 0.001465 | 0.0039 | 0.1783 | 0.4606 | 100 | — | — |
+| full | min-channels-2 | 11 | 0.001465 | 0.0039 | 0.2083 | 0.4331 | 100 | +2 | +0.0301 |
+| full | non-finite-blocks | 9 | 0.001465 | 0.0039 | 0.1783 | 0.4606 | 100 | 0 | 0.0000 |
+| full | both | 11 | 0.001465 | 0.0039 | 0.2083 | 0.4331 | 100 | +2 | +0.0301 |
+| −Physical | current | 73 | 0.666667 | 1.0000 | 0.3857 | 0.6117 | 7 | — | — |
+| −Physical | both | 73 | 0.666667 | 1.0000 | 0.3929 | 0.6046 | 7 | 0 | +0.0071 |
+| only-Physical | current | 9 | 0.001465 | 0.0039 | 0.1092 | 0.5303 | 100 | — | — |
+| only-Physical | both | 0 | 0.000000 | 0.0000 | 0.6313 | 0.0000 | 100 | −9 | **+0.5221** |
+
+**Decision rule 3 fired, for one arm, and it fired exactly as the freeze framed it.** Over-claim reaches
+zero on the resolvable set only under `only-physical-both-trust-rules`, and there mean UNKNOWN rises by
+0.5221 of the domain per row — ten times the 0.05 ceiling fixed before the corpus existed — while mean
+TRUSTED volume goes to exactly zero. So H-SILENCE is supported and H-RESOLVE is not: that arm stopped
+*claiming*, it did not stop being wrong, and it stopped claiming because a two-channel bar is
+unsatisfiable on an instrument with one channel applied — `aporia-search` clears a silenced channel from a
+point's `measured` mask, so under only-Physical the applied count cannot reach two and no leaf can be
+trusted at any budget. Rule 2, which would have made a variant a safety improvement, is satisfied by no
+arm.
+
+**What the rules did where they were meant to be tested.** On the full instrument, requiring a second
+applied channel before a leaf may be trusted made the over-claim count *larger*: 9 rows became 11, because
+three rows gained certified volume inside their region and one lost it. Mean UNKNOWN rose 0.0301 and mean
+TRUSTED fell 0.0276, while localisation did not move at all — 100 of 100 rows under every rule on that
+mask, so nothing here shows a trust rule destroying useful localisation. The non-finite variant is
+indistinguishable from the rule already in force, row for row, on every arm that ran it, and the reason is
+in a column rather than an interpretation: `non_finite_readings` is zero on all 1280 rows of this run and
+on all 2475 rows of the reproduction gate, because `aporia_evidence::fuse` clamps a score into `[0, 1]`. A
+rule with nothing to act on acted on nothing, which is what the freeze asked be measured instead of
+assumed.
+
+**Where over-claim actually lives on this corpus.** Nine rows in a hundred under the full instrument:
+eight on `granular/stroke_reference`, one on `granular/diagonal_count`, none at 320 or 640 evaluations —
+the volume appears only at the top of the ladder, where refinement has had budget enough to put a trusted
+leaf across a boundary. The largest is 0.001465 of its domain, which is 0.39% of the region that entry
+declares. Remove Physical and it is a different phenomenon: 73 of 100 rows, 0.6667 of the domain on the
+worst of them — the whole of `granular/rail_ceiling`'s declared region certified as trusted — and
+localisation down to 7 of 100. That is E2's and E1.x's finding about Physical restated in the safety
+direction, and the trust rules changed nothing about it: 73 rows before the conjunction and 73 after.
+
+**The freeze's fourth quantity was not measurable, and is reported as not measured.** Control
+cleanliness — suspicious volume on the controls, and controls trusted more by an arm that was told less —
+has no rows here, because none of the eight entries in `entries.run` is marked `control`. The corpus was
+built from the resolvable set and the reachability control, and that omission is the freeze's own, written
+before the entries existed. A stand-in would have been a second metric chosen after the run, which is the
+error 0038 was written to catch, so the artefact records the gap rather than filling it.
+
+**The reachability control held, with one correction to what the freeze expected.** On the three
+sub-granular entries, reported and never deciding: 60 rows per arm, localised 0, detected 40 — suspicion
+without a leaf that could ever be half inside the region, exactly as E1.3 left it. The freeze expected all
+three to over-claim under every variant and said that if they did not, 0038's account would itself be the
+finding. Under the current rule 18 of those 60 rows carry certified volume: `geometry/narrow_oblique` on
+17, `edge/overflow_tail` on 1 at 2.5·10⁻⁶, and `edge/pole_at_edge` on none. Reading E1.x's eleven committed
+arms for those two entries reproduces its 87 failing rows exactly and shows where they were:
+`pole_at_edge` over-claims only in arms that thin the evidence (−Physical 6, only-Behavioral 15,
+only-Numerical 9) and never under the full instrument, and `overflow_tail`'s 57 rows are concentrated the
+same way (only-Behavioral and only-Physical 15 each, −Sensitivity and only-Numerical 12 each) with a
+single row under full. 0038's account of why the condition could not be answered stands — a region no
+leaf can hold, certified or not by a sampling accident — but the failure was an interaction between
+thinned evidence and a hairline region, not a full instrument certifying an unreachable band.
+
+**What this does not settle.** That neither truth-blind rule reduced over-claim on a corpus chosen to be
+resolvable is not proof no rule could: the two variants this protocol named are both functions of cell
+statistics the atlas already holds, and on the full instrument the certified volume they had to work on is
+0.39% of a region at its worst, appearing only at the top of the budget ladder. The live question is the
+one the freeze's rule 4 pointed at and this run never reached: whether `TRUSTED` can carry the meaning a
+safety claim needs at all, or whether a leaf that is quiet without being trustworthy needs a label of its
+own. Three things would make the next experiment sharper, recorded as the next boundary rather than as
+defects in this one: entries marked control inside the same run list, a resolvable entry whose over-claim
+is large under the *full* instrument rather than only under −Physical, and a trust rule that a
+single-channel arm can satisfy at all.
+
+**Two defects this run found in the instrument, both reported rather than smoothed.** The first is fixed:
+`archive_name` names the entry, strategy, seed, mask and rule but not the experiment, so E1.3b's reference
+arm asked for the same three directories E1.x's committed `full` arm already fills, at a different largest
+budget. A run would have printed a warning and replaced evidence a published number is opened from, and
+nothing else in the repository could have noticed, because an archive digests its own artefacts. The runner
+now refuses before it measures (`93ad7c2`), and E1.3b's archives live in `benchmarks/archives/e1-3b` —
+ignored, as every run's are, and reproducible from the corpus plus the configuration each manifest
+records. The second is left alone and named: `trusted_over_true` prints as `-0.0` where nothing was
+certified — 160 rows in `only-physical-both-trust-rules`, and 13 rows in E1.x's committed `full` document.
+It is the sign of a clamp rather than a negative volume, equal to zero in every comparison, and changing
+the arithmetic would rewrite the bytes of published rows to change how a zero is displayed.
 
 ## The controls, and a correction to this file
 

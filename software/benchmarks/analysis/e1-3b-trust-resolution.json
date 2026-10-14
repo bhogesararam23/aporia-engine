@@ -1,0 +1,1841 @@
+{
+  "schema": "aporia.e1-3b-analysis/1",
+  "generated_by": "software/scripts/e13b_analysis.py",
+  "protocol": {
+    "id": "e1-3b-trust-resolution",
+    "digest": "ea5b9d7140131dc9",
+    "question": "E1.3 found that a leaf can be labelled TRUSTED while a declared region lies unsampled inside it, and 0038 showed that this happens because the region is thinner than any leaf the atlas is permitted to build, not because a channel was removed. Does a truth-blind tightening of the trust rule stop that, and if it does, at what cost in UNKNOWN area and in localisation?",
+    "frozen_deciding_statistic": " is (1) reaching zero on the resolvable set while (2) stays under the ceiling stated below and (3) stays within one pair of the current rule at the same budget.",
+    "thresholds": {
+      "unknown_ceiling": 0.05,
+      "localisation_tolerance": 1
+    }
+  },
+  "corpus": {
+    "resolvable": [
+      "granular/diagonal_count",
+      "granular/match_return",
+      "granular/rail_ceiling",
+      "granular/stroke_reference",
+      "granular/tolerance_stack"
+    ],
+    "sub_granular": [
+      "edge/overflow_tail",
+      "edge/pole_at_edge",
+      "geometry/narrow_oblique"
+    ],
+    "rows_per_arm_on_the_resolvable_set": 100,
+    "arms_measured": 8
+  },
+  "arms": [
+    {
+      "arm": "full-current-trust",
+      "identity": "57df85b26d89",
+      "document": "results-57df85b26d89.json",
+      "mask": [],
+      "trust_rule": "current",
+      "over_claim": {
+        "rows": 100,
+        "over_claim_rows": 9,
+        "largest_certified_domain_fraction": 0.00146484,
+        "mean_unknown_volume": 0.1782958984375,
+        "mean_unknown_volume_on_over_claim_rows": 0.119873046875,
+        "mean_trusted_volume": 0.46064208984375,
+        "mean_suspicious_volume": 0.36106201171875,
+        "localised_regions": 100,
+        "detected_regions": 100,
+        "non_finite_readings": 0
+      },
+      "per_entry": {
+        "granular/diagonal_count": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "largest": 0.00146484
+        },
+        "granular/match_return": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/rail_ceiling": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/stroke_reference": {
+          "rows": 20,
+          "over_claim_rows": 8,
+          "largest": 0.00024414
+        },
+        "granular/tolerance_stack": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        }
+      },
+      "per_seed": {
+        "1": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "localised": 20
+        },
+        "2": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "localised": 20
+        },
+        "3": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "4": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "5": {
+          "rows": 20,
+          "over_claim_rows": 3,
+          "localised": 20
+        }
+      },
+      "by_budget": {
+        "320": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "640": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "1280": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 4
+        },
+        "2560": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 5
+        }
+      },
+      "pairing": {
+        "reference_arm": "full-current-trust",
+        "over_claim_rows": 0,
+        "mean_unknown_volume_change": 0.0,
+        "mean_trusted_volume_change": 0.0,
+        "localised_regions_change": 0,
+        "detected_regions_change": 0
+      },
+      "largest_localisation_gap": 0,
+      "largest_certified_fraction_of_a_region": 0.00386066,
+      "region_relative_detail": [
+        {
+          "entry": "granular/diagonal_count",
+          "declared_share_of_domain": 0.379427,
+          "largest_certified_domain_fraction": 0.00146484,
+          "as_fraction_of_the_declared_region": 0.00386066
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "declared_share_of_domain": 0.250122,
+          "largest_certified_domain_fraction": 0.00024414,
+          "as_fraction_of_the_declared_region": 0.00097608
+        }
+      ],
+      "protocol_digest": "ea5b9d7140131dc9"
+    },
+    {
+      "arm": "full-min-channels-2",
+      "identity": "b27144fd2b06",
+      "document": "results-b27144fd2b06.json",
+      "mask": [],
+      "trust_rule": "min-channels-2",
+      "over_claim": {
+        "rows": 100,
+        "over_claim_rows": 11,
+        "largest_certified_domain_fraction": 0.00146484,
+        "mean_unknown_volume": 0.20834716796875,
+        "mean_unknown_volume_on_over_claim_rows": 0.21675248579545456,
+        "mean_trusted_volume": 0.43308349609375,
+        "mean_suspicious_volume": 0.3585693359375,
+        "localised_regions": 100,
+        "detected_regions": 100,
+        "non_finite_readings": 0
+      },
+      "per_entry": {
+        "granular/diagonal_count": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "largest": 0.00146484
+        },
+        "granular/match_return": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/rail_ceiling": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/stroke_reference": {
+          "rows": 20,
+          "over_claim_rows": 9,
+          "largest": 0.00027466
+        },
+        "granular/tolerance_stack": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "largest": 6.104e-05
+        }
+      },
+      "per_seed": {
+        "1": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "localised": 20
+        },
+        "2": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "3": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "4": {
+          "rows": 20,
+          "over_claim_rows": 3,
+          "localised": 20
+        },
+        "5": {
+          "rows": 20,
+          "over_claim_rows": 3,
+          "localised": 20
+        }
+      },
+      "by_budget": {
+        "320": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "640": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 1
+        },
+        "1280": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 4
+        },
+        "2560": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 6
+        }
+      },
+      "pairing": {
+        "reference_arm": "full-current-trust",
+        "over_claim_rows": 2,
+        "mean_unknown_volume_change": 0.030051,
+        "mean_trusted_volume_change": -0.027559,
+        "localised_regions_change": 0,
+        "detected_regions_change": 0
+      },
+      "largest_localisation_gap": 0,
+      "largest_certified_fraction_of_a_region": 0.00386066,
+      "region_relative_detail": [
+        {
+          "entry": "granular/diagonal_count",
+          "declared_share_of_domain": 0.379427,
+          "largest_certified_domain_fraction": 0.00146484,
+          "as_fraction_of_the_declared_region": 0.00386066
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "declared_share_of_domain": 0.250122,
+          "largest_certified_domain_fraction": 0.00027466,
+          "as_fraction_of_the_declared_region": 0.0010981
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "declared_share_of_domain": 0.5,
+          "largest_certified_domain_fraction": 6.104e-05,
+          "as_fraction_of_the_declared_region": 0.00012208
+        }
+      ],
+      "protocol_digest": "ea5b9d7140131dc9"
+    },
+    {
+      "arm": "full-nonfinite-blocks-trust",
+      "identity": "5b2cb430341d",
+      "document": "results-5b2cb430341d.json",
+      "mask": [],
+      "trust_rule": "non-finite-blocks-trust",
+      "over_claim": {
+        "rows": 100,
+        "over_claim_rows": 9,
+        "largest_certified_domain_fraction": 0.00146484,
+        "mean_unknown_volume": 0.1782958984375,
+        "mean_unknown_volume_on_over_claim_rows": 0.119873046875,
+        "mean_trusted_volume": 0.46064208984375,
+        "mean_suspicious_volume": 0.36106201171875,
+        "localised_regions": 100,
+        "detected_regions": 100,
+        "non_finite_readings": 0
+      },
+      "per_entry": {
+        "granular/diagonal_count": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "largest": 0.00146484
+        },
+        "granular/match_return": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/rail_ceiling": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/stroke_reference": {
+          "rows": 20,
+          "over_claim_rows": 8,
+          "largest": 0.00024414
+        },
+        "granular/tolerance_stack": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        }
+      },
+      "per_seed": {
+        "1": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "localised": 20
+        },
+        "2": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "localised": 20
+        },
+        "3": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "4": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "5": {
+          "rows": 20,
+          "over_claim_rows": 3,
+          "localised": 20
+        }
+      },
+      "by_budget": {
+        "320": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "640": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "1280": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 4
+        },
+        "2560": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 5
+        }
+      },
+      "pairing": {
+        "reference_arm": "full-current-trust",
+        "over_claim_rows": 0,
+        "mean_unknown_volume_change": 0.0,
+        "mean_trusted_volume_change": 0.0,
+        "localised_regions_change": 0,
+        "detected_regions_change": 0
+      },
+      "largest_localisation_gap": 0,
+      "largest_certified_fraction_of_a_region": 0.00386066,
+      "region_relative_detail": [
+        {
+          "entry": "granular/diagonal_count",
+          "declared_share_of_domain": 0.379427,
+          "largest_certified_domain_fraction": 0.00146484,
+          "as_fraction_of_the_declared_region": 0.00386066
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "declared_share_of_domain": 0.250122,
+          "largest_certified_domain_fraction": 0.00024414,
+          "as_fraction_of_the_declared_region": 0.00097608
+        }
+      ],
+      "protocol_digest": "ea5b9d7140131dc9"
+    },
+    {
+      "arm": "full-both-trust-rules",
+      "identity": "92b377030d57",
+      "document": "results-92b377030d57.json",
+      "mask": [],
+      "trust_rule": "both-trust-rules",
+      "over_claim": {
+        "rows": 100,
+        "over_claim_rows": 11,
+        "largest_certified_domain_fraction": 0.00146484,
+        "mean_unknown_volume": 0.20834716796875,
+        "mean_unknown_volume_on_over_claim_rows": 0.21675248579545456,
+        "mean_trusted_volume": 0.43308349609375,
+        "mean_suspicious_volume": 0.3585693359375,
+        "localised_regions": 100,
+        "detected_regions": 100,
+        "non_finite_readings": 0
+      },
+      "per_entry": {
+        "granular/diagonal_count": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "largest": 0.00146484
+        },
+        "granular/match_return": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/rail_ceiling": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/stroke_reference": {
+          "rows": 20,
+          "over_claim_rows": 9,
+          "largest": 0.00027466
+        },
+        "granular/tolerance_stack": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "largest": 6.104e-05
+        }
+      },
+      "per_seed": {
+        "1": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "localised": 20
+        },
+        "2": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "3": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "4": {
+          "rows": 20,
+          "over_claim_rows": 3,
+          "localised": 20
+        },
+        "5": {
+          "rows": 20,
+          "over_claim_rows": 3,
+          "localised": 20
+        }
+      },
+      "by_budget": {
+        "320": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "640": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 1
+        },
+        "1280": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 4
+        },
+        "2560": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 6
+        }
+      },
+      "pairing": {
+        "reference_arm": "full-current-trust",
+        "over_claim_rows": 2,
+        "mean_unknown_volume_change": 0.030051,
+        "mean_trusted_volume_change": -0.027559,
+        "localised_regions_change": 0,
+        "detected_regions_change": 0
+      },
+      "largest_localisation_gap": 0,
+      "largest_certified_fraction_of_a_region": 0.00386066,
+      "region_relative_detail": [
+        {
+          "entry": "granular/diagonal_count",
+          "declared_share_of_domain": 0.379427,
+          "largest_certified_domain_fraction": 0.00146484,
+          "as_fraction_of_the_declared_region": 0.00386066
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "declared_share_of_domain": 0.250122,
+          "largest_certified_domain_fraction": 0.00027466,
+          "as_fraction_of_the_declared_region": 0.0010981
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "declared_share_of_domain": 0.5,
+          "largest_certified_domain_fraction": 6.104e-05,
+          "as_fraction_of_the_declared_region": 0.00012208
+        }
+      ],
+      "protocol_digest": "ea5b9d7140131dc9"
+    },
+    {
+      "arm": "no-physical-current-trust",
+      "identity": "0926754f96d3",
+      "document": "results-0926754f96d3.json",
+      "mask": [
+        "physical"
+      ],
+      "trust_rule": "current",
+      "over_claim": {
+        "rows": 100,
+        "over_claim_rows": 73,
+        "largest_certified_domain_fraction": 0.66666667,
+        "mean_unknown_volume": 0.3857421875,
+        "mean_unknown_volume_on_over_claim_rows": 0.1585509417808219,
+        "mean_trusted_volume": 0.61171875,
+        "mean_suspicious_volume": 0.0025390625,
+        "localised_regions": 7,
+        "detected_regions": 7,
+        "non_finite_readings": 0
+      },
+      "per_entry": {
+        "granular/diagonal_count": {
+          "rows": 20,
+          "over_claim_rows": 14,
+          "largest": 0.37942708
+        },
+        "granular/match_return": {
+          "rows": 20,
+          "over_claim_rows": 16,
+          "largest": 0.19375
+        },
+        "granular/rail_ceiling": {
+          "rows": 20,
+          "over_claim_rows": 12,
+          "largest": 0.66666667
+        },
+        "granular/stroke_reference": {
+          "rows": 20,
+          "over_claim_rows": 11,
+          "largest": 0.1171875
+        },
+        "granular/tolerance_stack": {
+          "rows": 20,
+          "over_claim_rows": 20,
+          "largest": 0.5
+        }
+      },
+      "per_seed": {
+        "1": {
+          "rows": 20,
+          "over_claim_rows": 15,
+          "localised": 0
+        },
+        "2": {
+          "rows": 20,
+          "over_claim_rows": 17,
+          "localised": 1
+        },
+        "3": {
+          "rows": 20,
+          "over_claim_rows": 11,
+          "localised": 2
+        },
+        "4": {
+          "rows": 20,
+          "over_claim_rows": 17,
+          "localised": 2
+        },
+        "5": {
+          "rows": 20,
+          "over_claim_rows": 13,
+          "localised": 2
+        }
+      },
+      "by_budget": {
+        "320": {
+          "localised": 0,
+          "detected": 0,
+          "over_claim_rows": 17
+        },
+        "640": {
+          "localised": 0,
+          "detected": 0,
+          "over_claim_rows": 14
+        },
+        "1280": {
+          "localised": 3,
+          "detected": 3,
+          "over_claim_rows": 21
+        },
+        "2560": {
+          "localised": 4,
+          "detected": 4,
+          "over_claim_rows": 21
+        }
+      },
+      "pairing": {
+        "reference_arm": "no-physical-current-trust",
+        "over_claim_rows": 0,
+        "mean_unknown_volume_change": 0.0,
+        "mean_trusted_volume_change": 0.0,
+        "localised_regions_change": 0,
+        "detected_regions_change": 0
+      },
+      "largest_localisation_gap": 0,
+      "largest_certified_fraction_of_a_region": 1.00000021,
+      "region_relative_detail": [
+        {
+          "entry": "granular/diagonal_count",
+          "declared_share_of_domain": 0.379427,
+          "largest_certified_domain_fraction": 0.37942708,
+          "as_fraction_of_the_declared_region": 1.00000021
+        },
+        {
+          "entry": "granular/match_return",
+          "declared_share_of_domain": 0.2,
+          "largest_certified_domain_fraction": 0.19375,
+          "as_fraction_of_the_declared_region": 0.96875
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "declared_share_of_domain": 0.666667,
+          "largest_certified_domain_fraction": 0.66666667,
+          "as_fraction_of_the_declared_region": 0.99999951
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "declared_share_of_domain": 0.250122,
+          "largest_certified_domain_fraction": 0.1171875,
+          "as_fraction_of_the_declared_region": 0.46852136
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "declared_share_of_domain": 0.5,
+          "largest_certified_domain_fraction": 0.5,
+          "as_fraction_of_the_declared_region": 1.0
+        }
+      ],
+      "protocol_digest": "ea5b9d7140131dc9"
+    },
+    {
+      "arm": "no-physical-both-trust-rules",
+      "identity": "0b9c90d6963d",
+      "document": "results-0b9c90d6963d.json",
+      "mask": [
+        "physical"
+      ],
+      "trust_rule": "both-trust-rules",
+      "over_claim": {
+        "rows": 100,
+        "over_claim_rows": 73,
+        "largest_certified_domain_fraction": 0.66666667,
+        "mean_unknown_volume": 0.392890625,
+        "mean_unknown_volume_on_over_claim_rows": 0.1683433219178082,
+        "mean_trusted_volume": 0.6045703125,
+        "mean_suspicious_volume": 0.0025390625,
+        "localised_regions": 7,
+        "detected_regions": 7,
+        "non_finite_readings": 0
+      },
+      "per_entry": {
+        "granular/diagonal_count": {
+          "rows": 20,
+          "over_claim_rows": 14,
+          "largest": 0.37942708
+        },
+        "granular/match_return": {
+          "rows": 20,
+          "over_claim_rows": 16,
+          "largest": 0.19375
+        },
+        "granular/rail_ceiling": {
+          "rows": 20,
+          "over_claim_rows": 12,
+          "largest": 0.66666667
+        },
+        "granular/stroke_reference": {
+          "rows": 20,
+          "over_claim_rows": 11,
+          "largest": 0.09765625
+        },
+        "granular/tolerance_stack": {
+          "rows": 20,
+          "over_claim_rows": 20,
+          "largest": 0.5
+        }
+      },
+      "per_seed": {
+        "1": {
+          "rows": 20,
+          "over_claim_rows": 15,
+          "localised": 0
+        },
+        "2": {
+          "rows": 20,
+          "over_claim_rows": 17,
+          "localised": 1
+        },
+        "3": {
+          "rows": 20,
+          "over_claim_rows": 11,
+          "localised": 2
+        },
+        "4": {
+          "rows": 20,
+          "over_claim_rows": 17,
+          "localised": 2
+        },
+        "5": {
+          "rows": 20,
+          "over_claim_rows": 13,
+          "localised": 2
+        }
+      },
+      "by_budget": {
+        "320": {
+          "localised": 0,
+          "detected": 0,
+          "over_claim_rows": 17
+        },
+        "640": {
+          "localised": 0,
+          "detected": 0,
+          "over_claim_rows": 14
+        },
+        "1280": {
+          "localised": 3,
+          "detected": 3,
+          "over_claim_rows": 21
+        },
+        "2560": {
+          "localised": 4,
+          "detected": 4,
+          "over_claim_rows": 21
+        }
+      },
+      "pairing": {
+        "reference_arm": "no-physical-current-trust",
+        "over_claim_rows": 0,
+        "mean_unknown_volume_change": 0.007148,
+        "mean_trusted_volume_change": -0.007148,
+        "localised_regions_change": 0,
+        "detected_regions_change": 0
+      },
+      "largest_localisation_gap": 0,
+      "largest_certified_fraction_of_a_region": 1.00000021,
+      "region_relative_detail": [
+        {
+          "entry": "granular/diagonal_count",
+          "declared_share_of_domain": 0.379427,
+          "largest_certified_domain_fraction": 0.37942708,
+          "as_fraction_of_the_declared_region": 1.00000021
+        },
+        {
+          "entry": "granular/match_return",
+          "declared_share_of_domain": 0.2,
+          "largest_certified_domain_fraction": 0.19375,
+          "as_fraction_of_the_declared_region": 0.96875
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "declared_share_of_domain": 0.666667,
+          "largest_certified_domain_fraction": 0.66666667,
+          "as_fraction_of_the_declared_region": 0.99999951
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "declared_share_of_domain": 0.250122,
+          "largest_certified_domain_fraction": 0.09765625,
+          "as_fraction_of_the_declared_region": 0.39043447
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "declared_share_of_domain": 0.5,
+          "largest_certified_domain_fraction": 0.5,
+          "as_fraction_of_the_declared_region": 1.0
+        }
+      ],
+      "protocol_digest": "ea5b9d7140131dc9"
+    },
+    {
+      "arm": "only-physical-current-trust",
+      "identity": "3cf4f9cc3d2d",
+      "document": "results-3cf4f9cc3d2d.json",
+      "mask": [
+        "behavioral",
+        "numerical",
+        "differential",
+        "sensitivity"
+      ],
+      "trust_rule": "current",
+      "over_claim": {
+        "rows": 100,
+        "over_claim_rows": 9,
+        "largest_certified_domain_fraction": 0.00146484,
+        "mean_unknown_volume": 0.109248046875,
+        "mean_unknown_volume_on_over_claim_rows": 0.119873046875,
+        "mean_trusted_volume": 0.53034423828125,
+        "mean_suspicious_volume": 0.36040771484375,
+        "localised_regions": 100,
+        "detected_regions": 100,
+        "non_finite_readings": 0
+      },
+      "per_entry": {
+        "granular/diagonal_count": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "largest": 0.00146484
+        },
+        "granular/match_return": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/rail_ceiling": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/stroke_reference": {
+          "rows": 20,
+          "over_claim_rows": 8,
+          "largest": 0.00024414
+        },
+        "granular/tolerance_stack": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        }
+      },
+      "per_seed": {
+        "1": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "localised": 20
+        },
+        "2": {
+          "rows": 20,
+          "over_claim_rows": 1,
+          "localised": 20
+        },
+        "3": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "4": {
+          "rows": 20,
+          "over_claim_rows": 2,
+          "localised": 20
+        },
+        "5": {
+          "rows": 20,
+          "over_claim_rows": 3,
+          "localised": 20
+        }
+      },
+      "by_budget": {
+        "320": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "640": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "1280": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 4
+        },
+        "2560": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 5
+        }
+      },
+      "pairing": {
+        "reference_arm": "only-physical-current-trust",
+        "over_claim_rows": 0,
+        "mean_unknown_volume_change": 0.0,
+        "mean_trusted_volume_change": 0.0,
+        "localised_regions_change": 0,
+        "detected_regions_change": 0
+      },
+      "largest_localisation_gap": 0,
+      "largest_certified_fraction_of_a_region": 0.00386066,
+      "region_relative_detail": [
+        {
+          "entry": "granular/diagonal_count",
+          "declared_share_of_domain": 0.379427,
+          "largest_certified_domain_fraction": 0.00146484,
+          "as_fraction_of_the_declared_region": 0.00386066
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "declared_share_of_domain": 0.250122,
+          "largest_certified_domain_fraction": 0.00024414,
+          "as_fraction_of_the_declared_region": 0.00097608
+        }
+      ],
+      "protocol_digest": "ea5b9d7140131dc9"
+    },
+    {
+      "arm": "only-physical-both-trust-rules",
+      "identity": "ecc765727d4b",
+      "document": "results-ecc765727d4b.json",
+      "mask": [
+        "behavioral",
+        "numerical",
+        "differential",
+        "sensitivity"
+      ],
+      "trust_rule": "both-trust-rules",
+      "over_claim": {
+        "rows": 100,
+        "over_claim_rows": 0,
+        "largest_certified_domain_fraction": -0.0,
+        "mean_unknown_volume": 0.6313134765625,
+        "mean_unknown_volume_on_over_claim_rows": null,
+        "mean_trusted_volume": 0.0,
+        "mean_suspicious_volume": 0.3686865234375,
+        "localised_regions": 100,
+        "detected_regions": 100,
+        "non_finite_readings": 0
+      },
+      "per_entry": {
+        "granular/diagonal_count": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/match_return": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/rail_ceiling": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/stroke_reference": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        },
+        "granular/tolerance_stack": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "largest": 0.0
+        }
+      },
+      "per_seed": {
+        "1": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "localised": 20
+        },
+        "2": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "localised": 20
+        },
+        "3": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "localised": 20
+        },
+        "4": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "localised": 20
+        },
+        "5": {
+          "rows": 20,
+          "over_claim_rows": 0,
+          "localised": 20
+        }
+      },
+      "by_budget": {
+        "320": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "640": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "1280": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        },
+        "2560": {
+          "localised": 25,
+          "detected": 25,
+          "over_claim_rows": 0
+        }
+      },
+      "pairing": {
+        "reference_arm": "only-physical-current-trust",
+        "over_claim_rows": -9,
+        "mean_unknown_volume_change": 0.522065,
+        "mean_trusted_volume_change": -0.530344,
+        "localised_regions_change": 0,
+        "detected_regions_change": 0
+      },
+      "largest_localisation_gap": 0,
+      "largest_certified_fraction_of_a_region": 0.0,
+      "region_relative_detail": [],
+      "protocol_digest": "ea5b9d7140131dc9"
+    }
+  ],
+  "secondary": {
+    "sub_granular_set": [
+      {
+        "arm": "full-current-trust",
+        "identity": "57df85b26d89",
+        "summary": {
+          "rows": 60,
+          "over_claim_rows": 18,
+          "largest_certified_domain_fraction": 0.00150108,
+          "mean_unknown_volume": 0.25010579427083335,
+          "mean_unknown_volume_on_over_claim_rows": 0.2526041666666667,
+          "mean_trusted_volume": 0.7397989908854167,
+          "mean_suspicious_volume": 0.01009521484375,
+          "localised_regions": 0,
+          "detected_regions": 40,
+          "non_finite_readings": 0
+        },
+        "per_entry": {
+          "edge/overflow_tail": {
+            "rows": 20,
+            "over_claim_rows": 1,
+            "largest": 2.5e-06
+          },
+          "edge/pole_at_edge": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "geometry/narrow_oblique": {
+            "rows": 20,
+            "over_claim_rows": 17,
+            "largest": 0.00150108
+          }
+        },
+        "per_seed": {
+          "1": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "2": {
+            "rows": 12,
+            "over_claim_rows": 1,
+            "localised": 0
+          },
+          "3": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "4": {
+            "rows": 12,
+            "over_claim_rows": 5,
+            "localised": 0
+          },
+          "5": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          }
+        }
+      },
+      {
+        "arm": "full-min-channels-2",
+        "identity": "b27144fd2b06",
+        "summary": {
+          "rows": 60,
+          "over_claim_rows": 17,
+          "largest_certified_domain_fraction": 0.00099564,
+          "mean_unknown_volume": 0.2708943684895833,
+          "mean_unknown_volume_on_over_claim_rows": 0.2930692784926471,
+          "mean_trusted_volume": 0.7191446940104167,
+          "mean_suspicious_volume": 0.0099609375,
+          "localised_regions": 0,
+          "detected_regions": 40,
+          "non_finite_readings": 0
+        },
+        "per_entry": {
+          "edge/overflow_tail": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "edge/pole_at_edge": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "geometry/narrow_oblique": {
+            "rows": 20,
+            "over_claim_rows": 17,
+            "largest": 0.00099564
+          }
+        },
+        "per_seed": {
+          "1": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "2": {
+            "rows": 12,
+            "over_claim_rows": 1,
+            "localised": 0
+          },
+          "3": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "4": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "5": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          }
+        }
+      },
+      {
+        "arm": "full-nonfinite-blocks-trust",
+        "identity": "5b2cb430341d",
+        "summary": {
+          "rows": 60,
+          "over_claim_rows": 18,
+          "largest_certified_domain_fraction": 0.00150108,
+          "mean_unknown_volume": 0.25010579427083335,
+          "mean_unknown_volume_on_over_claim_rows": 0.2526041666666667,
+          "mean_trusted_volume": 0.7397989908854167,
+          "mean_suspicious_volume": 0.01009521484375,
+          "localised_regions": 0,
+          "detected_regions": 40,
+          "non_finite_readings": 0
+        },
+        "per_entry": {
+          "edge/overflow_tail": {
+            "rows": 20,
+            "over_claim_rows": 1,
+            "largest": 2.5e-06
+          },
+          "edge/pole_at_edge": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "geometry/narrow_oblique": {
+            "rows": 20,
+            "over_claim_rows": 17,
+            "largest": 0.00150108
+          }
+        },
+        "per_seed": {
+          "1": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "2": {
+            "rows": 12,
+            "over_claim_rows": 1,
+            "localised": 0
+          },
+          "3": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "4": {
+            "rows": 12,
+            "over_claim_rows": 5,
+            "localised": 0
+          },
+          "5": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          }
+        }
+      },
+      {
+        "arm": "full-both-trust-rules",
+        "identity": "92b377030d57",
+        "summary": {
+          "rows": 60,
+          "over_claim_rows": 17,
+          "largest_certified_domain_fraction": 0.00099564,
+          "mean_unknown_volume": 0.2708943684895833,
+          "mean_unknown_volume_on_over_claim_rows": 0.2930692784926471,
+          "mean_trusted_volume": 0.7191446940104167,
+          "mean_suspicious_volume": 0.0099609375,
+          "localised_regions": 0,
+          "detected_regions": 40,
+          "non_finite_readings": 0
+        },
+        "per_entry": {
+          "edge/overflow_tail": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "edge/pole_at_edge": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "geometry/narrow_oblique": {
+            "rows": 20,
+            "over_claim_rows": 17,
+            "largest": 0.00099564
+          }
+        },
+        "per_seed": {
+          "1": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "2": {
+            "rows": 12,
+            "over_claim_rows": 1,
+            "localised": 0
+          },
+          "3": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "4": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "5": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          }
+        }
+      },
+      {
+        "arm": "no-physical-current-trust",
+        "identity": "0926754f96d3",
+        "summary": {
+          "rows": 60,
+          "over_claim_rows": 23,
+          "largest_certified_domain_fraction": 0.00097656,
+          "mean_unknown_volume": 0.4154296875,
+          "mean_unknown_volume_on_over_claim_rows": 0.45108695652173914,
+          "mean_trusted_volume": 0.5711588541666667,
+          "mean_suspicious_volume": 0.013411458333333333,
+          "localised_regions": 0,
+          "detected_regions": 21,
+          "non_finite_readings": 0
+        },
+        "per_entry": {
+          "edge/overflow_tail": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "edge/pole_at_edge": {
+            "rows": 20,
+            "over_claim_rows": 7,
+            "largest": 1.25e-06
+          },
+          "geometry/narrow_oblique": {
+            "rows": 20,
+            "over_claim_rows": 16,
+            "largest": 0.00097656
+          }
+        },
+        "per_seed": {
+          "1": {
+            "rows": 12,
+            "over_claim_rows": 4,
+            "localised": 0
+          },
+          "2": {
+            "rows": 12,
+            "over_claim_rows": 3,
+            "localised": 0
+          },
+          "3": {
+            "rows": 12,
+            "over_claim_rows": 6,
+            "localised": 0
+          },
+          "4": {
+            "rows": 12,
+            "over_claim_rows": 7,
+            "localised": 0
+          },
+          "5": {
+            "rows": 12,
+            "over_claim_rows": 3,
+            "localised": 0
+          }
+        }
+      },
+      {
+        "arm": "no-physical-both-trust-rules",
+        "identity": "0b9c90d6963d",
+        "summary": {
+          "rows": 60,
+          "over_claim_rows": 13,
+          "largest_certified_domain_fraction": 0.00097656,
+          "mean_unknown_volume": 0.4359375,
+          "mean_unknown_volume_on_over_claim_rows": 0.4456129807692308,
+          "mean_trusted_volume": 0.5506510416666667,
+          "mean_suspicious_volume": 0.013411458333333333,
+          "localised_regions": 0,
+          "detected_regions": 21,
+          "non_finite_readings": 0
+        },
+        "per_entry": {
+          "edge/overflow_tail": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "edge/pole_at_edge": {
+            "rows": 20,
+            "over_claim_rows": 7,
+            "largest": 1.25e-06
+          },
+          "geometry/narrow_oblique": {
+            "rows": 20,
+            "over_claim_rows": 6,
+            "largest": 0.00097656
+          }
+        },
+        "per_seed": {
+          "1": {
+            "rows": 12,
+            "over_claim_rows": 2,
+            "localised": 0
+          },
+          "2": {
+            "rows": 12,
+            "over_claim_rows": 2,
+            "localised": 0
+          },
+          "3": {
+            "rows": 12,
+            "over_claim_rows": 2,
+            "localised": 0
+          },
+          "4": {
+            "rows": 12,
+            "over_claim_rows": 5,
+            "localised": 0
+          },
+          "5": {
+            "rows": 12,
+            "over_claim_rows": 2,
+            "localised": 0
+          }
+        }
+      },
+      {
+        "arm": "only-physical-current-trust",
+        "identity": "3cf4f9cc3d2d",
+        "summary": {
+          "rows": 60,
+          "over_claim_rows": 43,
+          "largest_certified_domain_fraction": 0.0234375,
+          "mean_unknown_volume": 0.02996826171875,
+          "mean_unknown_volume_on_over_claim_rows": 0.02664539425872093,
+          "mean_trusted_volume": 0.9659871419270833,
+          "mean_suspicious_volume": 0.004044596354166667,
+          "localised_regions": 0,
+          "detected_regions": 36,
+          "non_finite_readings": 0
+        },
+        "per_entry": {
+          "edge/overflow_tail": {
+            "rows": 20,
+            "over_claim_rows": 20,
+            "largest": 2.5e-06
+          },
+          "edge/pole_at_edge": {
+            "rows": 20,
+            "over_claim_rows": 3,
+            "largest": 1.25e-06
+          },
+          "geometry/narrow_oblique": {
+            "rows": 20,
+            "over_claim_rows": 20,
+            "largest": 0.0234375
+          }
+        },
+        "per_seed": {
+          "1": {
+            "rows": 12,
+            "over_claim_rows": 9,
+            "localised": 0
+          },
+          "2": {
+            "rows": 12,
+            "over_claim_rows": 9,
+            "localised": 0
+          },
+          "3": {
+            "rows": 12,
+            "over_claim_rows": 9,
+            "localised": 0
+          },
+          "4": {
+            "rows": 12,
+            "over_claim_rows": 8,
+            "localised": 0
+          },
+          "5": {
+            "rows": 12,
+            "over_claim_rows": 8,
+            "localised": 0
+          }
+        }
+      },
+      {
+        "arm": "only-physical-both-trust-rules",
+        "identity": "ecc765727d4b",
+        "summary": {
+          "rows": 60,
+          "over_claim_rows": 0,
+          "largest_certified_domain_fraction": -0.0,
+          "mean_unknown_volume": 0.9969075520833334,
+          "mean_unknown_volume_on_over_claim_rows": null,
+          "mean_trusted_volume": 0.0,
+          "mean_suspicious_volume": 0.0030924479166666665,
+          "localised_regions": 0,
+          "detected_regions": 36,
+          "non_finite_readings": 0
+        },
+        "per_entry": {
+          "edge/overflow_tail": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "edge/pole_at_edge": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          },
+          "geometry/narrow_oblique": {
+            "rows": 20,
+            "over_claim_rows": 0,
+            "largest": 0.0
+          }
+        },
+        "per_seed": {
+          "1": {
+            "rows": 12,
+            "over_claim_rows": 0,
+            "localised": 0
+          },
+          "2": {
+            "rows": 12,
+            "over_claim_rows": 0,
+            "localised": 0
+          },
+          "3": {
+            "rows": 12,
+            "over_claim_rows": 0,
+            "localised": 0
+          },
+          "4": {
+            "rows": 12,
+            "over_claim_rows": 0,
+            "localised": 0
+          },
+          "5": {
+            "rows": 12,
+            "over_claim_rows": 0,
+            "localised": 0
+          }
+        }
+      }
+    ],
+    "reachability": {
+      "full-current-trust": [
+        {
+          "entry": "geometry/narrow_oblique",
+          "class": "carved-away"
+        },
+        {
+          "entry": "edge/overflow_tail",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "edge/pole_at_edge",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/diagonal_count",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/match_return",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "class": "enclosed"
+        }
+      ],
+      "full-min-channels-2": [
+        {
+          "entry": "geometry/narrow_oblique",
+          "class": "carved-away"
+        },
+        {
+          "entry": "edge/overflow_tail",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "edge/pole_at_edge",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/diagonal_count",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/match_return",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "class": "enclosed"
+        }
+      ],
+      "full-nonfinite-blocks-trust": [
+        {
+          "entry": "geometry/narrow_oblique",
+          "class": "carved-away"
+        },
+        {
+          "entry": "edge/overflow_tail",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "edge/pole_at_edge",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/diagonal_count",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/match_return",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "class": "enclosed"
+        }
+      ],
+      "full-both-trust-rules": [
+        {
+          "entry": "geometry/narrow_oblique",
+          "class": "carved-away"
+        },
+        {
+          "entry": "edge/overflow_tail",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "edge/pole_at_edge",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/diagonal_count",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/match_return",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "class": "enclosed"
+        }
+      ],
+      "no-physical-current-trust": [
+        {
+          "entry": "geometry/narrow_oblique",
+          "class": "carved-away"
+        },
+        {
+          "entry": "edge/overflow_tail",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "edge/pole_at_edge",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/diagonal_count",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/match_return",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "class": "enclosed"
+        }
+      ],
+      "no-physical-both-trust-rules": [
+        {
+          "entry": "geometry/narrow_oblique",
+          "class": "carved-away"
+        },
+        {
+          "entry": "edge/overflow_tail",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "edge/pole_at_edge",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/diagonal_count",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/match_return",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "class": "enclosed"
+        }
+      ],
+      "only-physical-current-trust": [
+        {
+          "entry": "geometry/narrow_oblique",
+          "class": "carved-away"
+        },
+        {
+          "entry": "edge/overflow_tail",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "edge/pole_at_edge",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/diagonal_count",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/match_return",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "class": "enclosed"
+        }
+      ],
+      "only-physical-both-trust-rules": [
+        {
+          "entry": "geometry/narrow_oblique",
+          "class": "carved-away"
+        },
+        {
+          "entry": "edge/overflow_tail",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "edge/pole_at_edge",
+          "class": "sub-granular"
+        },
+        {
+          "entry": "granular/rail_ceiling",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/diagonal_count",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/match_return",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/stroke_reference",
+          "class": "enclosed"
+        },
+        {
+          "entry": "granular/tolerance_stack",
+          "class": "enclosed"
+        }
+      ]
+    },
+    "non_finite_readings_total": {
+      "full-current-trust": 0,
+      "full-min-channels-2": 0,
+      "full-nonfinite-blocks-trust": 0,
+      "full-both-trust-rules": 0,
+      "no-physical-current-trust": 0,
+      "no-physical-both-trust-rules": 0,
+      "only-physical-current-trust": 0,
+      "only-physical-both-trust-rules": 0
+    },
+    "control_cleanliness": {
+      "measured": false,
+      "reason": "none of the eight entries in `entries.run` is marked `control`, so the freeze's fourth quantity has no rows in this run. Reported as unmeasurable rather than proxied."
+    }
+  },
+  "readings_taken": {
+    "unknown_ceiling": "mean `unknown_volume` over the resolvable rows, differenced against the same mask's current-rule arm, compared to 0.05. The freeze says a rule that clears trust by refusing to label has measured nothing, and the only per-row mean over the deciding universe is that one.",
+    "localisation_tolerance": "the largest absolute gap between a variant and the same mask's current-rule arm in summed `localised_regions` at any single budget, compared to 1. 'Within one pair of the current rule at the same budget' is read as one region of slack at each budget rather than one over the whole ladder, because the freeze names the budget.",
+    "largest_fraction_of_a_region": "each row's `trusted_over_true` is a fraction of the domain; the freeze asks for a fraction of the declared region, so the certified volume is divided by the entry's declared share of its domain, read from `aporia-bench audit --grid 41`.",
+    "over_claim_rows": "rows with `trusted_over_true` strictly greater than zero, which is the freeze's wording — an absolute volume, so no arm can hand back a 0/0."
+  },
+  "decision": {
+    "fired": 3,
+    "text": "over-claim reaches zero only where UNKNOWN volume grows past the frozen ceiling: H-SILENCE supported, H-RESOLVE unsupported — the instrument changed its reporting, not its knowledge",
+    "arms": [
+      {
+        "arm": "only-physical-both-trust-rules",
+        "mean_unknown_volume_change": 0.522065,
+        "mean_trusted_volume_after": 0.0
+      }
+    ]
+  },
+  "not_claims": [
+    "that any E1.x result changes. E1.3's condition failed under the rule in force when the experiment ran, and that stands as measured.",
+    "that a lower over-claim means a more correct instrument: correctness about a region requires consulting the region, which no arm here may do.",
+    "that TRUSTED will come to mean proven correct. It means quiet under the channels that ran; E1.3b asks how much quietness a label may claim on, not what the label proves."
+  ],
+  "limitations_this_does_not_remove": [
+    "one author chooses the entries, including which ones count as resolvable; the reachability function constrains that choice, it does not remove it",
+    "the variants are truth-blind by requirement, so none can be guaranteed to make trust track truth — only to require more evidence before claiming",
+    "the depth arithmetic treats each axis by halving the longest normalised one, so a region thin in one direction and wide in another, like the diagonal band, is classified by its thin direction; that is conservative towards calling a region resolvable, which is the direction that risks an over-optimistic result",
+    "the ceiling and the tolerance are numbers chosen in advance by the same person who wrote the rule; a reader who wants a different bar has to run their own protocol"
+  ]
+}
