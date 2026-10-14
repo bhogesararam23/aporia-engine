@@ -887,6 +887,27 @@ impl Atlas {
         }
     }
 
+    /// How many of the readings the finished partition holds in its leaves are not real numbers.
+    ///
+    /// This is the quantity [`Trust::NonFiniteBlocksTrust`] acts on, and it is counted rather than
+    /// assumed because whether any campaign produces such a reading is a measurement and not a fact of
+    /// this code: the risk a point carries comes from `aporia_evidence::fuse`, which clamps its score
+    /// into `[0, 1]`, so a search built on fused scores may have none at all. E1.3b's frozen secondary
+    /// metric asks for the count per row for exactly that reason — a variant that never fires has to be
+    /// reported as a variant that never fired, not as a rule that made the instrument safer.
+    ///
+    /// Leaves only, because a leaf is what [`Policy::classify`] sees, and because a split leaves its
+    /// parent's statistics in place — the parent simply drops out of the leaf list — so walking the
+    /// cells as well would count one measurement once per generation that held it.
+    #[must_use]
+    pub fn non_finite_readings(&self) -> u64 {
+        self.leaves
+            .iter()
+            .filter_map(|id| self.cells.get(*id as usize))
+            .map(|c| c.points.iter().filter(|p| !p.risk.is_finite()).count() as u64)
+            .sum()
+    }
+
     /// Write the atlas as CSV, the machine-readable form a reviewer can open in anything.
     #[must_use]
     pub fn to_csv(&self) -> String {
@@ -1918,6 +1939,57 @@ mod tests {
             Trust::BothRules.policy().classify(&table[4]),
             Label::Unknown
         );
+    }
+
+    #[test]
+    fn a_non_finite_reading_is_counted_in_the_one_leaf_that_holds_it() {
+        // E1.3b's third secondary metric is the count of non-real readings per row, because a variant
+        // that refused trust in a leaf holding nothing non-finite refused it for some other reason.
+        // The number has to come from the same partition the labels come from, so this builds one
+        // rather than handing `classify` a cell it never saw.
+        let mut a = Atlas::new(&model1d(0.0, 1.0), Policy::default());
+        for i in 1..=2 {
+            a.record(&[0.1 * f64::from(i)], 0.01, 0b11111);
+        }
+        for i in 6..=9 {
+            a.record(&[0.1 * f64::from(i)], 0.01, 0b11111);
+        }
+        assert_eq!(
+            a.non_finite_readings(),
+            0,
+            "a quiet partition has nothing to block"
+        );
+        let children = a.split(0).expect("the root splits in two");
+        // `refine` does this bookkeeping; `split` on its own leaves the parent in the leaf list, and a
+        // test that forgot it would be measuring a partition no run ever has.
+        a.leaves = children.clone();
+        assert_eq!(
+            a.non_finite_readings(),
+            0,
+            "splitting moves readings between leaves, it does not create them"
+        );
+        let at = children[1] as usize;
+        a.cells[at].points[0].risk = f64::NEG_INFINITY;
+        a.cells[at].recompute();
+        assert_eq!(
+            a.non_finite_readings(),
+            1,
+            "one reading left the real numbers"
+        );
+        // The leaf the count names is the leaf the variant acts on, and the rule in force since 0036
+        // does not act on it: the fold starts at zero and the mean is below the bar, so the aggregates
+        // hide the reading and the cell was trusted.
+        assert_eq!(Policy::default().classify(&a.cells[at]), Label::Trusted);
+        assert_eq!(
+            Trust::NonFiniteBlocksTrust.policy().classify(&a.cells[at]),
+            Label::Unknown
+        );
+        // Refining carries the reading into the child that contains it and leaves the parent's copy
+        // behind, so walking the leaves counts the evidence once where walking the cells would count it
+        // once per generation that held it.
+        let grandchildren = a.split(children[1]).expect("the poisoned leaf splits");
+        a.leaves = vec![children[0], grandchildren[0], grandchildren[1]];
+        assert_eq!(a.non_finite_readings(), 1, "one reading, in one leaf");
     }
 
     #[test]
