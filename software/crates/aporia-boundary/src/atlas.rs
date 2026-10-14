@@ -740,6 +740,62 @@ impl Atlas {
         Some(ids)
     }
 
+    /// Every box this model's partition rule is *permitted* to build, from the root down to
+    /// [`Policy::max_depth`], produced by [`Atlas::split`] and by nothing else.
+    ///
+    /// This is the geometry behind a reachability question, and it is stated here rather than in the
+    /// crate that asks the question because the answer is only as good as its agreement with the
+    /// partition a run actually builds: a second implementation of "what boxes could this atlas have"
+    /// is a second implementation that can drift, and the drift would show up as an experiment
+    /// declaring a region resolvable that the atlas can never reach.
+    ///
+    /// It is the whole tree and not only its deepest level, because the quantity a caller wants is the
+    /// best overlap any permitted leaf could hold. Every cell that ever exists in a real run is a node
+    /// of this tree — refinement only ever splits cells, and the axis it picks depends on the cell's
+    /// bounds and the root's, not on what evidence happened to arrive — so no run can produce a box
+    /// that is missing here. The *order* in which `refine` reaches them depends on evidence; the set
+    /// does not, which is what makes this computable before a run instead of after it.
+    ///
+    /// `None` when the tree would hold more cells than [`Atlas::PARTITION_CELL_CAP`]. A depth cap is a
+    /// promise that the partition is finite, and an enumerator that walks it must not be the thing that
+    /// runs out.
+    #[must_use]
+    pub fn permitted_partition(model: &Model, policy: Policy) -> Option<Vec<Cell>> {
+        let mut atlas = Atlas::new(model, policy);
+        let mut out: Vec<Cell> = vec![atlas.cells[0].clone()];
+        let mut frontier: Vec<u32> = vec![0];
+        while !frontier.is_empty() {
+            let mut next = Vec::new();
+            for id in frontier {
+                if atlas.cells[id as usize].depth >= policy.max_depth {
+                    continue;
+                }
+                // `split` is the atlas's own rule: the longest normalised axis, halved, and `None` when
+                // the midpoint is not strictly inside the cell. A cell that cannot be split — a
+                // zero-width axis, a domain that is a single point — ends its branch here exactly as it
+                // would in a run.
+                let Some(children) = atlas.split(id) else {
+                    continue;
+                };
+                for child in children {
+                    if out.len() >= Self::PARTITION_CELL_CAP {
+                        return None;
+                    }
+                    out.push(atlas.cells[child as usize].clone());
+                    next.push(child);
+                }
+            }
+            frontier = next;
+        }
+        Some(out)
+    }
+
+    /// How many boxes [`Atlas::permitted_partition`] will enumerate before refusing. A full binary
+    /// tree to depth `d` holds `2^(d+1) - 1` cells, so this cap admits a depth of fifteen — three past
+    /// the frozen policy's twelve, whose tree is 8,191 cells, and far past any depth an atlas is asked
+    /// to reach in this repository.
+    pub const PARTITION_CELL_CAP: usize = 1 << 16;
+
     fn has_disagreeing_neighbour(&self, id: u32) -> bool {
         let me = &self.cells[id as usize];
         if me.label == Label::Unknown || me.samples == 0 {
@@ -1529,6 +1585,167 @@ mod tests {
         let rows: Vec<&str> = csv.lines().collect();
         assert!(rows[0].starts_with("cell,depth,label"), "{}", rows[0]);
         assert_eq!(rows.len() - 1, a.leaves.len());
+    }
+
+    #[test]
+    fn the_permitted_partition_is_the_tree_the_split_rule_builds() {
+        // The claim a load-time reachability check rests on: this is the partition the atlas is
+        // permitted to build, so a region none of these boxes can enclose is a region the atlas cannot
+        // localise whatever the evidence says.
+        let model = model1d(0.0, 1.0);
+        let policy = Policy {
+            max_depth: 3,
+            ..Policy::default()
+        };
+        let cells = Atlas::permitted_partition(&model, policy).expect("depth 3 is inside the cap");
+        // A full binary tree to depth d holds 2^(d+1) - 1 cells.
+        assert_eq!(
+            cells.len(),
+            (1 << 4) - 1,
+            "fifteen boxes, three levels of bisection"
+        );
+        assert!(
+            cells.iter().all(|c| usize::from(c.depth) <= 3),
+            "a permitted cell sits past the depth cap"
+        );
+        let root = &cells[0];
+        assert_eq!(root.depth, 0);
+        assert_eq!(root.bounds, vec![[0.0, 1.0]]);
+        let deepest: Vec<&Cell> = cells.iter().filter(|c| c.depth == 3).collect();
+        assert_eq!(deepest.len(), 8, "eight finest intervals");
+        for cell in &deepest {
+            assert!((cell.width(0) - 0.125).abs() < 1e-12, "{}", cell.width(0));
+        }
+        // And the finest level tiles the domain: no gap and no overlap, which is what "partition" means
+        // and what a coverage fraction added over leaves relies on.
+        let sum: f64 = deepest.iter().map(|c| c.relative_size(root)).sum::<f64>();
+        assert!(
+            (sum - 1.0).abs() < 1e-12,
+            "the deepest cells cover {sum} of the domain"
+        );
+    }
+
+    #[test]
+    fn the_permitted_partition_halves_the_longest_normalised_axis_and_pin_the_tie() {
+        // Normalised, not raw: a model whose second axis is declared ten times wider than its first is
+        // still bisected on the *first*, because both axes start at full extent and the tie goes to the
+        // last maximum of `max_by`. That tie-break is not decoration — the reachability class of a
+        // region depends on which axis is cut first, so a reader who wants to recompute a class needs
+        // this exact behaviour, and this test is where it is written down.
+        let mut model = Model::new("wide");
+        for (name, lo, hi) in [("a", 0.0f64, 1.0f64), ("b", 0.0f64, 1000.0f64)] {
+            model.params.push(Param {
+                name: name.into(),
+                ty: Ty {
+                    num: NumType::F64,
+                    dim: Dimension::dimensionless(),
+                },
+                domain: Domain::Interval { lo, hi },
+                to_si: 1.0,
+                doc: String::new(),
+            });
+        }
+        let policy = Policy {
+            max_depth: 2,
+            ..Policy::default()
+        };
+        let cells = Atlas::permitted_partition(&model, policy).expect("depth 2 is small");
+        let level1: Vec<&Cell> = cells.iter().filter(|c| c.depth == 1).collect();
+        assert_eq!(level1.len(), 2);
+        // The root's tie resolved to the second axis, so the first bisection halves `b` and leaves `a`.
+        for cell in &level1 {
+            assert_eq!(
+                cell.bounds[0],
+                [0.0, 1.0],
+                "the tie did not fall on the second axis"
+            );
+            assert_eq!(
+                cell.width(1),
+                500.0,
+                "the first split did not halve the second axis"
+            );
+        }
+        // Its children, whose second axis is now at half extent and first axis still full, must be cut
+        // on the *first* axis even though it is the narrower one in raw units: the rule is about how
+        // much of each declared domain a cell still spans, not about how large the numbers are.
+        let level2: Vec<&Cell> = cells.iter().filter(|c| c.depth == 2).collect();
+        assert_eq!(level2.len(), 4);
+        for cell in &level2 {
+            assert_eq!(
+                cell.width(0),
+                0.5,
+                "the second split did not halve the first axis"
+            );
+            assert_eq!(
+                cell.width(1),
+                500.0,
+                "the second split moved the wrong axis"
+            );
+        }
+        // Deterministic: the same model and policy enumerate the same boxes in the same order, twice.
+        let again = Atlas::permitted_partition(&model, policy).expect("and again");
+        assert_eq!(again.len(), cells.len());
+        for (a, b) in again.iter().zip(&cells) {
+            assert_eq!(a.bounds, b.bounds, "the enumeration is not deterministic");
+            assert_eq!(a.depth, b.depth);
+        }
+    }
+
+    #[test]
+    fn a_cell_that_cannot_be_bisected_ends_the_branch() {
+        // A degenerate axis has no strictly interior midpoint, so `split` declines, and the permitted
+        // partition is the root alone: exactly the atlas a run would be stuck with. A reachability
+        // question about such a domain has to be answered from this, not from a lattice someone drew
+        // somewhere else.
+        let model = model1d(0.0, 0.0);
+        let cells =
+            Atlas::permitted_partition(&model, Policy::default()).expect("one cell is finite");
+        assert_eq!(cells.len(), 1, "a point-sized domain cannot be subdivided");
+        assert_eq!(cells[0].bounds, vec![[0.0, 0.0]]);
+        // A choice axis holding one value is the same case in the other vocabulary.
+        let mut discrete = Model::new("one-choice");
+        discrete.params.push(Param {
+            name: "method".into(),
+            ty: Ty {
+                num: NumType::I64,
+                dim: Dimension::dimensionless(),
+            },
+            domain: Domain::Choices(vec![3.0, 3.0]),
+            to_si: 1.0,
+            doc: String::new(),
+        });
+        let cells =
+            Atlas::permitted_partition(&discrete, Policy::default()).expect("one cell is finite");
+        assert_eq!(
+            cells.len(),
+            1,
+            "a choice set spanning nothing cannot be subdivided"
+        );
+    }
+
+    #[test]
+    fn a_partition_too_deep_to_enumerate_is_refused_rather_than_run_out() {
+        // The cap is the difference between a check that answers and a check that hangs. Depth 20 in one
+        // dimension is 2,097,151 boxes, past the admitted ceiling, so the caller gets a refusal and a
+        // reachability question it cannot answer — which the harness reports as a named failure instead
+        // of as a verdict about the region.
+        let model = model1d(0.0, 1.0);
+        let deep = Policy {
+            max_depth: 20,
+            ..Policy::default()
+        };
+        assert_eq!(
+            Atlas::permitted_partition(&model, deep),
+            None,
+            "the enumerator walked a tree it was never going to finish"
+        );
+        // And the frozen depth is four orders inside the cap, so this refusal is a guard and not a limit
+        // anyone working here will meet.
+        let frozen = Policy::default();
+        let cells =
+            Atlas::permitted_partition(&model, frozen).expect("the frozen depth enumerates");
+        assert_eq!(cells.len(), (1 << 13) - 1, "8,191 boxes at depth 12");
+        assert!(cells.len() < Atlas::PARTITION_CELL_CAP);
     }
 
     fn a_cell(bounds: Vec<[f64; 2]>) -> Cell {
