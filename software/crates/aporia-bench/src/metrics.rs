@@ -28,6 +28,14 @@ use aporia_boundary::Label;
 use aporia_search::{Campaign, Finding, Strategy};
 use aporia_store::Json;
 
+/// How much of a leaf must lie inside a declared region for `localised` to count that region.
+///
+/// One number, in one place, because the reachability check that decides which entries this experiment
+/// may score asks the *same question of the same cells* before a run rather than after it. Two copies
+/// of a threshold are two thresholds, and the drift would silently move the boundary between a corpus
+/// that can be measured and one that cannot.
+pub const LOCALISATION_BAR: f64 = 0.5;
+
 /// One declared boundary and what the finished atlas had to say about it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BoundaryHit {
@@ -326,14 +334,14 @@ impl Outcome {
                 .count() as u64
         };
         let detected = regions_over(0.0, crate::truth::LATTICE_PER_AXIS);
-        let localised = regions_over(0.5, crate::truth::LATTICE_PER_AXIS);
+        let localised = regions_over(LOCALISATION_BAR, crate::truth::LATTICE_PER_AXIS);
         // A curved region's overlap is an estimate on a lattice, so the bar can be crossed by the
         // sampling rather than by the search. Re-measuring at double resolution says which: an
         // outcome that flips is reported rather than scored, because two arms have different cells
         // and a flip can land on either side of a comparison by luck.
-        let lattice_sensitive = truth
-            .has_predicates()
-            .then(|| localised != regions_over(0.5, crate::truth::LATTICE_SENSITIVITY_PER_AXIS));
+        let lattice_sensitive = truth.has_predicates().then(|| {
+            localised != regions_over(LOCALISATION_BAR, crate::truth::LATTICE_SENSITIVITY_PER_AXIS)
+        });
 
         let first_true_failure = campaign
             .records

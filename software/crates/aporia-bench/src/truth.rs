@@ -125,6 +125,32 @@ impl Declared {
     /// cell* is really wrong.
     #[must_use]
     pub fn overlap_fraction(&self, model: &Model, cell: &[[f64; 2]], per_axis: usize) -> f64 {
+        let (box_fraction, intersection) = self.clipped(model, cell);
+        if box_fraction <= 0.0 {
+            return 0.0;
+        }
+        if self.predicate.is_none() {
+            return box_fraction;
+        }
+        box_fraction * self.accepted_share(model, &intersection, per_axis)
+    }
+
+    /// How much of `cell` lies inside the region's **envelope** — the box the declaration names, before
+    /// any `where` carves it. A predicate region is never larger than its envelope, so this is an upper
+    /// bound on [`Declared::overlap_fraction`], and the reachability check uses it as one: a cell that
+    /// does not reach the bar here cannot reach it after the carve either.
+    ///
+    /// It is a method here rather than arithmetic in the check because the clip is the definition: two
+    /// copies of `(hi.min(chi) - lo.max(clo)) / width` is two numbers that can drift, and the drift
+    /// would decide which entries an experiment is allowed to score.
+    #[must_use]
+    pub fn envelope_share(&self, model: &Model, cell: &[[f64; 2]]) -> f64 {
+        self.clipped(model, cell).0
+    }
+
+    /// The cell clipped to this region's box, as (share of the cell, the intersection per axis).
+    #[must_use]
+    fn clipped(&self, model: &Model, cell: &[[f64; 2]]) -> (f64, Vec<[f64; 2]>) {
         let mut box_fraction = 1.0;
         let mut intersection: Vec<[f64; 2]> = Vec::with_capacity(cell.len());
         let mut constrained = false;
@@ -133,7 +159,7 @@ impl Declared {
                 continue;
             };
             let Some([clo, chi]) = cell.get(i) else {
-                return 0.0;
+                return (0.0, intersection);
             };
             constrained = true;
             let width = (chi - clo).max(1e-30);
@@ -143,12 +169,9 @@ impl Declared {
         }
         if !constrained {
             // An unconstrained region would be "everywhere", which the corpus never declares.
-            return 0.0;
+            return (0.0, intersection);
         }
-        if self.predicate.is_none() {
-            return box_fraction;
-        }
-        box_fraction * self.accepted_share(model, &intersection, per_axis)
+        (box_fraction, intersection)
     }
     /// Would this region's predicate be undefined anywhere in the box `area`? A NaN makes every
     /// comparison false, which would look exactly like an empty region — so the audit asks this before
