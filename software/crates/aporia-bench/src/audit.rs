@@ -19,8 +19,22 @@ use aporia_ir::{Domain, Model};
 /// The families the corpus-geometry experiment added. The rules that are about *new* authored
 /// entries — closed-form derivation, a stated difficulty rung — apply here and not to entries that
 /// were measured before those rules existed, which is the difference between a gate and a rewrite of
-/// history.
-pub const NEW_FAMILIES: [&str; 4] = ["geometry", "discrete", "edge", "domain"];
+/// history. `granular` is E1.3b's resolvable set and brings the record rules with it.
+pub const NEW_FAMILIES: [&str; 5] = ["geometry", "discrete", "edge", "domain", "granular"];
+
+/// The files an entry directory is allowed to hold.
+///
+/// The registry decides what is an entry, so a stray file cannot smuggle itself into a measurement —
+/// but it can sit beside one and be mistaken for it later, and an experiment archive written under the
+/// corpus root has already been parsed as a model once. Refusing the unexpected file is cheaper than
+/// remembering which of them were there on purpose.
+const ENTRY_FILES: [&str; 2] = ["model.ap", "truth.json"];
+
+/// True when this entry states the record `aporia.truth/3` defines.
+#[must_use]
+fn has_record(e: &Entry) -> bool {
+    e.truth.schema == "aporia.truth/3"
+}
 
 /// One line of what the audit knows about an entry, for the command's own report.
 #[must_use]
@@ -59,6 +73,14 @@ pub fn audit(entries: &[Entry], per_axis: usize) -> Vec<Problem> {
     out.extend(boundaries_are_usable(entries));
     out.extend(discrete_axes_are_mapped(entries, per_axis));
     out.extend(refusals_are_refused(entries));
+    out.extend(new_entries_state_their_record(entries));
+    out.extend(declared_variables_match_the_model(entries));
+    out.extend(expected_channels_exist(entries));
+    out.extend(mechanisms_are_unique(entries));
+    out.extend(truth_sources_are_external(entries));
+    out.extend(new_regions_are_not_endpoint_only(entries));
+    out.extend(resolvability_claims_hold(entries));
+    out.extend(entry_directories_hold_only_what_the_loader_reads(entries));
     out
 }
 
@@ -607,6 +629,370 @@ fn refusals_are_refused(entries: &[Entry]) -> Vec<Problem> {
                     "ir-refusal"
                 ),
             });
+        }
+    }
+    out
+}
+
+/// What a `aporia.truth/3` entry owes the reader before anything is measured against it.
+///
+/// E1.3b's corpus is chosen by the author, and the one constraint on that choice the instrument can
+/// enforce is that the entry *states* the things that make it checkable: what the model computes, what
+/// each variable is, the mechanism as a key the corpus can test for repetition, the channels expected
+/// to speak, the resolvability arithmetic, why the entry is in this experiment, and where its truth came
+/// from. A missing field is not a style problem — it is the field that would have caught the mistake.
+fn new_entries_state_their_record(entries: &[Entry]) -> Vec<Problem> {
+    let mut out = Vec::new();
+    for e in entries {
+        if !has_record(e) {
+            continue;
+        }
+        let stated: [(&str, bool); 8] = [
+            ("meaning", !e.truth.meaning.trim().is_empty()),
+            ("mechanism", !e.truth.mechanism.trim().is_empty()),
+            ("derivation", !e.truth.derivation.trim().is_empty()),
+            ("resolvability", !e.truth.resolvability.trim().is_empty()),
+            ("source", !e.truth.source.trim().is_empty()),
+            ("why", !e.truth.why.trim().is_empty()),
+            ("variables", !e.truth.variables.is_empty()),
+            ("channels", !e.truth.channels.is_empty()),
+        ];
+        for (field, present) in stated {
+            if !present {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "states no {field}, which aporia.truth/3 defines as part of the record: an \
+                         entry that does not say what it means cannot be audited for meaning it"
+                    ),
+                });
+            }
+        }
+        if e.truth.resolvable.is_none() {
+            out.push(Problem {
+                entry: e.id(),
+                detail:
+                    "states no `resolvable` claim, so the instrument has nothing to check its own \
+                         reachability arithmetic against"
+                        .to_string(),
+            });
+        }
+    }
+    out
+}
+
+/// Every declared variable must be a parameter the model has, with the unit and span the model declares.
+///
+/// This is where "undeclared domain" and "invalid units" become refusals rather than prose. The unit is
+/// compared through the IR's own parser, so the truth file and the model are read by the same rules and
+/// there is no second vocabulary of unit names to drift from the first.
+fn declared_variables_match_the_model(entries: &[Entry]) -> Vec<Problem> {
+    let mut out = Vec::new();
+    for e in entries {
+        if !has_record(e) {
+            continue;
+        }
+        let Some(model) = e.model.as_ref() else {
+            continue;
+        };
+        for v in &e.truth.variables {
+            let Some(at) = model.param(&v.name) else {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "declares a variable {name:?} that the model has no parameter for",
+                        name = v.name
+                    ),
+                });
+                continue;
+            };
+            let param = &model.params[at as usize];
+            match aporia_ir::Dimension::parse_canonical(&v.unit) {
+                Err(problem) => out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "declares {name:?} with the unit {unit:?}, which is not the canonical form \
+                         the IR reads: {problem}",
+                        name = v.name,
+                        unit = v.unit
+                    ),
+                }),
+                Ok(dim) if dim != param.ty.dim => out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "declares {name:?} as a quantity of {unit:?} and the model declares it as \
+                         {actual}: the entry describes a different variable than the one it points at",
+                        name = v.name,
+                        unit = v.unit,
+                        actual = param.ty.dim
+                    ),
+                }),
+                Ok(_) => {}
+            }
+            let Some([lo, hi]) = axis_span(model, &v.name) else {
+                continue;
+            };
+            if v.lo != lo || v.hi != hi {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "declares {name:?} spanning [{}, {}] while the model's domain is [{lo}, {hi}]",
+                        v.lo,
+                        v.hi,
+                        name = v.name
+                    ),
+                });
+            }
+            if !param.to_si.is_finite() || param.to_si <= 0.0 {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "parameter {name:?} carries a scale to SI of {}, which turns every declared \
+                         unit into nothing or into a number that cannot be compared",
+                        param.to_si,
+                        name = v.name
+                    ),
+                });
+            }
+        }
+        for param in &model.params {
+            if !e.truth.variables.iter().any(|v| v.name == param.name) {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "has a parameter {name:?} the record says nothing about: an undeclared axis \
+                         is an unmeasured one",
+                        name = param.name
+                    ),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// The expected-channel list has to name channels this build has.
+fn expected_channels_exist(entries: &[Entry]) -> Vec<Problem> {
+    let mut out = Vec::new();
+    for e in entries {
+        if !has_record(e) {
+            continue;
+        }
+        let mut seen: Vec<&str> = Vec::new();
+        for name in &e.truth.channels {
+            if aporia_evidence::Channel::parse(name).is_none() {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "expects the channel {name:?}, which this instrument does not have: the \
+                         channels are {}",
+                        aporia_evidence::Channel::names().join(", ")
+                    ),
+                });
+            }
+            if seen.contains(&name.as_str()) {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!("expects the channel {name:?} twice"),
+                });
+            }
+            seen.push(name);
+        }
+    }
+    out
+}
+
+/// Two entries with one mechanism string are one case counted twice, under two names.
+///
+/// `no_duplicate_models` catches identical computations and `no_duplicate_regions` identical boxes;
+/// neither catches the case that matters to a comparison whose point is *why* a row moved, which is an
+/// entry written to be a different mechanism and carrying the same one.
+fn mechanisms_are_unique(entries: &[Entry]) -> Vec<Problem> {
+    let mut out = Vec::new();
+    let stated: Vec<(String, String)> = entries
+        .iter()
+        .filter(|e| has_record(e))
+        .map(|e| (e.id(), e.truth.mechanism.clone()))
+        .collect();
+    for (at, (id, mechanism)) in stated.iter().enumerate() {
+        for (other_id, other) in stated.iter().skip(at + 1) {
+            if mechanism == other {
+                out.push(Problem {
+                    entry: id.clone(),
+                    detail: format!(
+                        "states the same mechanism as {other_id} ({mechanism:?}), so the pair is one \
+                         case written twice and a summary that counts it twice will read as evidence"
+                    ),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// The truth of a new entry has to come from outside this repository's own measuring.
+///
+/// A closed form, an identity, a standard — the field exists so the origin is a thing that can be read
+/// and argued with rather than a paragraph that may or may not mention it. Naming the instrument there
+/// is the refusal: an entry whose answer key is a run's output cannot be checked by that run.
+fn truth_sources_are_external(entries: &[Entry]) -> Vec<Problem> {
+    const INSIDE: [&str; 6] = [
+        "aporia-bench",
+        "bench run",
+        "results-",
+        "the atlas",
+        "the search",
+        "archive",
+    ];
+    let mut out = Vec::new();
+    for e in entries {
+        if !has_record(e) {
+            continue;
+        }
+        let lowered = e.truth.source.to_lowercase();
+        for name in INSIDE {
+            if lowered.contains(name) {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "names {name:?} as where its truth came from, which is this instrument or its \
+                         output: the answer key has to come from outside the thing being marked"
+                    ),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// A region with no width in any axis is a point, and a point is not a place a leaf can be half inside.
+///
+/// `regions_are_bounded_and_reachable` tolerates a zero-width axis for entries like
+/// `projectile_zero_gravity`, whose g = 0 is a real case the grid checks exactly — and which
+/// `crate::reach` then classifies as unreachable, correctly. For an entry claiming a *resolvable*
+/// region the same declaration is a mistake rather than a case: it can only ever be missed, so it is
+/// refused here instead of being reported later as a detection failure.
+fn new_regions_are_not_endpoint_only(entries: &[Entry]) -> Vec<Problem> {
+    let mut out = Vec::new();
+    for e in entries {
+        if !has_record(e) || e.truth.control || e.truth.resolvable != Some(true) {
+            continue;
+        }
+        for (at, region) in e.truth.regions.iter().enumerate() {
+            let flat: Vec<String> = region
+                .axes
+                .iter()
+                .filter(|(_, [lo, hi])| lo == hi)
+                .map(|(name, _)| format!("{name:?}"))
+                .collect();
+            if !flat.is_empty() {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "region {at} is declared with zero width on {} — an endpoint, which no leaf \
+                         can be half inside at any depth, so it cannot be a resolvable region. Give it \
+                         a span the closed form supports, or move it to the sub-granular set and stop \
+                         claiming it",
+                        flat.join(", ")
+                    ),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// Check each entry's own resolvability claim against the instrument's arithmetic.
+///
+/// This is the rule that turns "the corpus is chosen by the author" into "the corpus is chosen by the
+/// author *and checked*". An entry claiming to be resolvable that no permitted leaf can enclose is
+/// refused with the numbers the claim was measured against; an entry claiming not to be, which the
+/// atlas encloses anyway, is refused in the other direction because its own text is wrong about the
+/// region it declares. A region the check cannot classify is refused too: unknown is not resolved.
+fn resolvability_claims_hold(entries: &[Entry]) -> Vec<Problem> {
+    let mut out = Vec::new();
+    for e in entries {
+        if !has_record(e) {
+            continue;
+        }
+        let Some(claimed) = e.truth.resolvable else {
+            continue; // named by `new_entries_state_their_record`
+        };
+        // The default policy's depth cap, which is the cap every plan in this repository runs under.
+        // `cli::reachability_gate` is where a *protocol's own* policy is checked, so a protocol that
+        // changed the depth would be refused there rather than here.
+        let record = crate::reach::reach(e, &aporia_boundary::Policy::default());
+        if matches!(
+            record.class,
+            crate::reach::Class::Uncappable | crate::reach::Class::NoModel
+        ) {
+            out.push(Problem {
+                entry: e.id(),
+                detail: format!(
+                    "cannot be classified for resolvability ({}), and an unknown region is not a \
+                     resolved one",
+                    record.class.name()
+                ),
+            });
+            continue;
+        }
+        if claimed == record.class.resolvable() {
+            continue;
+        }
+        let best = record
+            .regions
+            .iter()
+            .map(|r| r.best_envelope_share)
+            .fold(0.0f64, f64::max);
+        let declared = record
+            .regions
+            .iter()
+            .map(|r| r.best_declared_share)
+            .fold(0.0f64, f64::max);
+        out.push(Problem {
+            entry: e.id(),
+            detail: format!(
+                "claims resolvable = {claimed} and the instrument says {}: best envelope share \
+                 {:.6} of a leaf and best declared share {:.6} against a localisation bar of {}. The \
+                 claim is about the region and the class is about the partition, so the entry has to \
+                 agree with both",
+                record.class.name(),
+                best,
+                declared,
+                crate::metrics::LOCALISATION_BAR
+            ),
+        });
+    }
+    out
+}
+
+/// An entry directory holds a model and a declaration, and nothing else.
+///
+/// The registry decides what is an entry, so a stray file cannot become one — but an archive or a
+/// generated artefact left beside an entry is read months later as if it were part of the corpus, and
+/// this repository has already had a run's archive written under the corpus root and parsed as a
+/// model. Refusing the unexpected file is cheaper than remembering which ones were left on purpose.
+fn entry_directories_hold_only_what_the_loader_reads(entries: &[Entry]) -> Vec<Problem> {
+    let mut out = Vec::new();
+    for e in entries {
+        let Ok(read) = std::fs::read_dir(&e.dir) else {
+            continue; // the loader already refuses a directory it cannot read
+        };
+        for name in read.filter_map(|item| {
+            item.ok()
+                .and_then(|i| i.file_name().to_str().map(str::to_string))
+        }) {
+            if !ENTRY_FILES.contains(&name.as_str()) {
+                out.push(Problem {
+                    entry: e.id(),
+                    detail: format!(
+                        "directory holds {name:?}, which the loader reads no part of: an entry is \
+                         model.ap and truth.json, and anything else is either stale or in the wrong \
+                         place ({})",
+                        e.dir.display()
+                    ),
+                });
+            }
         }
     }
     out

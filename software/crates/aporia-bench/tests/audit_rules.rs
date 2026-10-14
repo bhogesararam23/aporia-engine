@@ -516,3 +516,429 @@ fn a_zero_width_region_is_not_treated_as_an_empty_one() {
         "a degenerate region was refused as nothing: {problems:?}"
     );
 }
+
+/// A peaked law that fails between p = 1 and p = 3: a quarter of its domain, which is the share the
+/// rung fixture declares, and a region the permitted partition can enclose — which is what an E1.3b
+/// entry has to be.
+const GRANULAR_SOURCE: &str = r#"model wide "" {
+  input p in [0, 8]
+  let y = 4 * p - p * p
+  require y <= 3
+}
+"#;
+
+/// The same band one domain-width further along, arrived at by a different law, so a fixture can be a
+/// mechanism twin without also being a duplicate model or a duplicate region.
+const TWIN_SOURCE: &str = r#"model twin "" {
+  input p in [0, 8]
+  let y = (p - 5) * (7 - p)
+  require y <= 0
+}
+"#;
+
+/// The variables a `/3` fixture declares: exactly the parameters `GRANULAR_SOURCE` and `TWIN_SOURCE`
+/// have, with the unit and span those models declare.
+const GRANULAR_VARIABLES: &str =
+    r#"[{"name":"p","unit":"1","role":"the axis the peak runs along","lo":0.0,"hi":8.0}]"#;
+
+/// The rung the fixtures are pinned against. `synthetic` is not a new family, so this entry needs no
+/// rung of its own, and its declared box is a quarter of its domain — the same share as `wide`'s band.
+const GRANULAR_RUNG: &str = "synthetic/rung";
+
+/// One part of the record, as text, so a test can break one part and leave the rest of a passing
+/// fixture alone. An emptied part stays a stated part: a key dropped would be read as "no `/3` claim",
+/// which is a different case and has its own test below.
+struct Record {
+    derivation: &'static str,
+    meaning: &'static str,
+    mechanism: &'static str,
+    source: &'static str,
+    why: &'static str,
+    resolvability: &'static str,
+    channels: &'static str,
+    variables: &'static str,
+    resolvable: &'static str,
+}
+
+impl Record {
+    fn base() -> Self {
+        Self {
+            derivation: "(p-1)(p-3) < 0 solved by hand",
+            meaning: "a response that peaks past its limit between one and three",
+            mechanism: "a peaked response exceeding its ceiling in one interior band",
+            source: "the factorisation of the declared inequality worked out on paper",
+            why: "an interior band the atlas can enclose which E1.3 could not",
+            resolvability: "finest leaf 8/4096 = 0.00195 against a band 2 wide",
+            channels: r#"["physical"]"#,
+            variables: GRANULAR_VARIABLES,
+            resolvable: "true",
+        }
+    }
+
+    /// The same record with one named field replaced, which is every mutation these tests need.
+    fn changed(&self, field: &str, value: &'static str) -> Self {
+        let mut out = Self {
+            derivation: self.derivation,
+            meaning: self.meaning,
+            mechanism: self.mechanism,
+            source: self.source,
+            why: self.why,
+            resolvability: self.resolvability,
+            channels: self.channels,
+            variables: self.variables,
+            resolvable: self.resolvable,
+        };
+        match field {
+            "derivation" => out.derivation = value,
+            "meaning" => out.meaning = value,
+            "mechanism" => out.mechanism = value,
+            "source" => out.source = value,
+            "why" => out.why = value,
+            "resolvability" => out.resolvability = value,
+            "channels" => out.channels = value,
+            "variables" => out.variables = value,
+            "resolvable" => out.resolvable = value,
+            other => panic!("the fixture states no field {other:?}"),
+        }
+        out
+    }
+}
+
+/// A complete `aporia.truth/3` fixture, one field per line.
+///
+/// It names a rung as well as a record, because an entry in a new family has to be pinned against
+/// something of comparable difficulty before anything about it can be measured.
+#[must_use]
+fn truth3(record: &Record, regions: &str, tail: &str) -> String {
+    format!(
+        r#"{{"schema":"aporia.truth/3","method":"analytic","fault":"boundary_condition",
+ "derivation":"{derivation}","meaning":"{meaning}","variables":{variables},
+ "mechanism":"{mechanism}","channels":{channels},"resolvable":{resolvable},
+ "resolvability":"{resolvability}","source":"{source}","why":"{why}",
+ "matched_to":"{rung}","regions":[{regions}],"boundaries":[]{tail}}}"#,
+        derivation = record.derivation,
+        meaning = record.meaning,
+        variables = record.variables,
+        mechanism = record.mechanism,
+        channels = record.channels,
+        resolvable = record.resolvable,
+        resolvability = record.resolvability,
+        source = record.source,
+        why = record.why,
+        rung = GRANULAR_RUNG,
+    )
+}
+
+/// The failing set of [`GRANULAR_SOURCE`], declared as the closed form says it is.
+fn wide_region() -> String {
+    region("past the limit", r#"{"p":[1,3]}"#, "")
+}
+
+/// The rung fixture plus the `/3` entry under test, read through the real loader.
+fn granular_corpus(tag: &str, truth: &str) -> Vec<corpus::Entry> {
+    let rung_truth = rung();
+    load(
+        &workspace(tag),
+        &[
+            (GRANULAR_RUNG, RUNG_SOURCE, rung_truth.as_str()),
+            ("granular/wide", GRANULAR_SOURCE, truth),
+        ],
+    )
+}
+
+/// What the gate says about a fixture, as one block of text — the shape a person reading the refusal
+/// sees, which is what these tests assert against rather than the count of problems.
+#[must_use]
+fn said(entries: &[corpus::Entry]) -> String {
+    audit::audit(entries, 41)
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// A fixture that states its record in full has to pass before another test can refuse it for one
+/// emptied part — otherwise the refusal might be about the fixture rather than the rule.
+#[test]
+fn a_resolvable_granular_entry_passes_the_new_rules() {
+    let text = said(&granular_corpus(
+        "g-ok",
+        &truth3(&Record::base(), &wide_region(), ""),
+    ));
+    assert!(text.is_empty(), "the clean fixture was refused: {text}");
+}
+
+#[test]
+fn an_entry_that_claims_resolvability_the_partition_denies_is_refused_with_the_numbers() {
+    // The rule E1.3's own corpus needed: a region thinner than any leaf the atlas may build cannot be
+    // localised at any budget, so a trust rule scored on it is measured on nothing at all.
+    let thin = region(
+        "a sliver",
+        r#"{"p":[1.99992,2.00008]}"#,
+        r#","where":"4 * p - p * p >= 3.99999""#,
+    );
+    let text = said(&granular_corpus(
+        "g-thin",
+        &truth3(&Record::base(), &thin, ""),
+    ));
+    assert!(
+        text.contains("claims resolvable = true") && text.contains("sub-granular"),
+        "the refusal must name the claim and the class that contradicts it: {text}"
+    );
+    assert!(
+        text.contains("localisation bar"),
+        "and the bar the region was measured against: {text}"
+    );
+}
+
+#[test]
+fn an_empty_part_of_the_record_is_named_rather_than_tolerated() {
+    for field in [
+        "derivation",
+        "meaning",
+        "mechanism",
+        "source",
+        "why",
+        "resolvability",
+        "channels",
+        "variables",
+    ] {
+        let value = if field == "channels" || field == "variables" {
+            "[]"
+        } else {
+            ""
+        };
+        let record = Record::base().changed(field, value);
+        let text = said(&granular_corpus(
+            &format!("g-empty-{field}"),
+            &truth3(&record, &wide_region(), ""),
+        ));
+        assert!(
+            text.contains(&format!("states no {field}")),
+            "{field}: the refusal must name the missing part: {text}"
+        );
+        assert!(
+            text.contains("aporia.truth/3"),
+            "{field}: the refusal must name the schema that requires it: {text}"
+        );
+    }
+    // The claim itself: an entry that states nothing to check is refused for that, not skipped.
+    let record = Record::base().changed("resolvable", "null");
+    let text = said(&granular_corpus(
+        "g-claim",
+        &truth3(&record, &wide_region(), ""),
+    ));
+    assert!(
+        text.contains("`resolvable` claim"),
+        "the refusal must name the claim that is missing: {text}"
+    );
+}
+
+#[test]
+fn a_unit_or_span_the_model_does_not_declare_is_refused() {
+    // A truth file describing a different model than the one beside it measures nothing, so the variable
+    // list is compared against the model's own parameters: their names, their canonical dimensions and
+    // their declared spans.
+    for (tag, variables, wanted) in [
+        (
+            "dimension",
+            r#"[{"name":"p","unit":"kg","role":"the axis","lo":0.0,"hi":8.0}]"#,
+            "declares it as",
+        ),
+        (
+            "unparsable",
+            r#"[{"name":"p","unit":"furlongs","role":"the axis","lo":0.0,"hi":8.0}]"#,
+            "canonical form",
+        ),
+        (
+            "span",
+            r#"[{"name":"p","unit":"1","role":"the axis","lo":0.0,"hi":40.0}]"#,
+            "domain is",
+        ),
+        (
+            "absent",
+            r#"[{"name":"q","unit":"1","role":"an axis that is not here","lo":0.0,"hi":8.0}]"#,
+            "no parameter for",
+        ),
+        ("nothing", "[]", "says nothing about"),
+    ] {
+        let record = Record::base().changed("variables", variables);
+        let text = said(&granular_corpus(
+            &format!("g-unit-{tag}"),
+            &truth3(&record, &wide_region(), ""),
+        ));
+        assert!(
+            text.contains(wanted),
+            "{tag}: the refusal must say {wanted:?}: {text}"
+        );
+    }
+}
+
+#[test]
+fn one_mechanism_written_twice_is_one_case_counted_twice() {
+    // Two entries whose models, regions and records differ in every field except the mechanism string:
+    // the duplicate that `no_duplicate_models` and `no_duplicate_regions` cannot see, and that a summary
+    // counting rows would read as two cases.
+    let base = Record::base();
+    let twin = base
+        .changed("why", "the same mechanism under a second name")
+        .changed(
+            "meaning",
+            "a second band that runs past its floor between five and seven",
+        )
+        .changed("derivation", "(p-5)(p-7) < 0 solved by hand");
+    let rung_truth = rung();
+    let first = truth3(&base, &wide_region(), "");
+    let second = truth3(&twin, &region("the second band", r#"{"p":[5,7]}"#, ""), "");
+    let entries = load(
+        &workspace("g-mech"),
+        &[
+            (GRANULAR_RUNG, RUNG_SOURCE, rung_truth.as_str()),
+            ("granular/wide", GRANULAR_SOURCE, first.as_str()),
+            ("granular/again", TWIN_SOURCE, second.as_str()),
+        ],
+    );
+    let text = said(&entries);
+    assert!(
+        text.contains("same mechanism as"),
+        "the refusal must name the duplicate: {text}"
+    );
+}
+
+#[test]
+fn an_answer_key_taken_from_the_instrument_is_refused() {
+    // 0037's correction C8 was written to keep this out of the corpus; the field check makes it a
+    // refusal instead of a reading. The answer key has to come from outside the thing being marked.
+    for (tag, source) in [
+        ("search", "measured by the search at the largest budget"),
+        ("atlas", "read out of the atlas the run built"),
+        ("results", "results-0704da190c01.json"),
+    ] {
+        let record = Record::base().changed("source", source);
+        let text = said(&granular_corpus(
+            &format!("g-source-{tag}"),
+            &truth3(&record, &wide_region(), ""),
+        ));
+        assert!(
+            text.contains("answer key has to come from outside"),
+            "{source:?} was accepted as a truth source: {text}"
+        );
+    }
+}
+
+#[test]
+fn an_endpoint_region_in_a_resolvable_entry_is_refused() {
+    // `projectile_zero_gravity` declares g = 0 exactly and is a real case, checked at the point by
+    // `verify` and classified unreachable by the instrument. Claiming that shape as *resolvable* is a
+    // mistake rather than a case: it can only ever be missed.
+    let point = region("exactly the vertex", r#"{"p":[2.0,2.0]}"#, "");
+    let text = said(&granular_corpus(
+        "g-point",
+        &truth3(&Record::base(), &point, ""),
+    ));
+    assert!(
+        text.contains("zero width on \"p\""),
+        "the refusal must name the flat axis: {text}"
+    );
+    assert!(
+        text.contains("endpoint"),
+        "and say why an endpoint is not a region: {text}"
+    );
+}
+
+#[test]
+fn a_channel_the_instrument_does_not_have_is_refused_by_name() {
+    let record = Record::base().changed("channels", r#"["magnetic"]"#);
+    let text = said(&granular_corpus(
+        "g-chan",
+        &truth3(&record, &wide_region(), ""),
+    ));
+    assert!(
+        text.contains("does not have") && text.contains("behavioral"),
+        "the refusal must name the channel and the vocabulary it expected: {text}"
+    );
+}
+
+#[test]
+fn a_stray_artefact_beside_an_entry_is_refused_rather_than_ignored() {
+    // The loader reads the registry, so a stray file cannot become an entry — but it can be read back as
+    // one later, which is exactly what an experiment archive written under the corpus root once did.
+    let dir = workspace("g-stray");
+    let rung_truth = rung();
+    let truth = truth3(&Record::base(), &wide_region(), "");
+    let entries = load(
+        &dir,
+        &[
+            (GRANULAR_RUNG, RUNG_SOURCE, rung_truth.as_str()),
+            ("granular/wide", GRANULAR_SOURCE, truth.as_str()),
+        ],
+    );
+    assert!(
+        audit::audit(&entries, 41).is_empty(),
+        "the fixture is clean"
+    );
+    std::fs::write(
+        dir.join("granular").join("wide").join("atlas.csv"),
+        "cell,depth,label\n0,0,TRUSTED\n",
+    )
+    .expect("write a stray artefact");
+    let reread = corpus::load(&dir).expect("the corpus still loads");
+    let text = said(&reread);
+    assert!(
+        text.contains("atlas.csv") && text.contains("stale or in the wrong place"),
+        "the refusal must name the file: {text}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn the_committed_granular_entries_are_the_record_they_claim() {
+    // The five entries E1.3b will measure, through the same rules the fixtures exercise, and with their
+    // own text: each claims resolvability and the instrument agrees on all five.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../benchmarks");
+    let entries = corpus::load(&root).expect("the committed corpus loads");
+    let granular: Vec<corpus::Entry> = entries
+        .iter()
+        .filter(|e| e.family == "granular")
+        .cloned()
+        .collect();
+    assert_eq!(granular.len(), 5, "E1.3b authored five resolvable entries");
+    for e in &granular {
+        assert_eq!(e.truth.resolvable, Some(true), "{}", e.id());
+        assert!(
+            !e.truth.mechanism.is_empty()
+                && !e.truth.resolvability.is_empty()
+                && !e.truth.source.is_empty()
+                && !e.truth.why.is_empty()
+                && !e.truth.meaning.is_empty()
+                && !e.truth.derivation.is_empty(),
+            "{} leaves part of its record empty",
+            e.id()
+        );
+        assert_eq!(
+            e.truth.variables.len(),
+            e.model
+                .as_ref()
+                .expect("the resolvable set is measurable")
+                .params
+                .len(),
+            "{} declares a different number of variables than it has parameters",
+            e.id()
+        );
+        assert!(
+            !e.truth.curved,
+            "{}: none of these boundaries is a curve, and claiming one would misdescribe the region",
+            e.id()
+        );
+    }
+    let mut mechanisms: Vec<&str> = granular
+        .iter()
+        .map(|e| e.truth.mechanism.as_str())
+        .collect();
+    let before = mechanisms.len();
+    mechanisms.sort_unstable();
+    mechanisms.dedup();
+    assert_eq!(before, mechanisms.len(), "two entries share a mechanism");
+    let text = said(&entries);
+    assert!(text.is_empty(), "the corpus fails its own audit: {text}");
+}
