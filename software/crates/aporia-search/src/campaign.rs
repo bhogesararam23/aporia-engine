@@ -88,6 +88,16 @@ pub struct Config {
 }
 
 impl Config {
+    /// Which trust rule this configuration labels under, read out of the policy it carries.
+    ///
+    /// An accessor rather than a second field, for the reason the effective channel bar is a maximum:
+    /// a `Config` that could state a variant beside a policy that also states one would be measured
+    /// under whichever of the two the label path happened to read.
+    #[must_use]
+    pub fn trust(&self) -> aporia_boundary::Trust {
+        self.policy.trust
+    }
+
     /// Silence one channel's readings for this configuration.
     #[must_use]
     pub fn without(mut self, channel: aporia_evidence::Channel) -> Self {
@@ -209,6 +219,20 @@ impl Config {
                         Json::count(u64::from(self.policy.suspicious_channels)),
                     ),
                     ("max_depth", Json::count(u64::from(self.policy.max_depth))),
+                    // Which trust rule produced these labels, by name. An archive is opened by a
+                    // person as well as by `compare`, and `min_channels: 1` next to a run that was
+                    // labelled under a rule demanding two would describe the policy's floor while the
+                    // measurement used the variant's. Both numbers are therefore recorded: the floor
+                    // the caller set, the bar that was actually applied, and the rule that raised it.
+                    ("trust", Json::text(self.policy.trust.name())),
+                    (
+                        "min_channels_required",
+                        Json::count(u64::from(self.policy.min_channels_required())),
+                    ),
+                    (
+                        "blocks_non_finite",
+                        Json::Bool(self.policy.blocks_non_finite()),
+                    ),
                 ]),
             ),
         ])
@@ -1974,6 +1998,53 @@ mod tests {
                 "{rate} is missing from the recorded configuration"
             );
         }
+    }
+
+    #[test]
+    fn the_recorded_configuration_names_the_trust_rule_it_labelled_under() {
+        // An archive whose atlas block says `min_channels: 1` about a run labelled under a rule that
+        // demands two describes the caller's floor and hides the measurement. Both numbers are
+        // recorded, plus the name of the rule that decides which of the two was applied.
+        let atlas = Config::default()
+            .json()
+            .get("atlas")
+            .cloned()
+            .expect("the default configuration records its atlas policy");
+        assert_eq!(atlas.get("trust").and_then(Json::as_str), Some("current"));
+        assert_eq!(
+            atlas.get("min_channels").and_then(Json::as_u64),
+            atlas.get("min_channels_required").and_then(Json::as_u64),
+            "the current variant applies the declared floor and nothing else"
+        );
+        assert_eq!(
+            atlas.get("blocks_non_finite").and_then(Json::as_bool),
+            Some(false)
+        );
+        // `Config::trust` reads the policy rather than carrying a second copy of the variant, so a
+        // configuration cannot state one rule and label under another.
+        let cfg = Config {
+            policy: aporia_boundary::Trust::BothRules.policy(),
+            ..Config::default()
+        };
+        assert_eq!(cfg.trust(), aporia_boundary::Trust::BothRules);
+        let atlas = cfg
+            .json()
+            .get("atlas")
+            .cloned()
+            .expect("a variant configuration records its atlas policy");
+        assert_eq!(
+            atlas.get("trust").and_then(Json::as_str),
+            Some("both-trust-rules")
+        );
+        assert_eq!(atlas.get("min_channels").and_then(Json::as_u64), Some(1));
+        assert_eq!(
+            atlas.get("min_channels_required").and_then(Json::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            atlas.get("blocks_non_finite").and_then(Json::as_bool),
+            Some(true)
+        );
     }
 
     #[test]
