@@ -6,8 +6,8 @@
   "variables": [
     {
       "name": "f",
-      "unit": "Hz",
-      "role": "frequency along the passband; the stage's design reference is the 10 Hz the ratio divides by",
+      "unit": "1/s",
+      "role": "frequency along the passband, declared in hertz so its canonical dimension is the reciprocal second; the stage's design reference is the 10 Hz the ratio divides by",
       "lo": 1.0,
       "hi": 9.0
     }

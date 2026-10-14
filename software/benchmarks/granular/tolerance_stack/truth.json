@@ -6,15 +6,15 @@
   "variables": [
     {
       "name": "a",
-      "unit": "mm",
-      "role": "thickness of the single-interface shim",
+      "unit": "m",
+      "role": "thickness of the single-interface shim, declared in millimetres (scale to SI 1e-3)",
       "lo": 0.0,
       "hi": 2.0
     },
     {
       "name": "b",
-      "unit": "mm",
-      "role": "thickness of the shim that sits in both interfaces, so it counts twice",
+      "unit": "m",
+      "role": "thickness of the shim that sits in both interfaces, so it counts twice; declared in millimetres like the other",
       "lo": 0.0,
       "hi": 2.0
     }

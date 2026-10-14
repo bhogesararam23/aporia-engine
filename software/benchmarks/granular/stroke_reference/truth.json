@@ -6,15 +6,15 @@
   "variables": [
     {
       "name": "x",
-      "unit": "mm",
-      "role": "arm position, from the stroke datum",
+      "unit": "m",
+      "role": "arm position, from the stroke datum; declared in millimetres, so the scale to SI is 1e-3 and the dimension is the metre",
       "lo": 0.0,
       "hi": 8.0
     },
     {
       "name": "r",
-      "unit": "mm",
-      "role": "commanded setpoint, held beyond the end of the stroke",
+      "unit": "m",
+      "role": "commanded setpoint, held beyond the end of the stroke, declared in millimetres like the position so the two subtract consistently",
       "lo": 9.0,
       "hi": 11.0
     }

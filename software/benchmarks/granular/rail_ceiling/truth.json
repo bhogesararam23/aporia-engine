@@ -6,8 +6,8 @@
   "variables": [
     {
       "name": "s",
-      "unit": "mm",
-      "role": "gap between the sensing face and the target, measured from the datum the linear range starts at",
+      "unit": "m",
+      "role": "gap between the sensing face and the target, measured from the datum the linear range starts at; the model declares it in millimetres, so its scale to SI is 1e-3 and its dimension is the metre",
       "lo": 0.0,
       "hi": 6.0
     }
