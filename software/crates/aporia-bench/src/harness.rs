@@ -12,7 +12,7 @@
 use crate::corpus::Entry;
 use crate::metrics::Outcome;
 use crate::truth::Truth;
-use aporia_boundary::Policy;
+use aporia_boundary::Trust;
 use aporia_search::{Config, Strategy, run, run_with};
 use aporia_store::Environment;
 use aporia_store::Json;
@@ -50,6 +50,16 @@ pub struct Plan {
     /// than as a mask for the same reason the campaign records them as names — an archive is read by a
     /// person too.
     pub ablate: Vec<aporia_evidence::Channel>,
+    /// Which trust rule this plan labels under.
+    ///
+    /// A plan field rather than a CLI flag, because the rule decides what a row means: two runs of one
+    /// corpus whose leaves were trusted on different evidence are two experiments, and a variant that
+    /// only existed in the arguments a person typed would leave their results documents identical in
+    /// every field that names a measurement. [`Trust::Current`] is the policy that produced every
+    /// committed number here, and [`plan_json`] writes no field for it, which is the only way both
+    /// halves of the requirement can hold at once: the default reproducing its own identity, and a
+    /// variant naming itself.
+    pub trust: Trust,
     /// Where per-entry archives go. Left empty, the harness skips archiving: the archives are the
     /// expensive part of a run and their numbers do not change the search.
     pub archive_dir: std::path::PathBuf,
@@ -96,6 +106,9 @@ impl Default for Plan {
             differential_every: 0,
             // The full instrument: an ablation arm names the channels it drops.
             ablate: Vec::new(),
+            // Today's rule, the one every committed measurement in `benchmarks/results/` was labelled
+            // under. A plan that wants another variant says so, and its identity says so with it.
+            trust: Trust::Current,
             archive_dir: std::path::PathBuf::new(),
         }
     }
@@ -108,7 +121,10 @@ impl Plan {
             strategy,
             seed,
             probe_every: self.probe_every,
-            policy: Policy::default(),
+            // The trust rule the plan names, materialised onto the default thresholds. Under
+            // `Trust::Current` this is `Policy::default()` exactly, which is what makes the default
+            // variant a reproduction rather than a re-implementation.
+            policy: self.trust.policy(),
             calibrate_every: self.calibrate_every,
             numerical_every: self.numerical_every,
             symmetric_every: self.symmetric_every,
@@ -140,6 +156,13 @@ impl Plan {
     /// a measurement of an experiment nobody specified. So every field is required by name and every
     /// unknown field is refused. `archive_dir` is not in the document, because where a run writes is
     /// not part of what it measures.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one strict reader for one object: the closures that read a count, a list and a name \
+                  are the refusal machinery, and lifting the field list out of this function would put \
+                  the requirement that every field is named somewhere other than where the fields are \
+                  read"
+    )]
     pub fn from_json(value: &Json) -> Result<Self, String> {
         let Json::Obj(fields) = value else {
             return Err("a plan must be an object".to_string());
@@ -157,6 +180,7 @@ impl Plan {
             "symmetric_every",
             "refine_every",
             "calibrate_every",
+            "trust",
         ];
         for (name, _) in fields {
             if !known.contains(&name.as_str()) {
@@ -216,6 +240,28 @@ impl Plan {
             );
         }
         let ablate = plan_channels(&names("ablate")?, "plan")?;
+        // The one field this reader accepts in its absence, and the reason is what the reader reads:
+        // published documents as well as protocol files. Every results file in `benchmarks/results/`
+        // predates named variants, and none of them could have been labelled under any rule but the
+        // current one, so absence there is a fact about history rather than a value to be guessed. A
+        // name it does not know is refused, because a document whose rule is a typo is a document whose
+        // measurement is unknown. Where a file *is* obliged to state a rule is a frozen
+        // [`Protocol::SCHEMA_V2`] arm, in [`Protocol::from_json`] — a pre-registration has no history to
+        // fall back on.
+        let trust = match at("trust") {
+            Err(_) => Trust::Current,
+            Ok(value) => {
+                let text = value
+                    .as_str()
+                    .ok_or_else(|| "plan: trust needs a variant name".to_string())?;
+                Trust::parse(text).ok_or_else(|| {
+                    format!(
+                        "plan: unknown trust variant {text:?}; this tool knows {}",
+                        Trust::names().join(", ")
+                    )
+                })?
+            }
+        };
         Ok(Self {
             budgets,
             strategies,
@@ -229,6 +275,7 @@ impl Plan {
             symmetric_every: count("symmetric_every")?,
             differential_every: count("differential_every")?,
             ablate,
+            trust,
             archive_dir: std::path::PathBuf::new(),
         })
     }
@@ -290,11 +337,19 @@ fn plan_channels(names: &[String], site: &str) -> Result<Vec<aporia_evidence::Ch
     Ok(out)
 }
 
-/// One arm of a [`Protocol`]: a name, and the channels that arm was blind to.
+/// One arm of a [`Protocol`]: a name, the channels that arm was blind to, and the trust rule that
+/// labelled its leaves.
 #[derive(Clone, Debug)]
 pub struct ProtocolArm {
     pub name: String,
     pub ablate: Vec<aporia_evidence::Channel>,
+    /// Which rule decided what this arm was allowed to call trusted.
+    ///
+    /// Carried per arm and not per plan under [`Protocol::SCHEMA_V2`], exactly as the mask is, because
+    /// the arms of this protocol are a grid of two declared axes: an arm that did not state its trust
+    /// rule would be a different measurement from the arm beside it and would say so nowhere in the
+    /// file that froze it.
+    pub trust: Trust,
 }
 
 /// Who produced a measurement, when it came from a frozen protocol file rather than from a command
@@ -343,6 +398,18 @@ pub struct Protocol {
 
 impl Protocol {
     pub const SCHEMA: &'static str = "aporia.protocol/1";
+    /// A protocol whose arms state a trust rule beside a channel mask.
+    ///
+    /// A second version rather than a looser reader, because the difference is in what a file is
+    /// *obliged* to say: an `/1` arm states a mask and inherits the rule every committed measurement
+    /// used, and the frozen files of that shape must keep meaning what they said. A `/2` arm states
+    /// both, and an arm that omits its rule is refused by name. Promoting a file from one to the other
+    /// is an edit, and an edit changes the file's digest, so a pre-registration cannot acquire an axis
+    /// afterwards without that being visible in every document that cites it.
+    pub const SCHEMA_V2: &'static str = "aporia.protocol/2";
+
+    /// The two schemas this reader accepts, in the order a refusal names them.
+    pub const SCHEMAS: [&'static str; 2] = [Self::SCHEMA, Self::SCHEMA_V2];
 
     /// Read a protocol from a file, naming the path in every refusal.
     pub fn load(path: &std::path::Path) -> Result<Self, String> {
@@ -375,6 +442,8 @@ impl Protocol {
         })?;
         let mut plan = self.plan.clone();
         plan.ablate.clone_from(&arm.ablate);
+        // The second axis an arm may move, set in the same place and for the same reason as the first.
+        plan.trust = arm.trust;
         Ok((
             plan,
             Frozen {
@@ -386,16 +455,25 @@ impl Protocol {
         ))
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "a pre-registration is one object read in one place: the schema gate, the plan \
+                  section, the arms with their two axes, the entry lists and the deciding metric have \
+                  to be checked against each other here, because a refusal that lives in another \
+                  function is a rule a later edit can drop without noticing"
+    )]
     pub fn from_json(value: &Json) -> Result<Self, String> {
-        if value.get("schema").and_then(Json::as_str) != Some(Self::SCHEMA) {
+        let schema = value
+            .get("schema")
+            .and_then(Json::as_str)
+            .unwrap_or("<missing>");
+        if !Self::SCHEMAS.contains(&schema) {
             return Err(format!(
-                "unrecognised protocol schema {:?}",
-                value
-                    .get("schema")
-                    .and_then(Json::as_str)
-                    .unwrap_or("<missing>")
+                "unrecognised protocol schema {schema:?}; this tool reads {}",
+                Self::SCHEMAS.join(" and ")
             ));
         }
+        let v2 = schema == Self::SCHEMA_V2;
         let text = |key: &str| -> Result<String, String> {
             value
                 .get(key)
@@ -412,10 +490,21 @@ impl Protocol {
                     .to_string(),
             );
         }
+        if v2 && plan_value.get("trust").is_some() {
+            return Err(format!(
+                "protocol: a {} plan section does not carry trust — each arm states its own trust \
+                 rule, beside its mask",
+                Self::SCHEMA_V2
+            ));
+        }
         // `Plan::from_json` requires every field it reads, including the mask, because a results
         // document that lost its `ablate` would otherwise be read as the full instrument. A protocol
         // states no mask in its plan on purpose, so the empty mask is written in here rather than
         // being allowed to become a default inside the plan reader.
+        //
+        // The trust rule needs no such injection: a plan section that names none *is* `current`, and
+        // not as a silent default — see [`Plan::from_json`] for why that one field is read from a
+        // document's history rather than required of it.
         let Json::Obj(plan_fields) = plan_value else {
             return Err("protocol: plan must be an object".to_string());
         };
@@ -448,7 +537,62 @@ impl Protocol {
                 .map(|mask| mask.as_str().unwrap_or_default().to_string())
                 .collect();
             let ablate = plan_channels(&silenced, &format!("protocol: arm {name:?}"))?;
-            arms.push(ProtocolArm { name, ablate });
+            // The arm's trust rule, required in one schema version and refused in the other. Both
+            // refusals are about the same thing: a file that does not say which rule its arms ran
+            // under cannot be the record of what it measured, and a file that says it in a place the
+            // schema does not define would be read differently by two builds.
+            let trust = match item.get("trust") {
+                Some(_) if !v2 => {
+                    return Err(format!(
+                        "protocol: arm {name:?} states a trust variant, and {schema} arms state a \
+                         mask only. Promote the file to {} in the commit that means to change what \
+                         it measures.",
+                        Self::SCHEMA_V2
+                    ));
+                }
+                Some(value) => {
+                    let text = value.as_str().ok_or_else(|| {
+                        format!("protocol: arm {name:?} has a trust variant that is not a name")
+                    })?;
+                    Trust::parse(text).ok_or_else(|| {
+                        format!(
+                            "protocol: arm {name:?} names the unknown trust variant {text:?}; this \
+                             tool knows {}",
+                            Trust::names().join(", ")
+                        )
+                    })?
+                }
+                None if v2 => {
+                    return Err(format!(
+                        "protocol: arm {name:?} states no trust variant, and a {} arm is its mask \
+                         and its rule together",
+                        Self::SCHEMA_V2
+                    ));
+                }
+                None => Trust::Current,
+            };
+            arms.push(ProtocolArm {
+                name,
+                ablate,
+                trust,
+            });
+        }
+        // Two arms the instrument cannot tell apart are one measurement under two names, and a
+        // comparison that reports both would count one experiment twice. Under `/1` the masks alone
+        // decided an arm and this reduced to the existing name-uniqueness rule; under `/2` the two
+        // axes are one definition, so they are checked together.
+        for (at, arm) in arms.iter().enumerate() {
+            for other in arms.iter().skip(at + 1) {
+                let same_mask = arm.ablate.len() == other.ablate.len()
+                    && arm.ablate.iter().all(|c| other.ablate.contains(c));
+                if same_mask && arm.trust == other.trust {
+                    return Err(format!(
+                        "protocol: arms {:?} and {:?} silence the same channels and trust under the \
+                         same rule, so they are one measurement under two names",
+                        arm.name, other.name
+                    ));
+                }
+            }
         }
         let entries = value
             .get("entries")
@@ -564,22 +708,17 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
             // number could later be opened from. Canonical order (the enum's, not the flags'),
             // so `--ablate physical,behavioral` and `--ablate behavioral,physical` are the same
             // arm with the same directory.
-            let silenced: Vec<&str> = aporia_evidence::Channel::ALL
-                .iter()
-                .filter(|c| plan.ablate.contains(c))
-                .map(|c| c.name())
-                .collect();
-            let arm = if silenced.is_empty() {
-                String::new()
-            } else {
-                format!("-ablated-{}", silenced.join("+"))
-            };
-            let dir = plan.archive_dir.join(format!(
-                "{}-{}-{strategy}-seed{seed}{arm}",
-                entry.family,
-                entry.name,
-                strategy = strategy.name()
-            ));
+            let dir = plan
+                .archive_dir
+                .join(archive_name(entry, plan, strategy, seed));
+            // An archive is the bytes a reported number is later opened from, so replacing one is
+            // worth a line. This is not a refusal because re-running a plan into the same directory
+            // is a normal thing to do; it is a warning because it is also how a pilot's archive comes
+            // to be gone by the time the full run needs it, and the two are told apart by which
+            // directory each was asked to write.
+            if dir.exists() {
+                eprintln!("warning: replacing the existing archive {}", dir.display());
+            }
             match archive_and_replay(entry, &campaign, plan, strategy, seed, &dir, &mut engine) {
                 Ok(r) => {
                     outcome.replay = Some(r);
@@ -619,6 +758,46 @@ pub fn sweep(entry: &Entry, plan: &Plan, seed: u64, strategy: Strategy) -> Optio
         replay,
         replay_error,
     })
+}
+
+/// The directory one campaign's archive is written to, naming every axis a measurement can vary on.
+///
+/// Every one of them has to appear, because two arms that share a directory is one arm silently
+/// replacing the other's evidence, and the point of keeping archives is that a reported number can be
+/// opened later. Named per entry, not per family, for that reason: two entries in one family otherwise
+/// overwrite each other. The ablation suffix exists because E2's eleven arms share entry, strategy and
+/// seed. The trust suffix exists because E1.3b's arms share the entry, the seed, the budget, the
+/// strategy and the mask, and differ only in the rule that decided what they were allowed to call
+/// trusted. Both suffixes use canonical order — the enum's, not the caller's — so
+/// `--ablate physical,behavioral` and `--ablate behavioral,physical` are one arm with one directory.
+///
+/// `Trust::Current` takes no suffix, which is the same compatibility decision as
+/// [`plan_json`]'s omitted field and stated here rather than there because the two must not be able to
+/// disagree: an archive written before variants existed already records its rule inside its own
+/// manifest, and renaming its directory would make a committed archive unreachable by path.
+#[must_use]
+pub fn archive_name(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> String {
+    let silenced: Vec<&str> = aporia_evidence::Channel::ALL
+        .iter()
+        .filter(|c| plan.ablate.contains(c))
+        .map(|c| c.name())
+        .collect();
+    let arm = if silenced.is_empty() {
+        String::new()
+    } else {
+        format!("-ablated-{}", silenced.join("+"))
+    };
+    let trust = if plan.trust == Trust::Current {
+        String::new()
+    } else {
+        format!("-trust-{}", plan.trust.name())
+    };
+    format!(
+        "{}-{}-{}-seed{seed}{arm}{trust}",
+        entry.family,
+        entry.name,
+        strategy.name()
+    )
 }
 
 /// Write the archive for one campaign and replay it, returning `(reproduced, matched, total)`.
@@ -863,6 +1042,13 @@ pub fn results_json(
             }),
         ),
         ("question", Json::text(question)),
+        // Which trust rule labelled these rows, named in every document whether or not the plan
+        // section had to carry it. This is provenance beside the identity rather than part of it: a
+        // reader opening a `Current` run has to be able to see that it says `current`, and a reader
+        // comparing two documents must not have to infer the rule from which optional field is
+        // present. The machine that enforces "different rule, different measurement" is the digest,
+        // and [`plan_json`] carries it.
+        ("trust", Json::text(plan.trust.name())),
         ("plan", plan_value),
         ("entries", entries_value),
         ("environment", environment_json(environment)),
@@ -906,14 +1092,28 @@ pub fn results_json(
 /// What the run was asked to do, as the document records it. Its own function because the identity of
 /// a measurement is a digest of exactly this, and two definitions of "the plan" must not be able to
 /// drift apart.
-fn plan_json(plan: &Plan) -> Json {
-    Json::object(vec![
+///
+/// The trust variant is written **only** when it is not [`Trust::Current`], and that omission is a
+/// measured decision rather than a shortcut. The identity of a measurement is a digest of this object,
+/// and every committed file in `benchmarks/results/` was labelled under `Current`, so writing the field
+/// unconditionally would have renamed 330 published rows the moment the instrument learned to name a
+/// rule it had not changed — and a rerun of a frozen protocol could then no longer be recognised as the
+/// measurement it reproduces. A run under any other variant *does* write it, so a variant row cannot
+/// overwrite the row measured under another rule, which is the other half of the requirement. The name
+/// is also recorded unconditionally at the top level of every results document, where it is visible to
+/// a reader and outside the digest: see [`results_json`].
+/// measurement identity. A test of the compatibility rule below has to be able to ask what this
+/// function writes for a plan that names no variant, and a reader of a published file can recompute
+/// its own identity from it, so it is the module's public shape rather than a private detail.
+#[must_use]
+pub fn plan_json(plan: &Plan) -> Json {
+    let mut fields: Vec<(String, Json)> = vec![
         (
-            "budgets",
+            "budgets".to_string(),
             Json::Arr(plan.budgets.iter().map(|b| Json::count(*b)).collect()),
         ),
         (
-            "strategies",
+            "strategies".to_string(),
             Json::Arr(
                 plan.strategies
                     .iter()
@@ -922,16 +1122,19 @@ fn plan_json(plan: &Plan) -> Json {
             ),
         ),
         (
-            "seeds",
+            "seeds".to_string(),
             Json::Arr(plan.seeds.iter().map(|s| Json::count(*s)).collect()),
         ),
-        ("grid_per_axis", Json::count(plan.grid as u64)),
-        ("minimise_budget", Json::count(plan.minimise_budget)),
+        ("grid_per_axis".to_string(), Json::count(plan.grid as u64)),
+        (
+            "minimise_budget".to_string(),
+            Json::count(plan.minimise_budget),
+        ),
         // Which channels this arm was blind to, by name. In the identity, so an ablation arm cannot
         // overwrite the arm it is measured against; in the file, so a reader can tell an arm that
         // lacked a channel from one whose channel found nothing.
         (
-            "ablate",
+            "ablate".to_string(),
             Json::Arr(
                 plan.ablate
                     .iter()
@@ -942,13 +1145,35 @@ fn plan_json(plan: &Plan) -> Json {
         // The rates that cost evaluations are part of the definition of the measurement, so
         // they travel with its results: without them a reader cannot tell a channel that
         // changed nothing from a channel that was never sampled.
-        ("probe_every", Json::count(plan.probe_every)),
-        ("numerical_every", Json::count(plan.numerical_every)),
-        ("differential_every", Json::count(plan.differential_every)),
-        ("symmetric_every", Json::count(plan.symmetric_every)),
-        ("refine_every", Json::count(plan.refine_every)),
-        ("calibrate_every", Json::count(plan.calibrate_every)),
-    ])
+        ("probe_every".to_string(), Json::count(plan.probe_every)),
+        (
+            "numerical_every".to_string(),
+            Json::count(plan.numerical_every),
+        ),
+        (
+            "differential_every".to_string(),
+            Json::count(plan.differential_every),
+        ),
+        (
+            "symmetric_every".to_string(),
+            Json::count(plan.symmetric_every),
+        ),
+        ("refine_every".to_string(), Json::count(plan.refine_every)),
+        (
+            "calibrate_every".to_string(),
+            Json::count(plan.calibrate_every),
+        ),
+    ];
+    if plan.trust != Trust::Current {
+        // Beside `ablate`, because that is what it is: a second declared axis of the comparison
+        // rather than a rate that happens to differ.
+        let at = fields
+            .iter()
+            .position(|(name, _)| name == "ablate")
+            .map_or(fields.len(), |at| at + 1);
+        fields.insert(at, ("trust".to_string(), Json::text(plan.trust.name())));
+    }
+    Json::Obj(fields)
 }
 
 /// Which corpus entries were covered, and what each one claimed. The claim travels with the name —
@@ -1092,6 +1317,7 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
     let budget = *plan.budgets.last().unwrap_or(&200);
     let cfg = plan.config(strategy, budget, seed);
     let silenced_mask = cfg.silenced;
+    let trust = cfg.trust();
     let campaign = run(model, cfg);
     let mut out = String::new();
     let _ = writeln!(
@@ -1099,6 +1325,10 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
         "{}  strategy {strategy:?}  budget {budget}  seed {seed}",
         entry.id()
     );
+    // Which rule decided what this run was allowed to call trusted, named even when it is the one that
+    // has always been in force: `explain` exists to answer why a label came out the way it did, and
+    // the rule is the first thing a reader would have to assume without it.
+    let _ = writeln!(out, "trust rule: {}", trust.name());
     let coverage = campaign.atlas.coverage();
     let _ = writeln!(
         out,

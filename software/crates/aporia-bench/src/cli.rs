@@ -355,6 +355,26 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
             frozen_run.plan.budgets,
             frozen_run.plan.seeds
         );
+        // The two axes an arm is allowed to move, both printed on the line that says which
+        // pre-registration is being run. A variant reachable only through a frozen file is deliberate:
+        // there is no `--trust` flag, so an ad-hoc command cannot produce a variant row that no
+        // protocol said it was measuring.
+        println!(
+            "  trust rule {}  silences {}",
+            frozen_run.plan.trust.name(),
+            if frozen_run.plan.ablate.is_empty() {
+                "nothing".to_string()
+            } else {
+                frozen_run
+                    .plan
+                    .ablate
+                    .iter()
+                    .copied()
+                    .map(aporia_evidence::Channel::name)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
+        );
         (frozen_run.entries, frozen_run.plan, Some(frozen_run.frozen))
     } else {
         if arm_name.is_some() {

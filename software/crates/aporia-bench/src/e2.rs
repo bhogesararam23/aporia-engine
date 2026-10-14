@@ -21,6 +21,7 @@
 //! refuses them instead of dividing by a cost difference nobody declared.
 
 use crate::metrics::{Census, ChannelCensus};
+use aporia_boundary::Trust;
 use aporia_evidence::Channel;
 use aporia_store::Json;
 
@@ -69,8 +70,15 @@ pub struct Arm {
     pub identity: Option<String>,
     /// The channels this arm silences, from the plan it recorded.
     pub ablate: Vec<Channel>,
+    /// Which trust rule labelled this arm's leaves.
+    ///
+    /// A declared axis of a comparison beside the mask, and read from the document rather than
+    /// defaulted into it: an arm that paired with the full instrument while running a different rule
+    /// for what counts as trusted would attribute a difference in labels to a difference in channels.
+    pub trust: Trust,
     /// The plan as `(field, value)` pairs in the order the document records them, *without* the
-    /// `ablate` field — the fingerprint two documents must share to be the same experiment.
+    /// `ablate` and `trust` fields — the fingerprint two documents must share to be the same
+    /// experiment.
     plan: Vec<(String, String)>,
     sweeps: Vec<ArmSweep>,
 }
@@ -88,27 +96,63 @@ impl Arm {
         let plan = doc
             .get("plan")
             .ok_or_else(|| format!("{path} records no plan, so it is not a measurable arm"))?;
+        // Which rule decided what this arm was allowed to call trusted. Read from the top-level name
+        // when the writer recorded one, from the plan field where a build records it only there, and
+        // as `current` when it records it nowhere at all — which is not a default quietly applied but
+        // a statement about history: no document written before the variant existed could have meant a
+        // different rule, because there was no different rule to label a row under. A name this build
+        // does not know is refused, because a comparison that guesses a rule guesses a measurement.
+        let top = doc.get("trust").and_then(Json::as_str);
+        let inner = plan.get("trust").and_then(Json::as_str);
+        if let (Some(top), Some(inner)) = (top, inner)
+            && top != inner
+        {
+            return Err(format!(
+                "{path} names its trust rule {top:?} at the top of the document and {inner:?} \
+                 inside its plan; one document may not state two rules"
+            ));
+        }
+        let trust = match top.or(inner) {
+            None => Trust::Current,
+            Some(text) => Trust::parse(text).ok_or_else(|| {
+                format!(
+                    "{path} names the unknown trust variant {text:?}; this tool knows {}",
+                    Trust::names().join(", ")
+                )
+            })?,
+        };
         let mut ablate = Vec::new();
         let mut fields = Vec::new();
         if let Json::Obj(items) = plan {
             for (name, value) in items {
-                if name == "ablate" {
-                    // Names, refused rather than defaulted: a channel word this build does not
-                    // know is an arm nobody can describe, not an arm that silenced nothing.
-                    if let Json::Arr(list) = value {
-                        for item in list {
-                            let text = item.as_str().ok_or_else(|| {
-                                format!("{path}: the ablate list holds a non-name: {item:?}")
-                            })?;
-                            let channel = Channel::parse(text).ok_or_else(|| {
-                                format!("{path} silences the unknown channel {text:?}")
-                            })?;
-                            ablate.push(channel);
-                        }
-                    }
+                // The two declared axes of an arm. Neither belongs in the fingerprint, which is
+                // everything else about the experiment: an arm whose mask or rule differed on the
+                // inside would stop being comparable to the arm it was frozen beside, and the whole
+                // point of reading them out here is that they are what the comparison is *about*.
+                // Names either way, refused rather than defaulted — a channel word or a variant word
+                // this build does not know is an arm nobody can describe, not an arm that silenced
+                // nothing and trusted under today's rule.
+                if name == "trust" {
                     continue;
                 }
-                fields.push((name.clone(), value.to_compact()));
+                if name != "ablate" {
+                    fields.push((name.clone(), value.to_compact()));
+                    continue;
+                }
+                let Json::Arr(list) = value else {
+                    return Err(format!(
+                        "{path} records an ablate section that is not a list: {}",
+                        value.to_compact()
+                    ));
+                };
+                for item in list {
+                    let text = item.as_str().ok_or_else(|| {
+                        format!("{path}: the ablate list holds a non-name: {item:?}")
+                    })?;
+                    let channel = Channel::parse(text)
+                        .ok_or_else(|| format!("{path} silences the unknown channel {text:?}"))?;
+                    ablate.push(channel);
+                }
             }
         }
         let sweeps_json = doc
@@ -246,14 +290,20 @@ impl Arm {
                 .and_then(Json::as_str)
                 .map(str::to_string),
             ablate,
+            trust,
             plan: fields,
             sweeps,
         })
     }
 
-    /// What this arm is called in a report: the channels it silences, by name.
+    /// What this arm is called in a report: the channels it silences, by name, and the trust rule it
+    /// was labelled under whenever that is not the rule every committed measurement used.
+    ///
+    /// The rule has to be in the label or an E1.3b comparison prints two arms named `full` — one of
+    /// them the reference — which is worse than a long label: a reader would conclude that the variant
+    /// differs in nothing visible, when the rule is the only thing that arm exists to test.
     fn label(&self) -> String {
-        if self.ablate.is_empty() {
+        let mask = if self.ablate.is_empty() {
             "full".to_string()
         } else if self.ablate.len() == Channel::ALL.len() - 1 {
             let kept = Channel::ALL
@@ -270,6 +320,11 @@ impl Arm {
                     .collect::<Vec<_>>()
                     .join("+")
             )
+        };
+        if self.trust == Trust::Current {
+            mask
+        } else {
+            format!("{mask} / trust {}", self.trust.name())
         }
     }
 }
@@ -472,6 +527,10 @@ pub struct Comparison {
     pub label: String,
     pub identity: Option<String>,
     pub silenced: Vec<Channel>,
+    /// Which trust rule this arm was labelled under, always the arm's own and never the reference's —
+    /// `current` therefore means "the rule the reference arm also used", which is the reading where the
+    /// delta is about channels alone.
+    pub trust: Trust,
     pub pairs: Vec<Pair>,
     pub localisation: Tally,
     pub detection: Tally,
@@ -495,6 +554,7 @@ impl Comparison {
                 "silenced",
                 Json::Arr(self.silenced.iter().map(|c| Json::text(c.name())).collect()),
             ),
+            ("trust", Json::text(self.trust.name())),
             ("localisation", self.localisation.json()),
             ("detection", self.detection.json()),
             ("boundaries", self.boundaries.json()),
@@ -568,6 +628,19 @@ pub fn compare(full: &Arm, arm: &Arm) -> Result<Comparison, String> {
                 .join(", ")
         ));
     }
+    if full.trust != Trust::Current {
+        // The reference is the instrument as it has always been labelled, on both axes, for the same
+        // reason it may not silence a channel: a delta measured against a run that already moved is a
+        // delta between two variants and would be printed under the word `full`, which is the one
+        // thing in this comparison that is not a variable. E1.3b's frozen metric is a fall in
+        // over-claim *beside the current rule*, so the current rule has to be the thing on the left.
+        return Err(format!(
+            "{} is not the reference arm: it is labelled under the trust variant {:?}. The first \
+             document must be the arm run under `current`",
+            full.path,
+            full.trust.name()
+        ));
+    }
     // The plan comparison is field by field in the order the documents record them, so the message
     // names the field that differs rather than producing two opaque digests.
     for (name, full_value) in &full.plan {
@@ -578,8 +651,9 @@ pub fn compare(full: &Arm, arm: &Arm) -> Result<Comparison, String> {
             .map(|(_, v)| v.clone());
         if arm_value.as_deref() != Some(full_value.as_str()) {
             return Err(format!(
-                "{} and {} differ in {name} ({full_value} vs {}): the arms of one experiment \
-                 agree on everything except the ablate mask",
+                "{} and {} differ in {name} ({full_value} vs {}): the arms of one experiment agree \
+                 on everything except the mask they silence and the trust rule they are labelled \
+                 under",
                 full.path,
                 arm.path,
                 arm_value.unwrap_or_else(|| "absent".to_string())
@@ -810,6 +884,7 @@ pub fn compare(full: &Arm, arm: &Arm) -> Result<Comparison, String> {
         label: arm.label(),
         identity: arm.identity.clone(),
         silenced: arm.ablate.clone(),
+        trust: arm.trust,
         pairs,
         localisation,
         detection,

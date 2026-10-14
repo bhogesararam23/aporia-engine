@@ -2,7 +2,8 @@
 
 use aporia_bench::cli;
 use aporia_bench::corpus_root;
-use aporia_bench::harness::{Plan, Protocol, RESULTS_SCHEMA, identity_of, results_json};
+use aporia_bench::harness::{Plan, Protocol, RESULTS_SCHEMA, identity_of, plan_json, results_json};
+use aporia_boundary::Trust;
 use aporia_evidence::Channel;
 use aporia_search::Strategy;
 use aporia_store::{Environment, Json};
@@ -23,7 +24,9 @@ fn environment() -> Environment {
 }
 
 /// A plan that is nothing like the defaults, so a reader that quietly fell back to a default would
-/// show up as a difference rather than passing.
+/// show up as a difference rather than passing. The trust variant is unusual here for the same reason
+/// as every other field, and `a_plan_reads_back_the_bytes_that_name_it` therefore round-trips it: a
+/// plan section that lost its rule would otherwise be read as the current one.
 fn unusual() -> Plan {
     Plan {
         budgets: vec![320, 640, 1280],
@@ -38,6 +41,7 @@ fn unusual() -> Plan {
         symmetric_every: 1,
         differential_every: 11,
         ablate: vec![Channel::Physical, Channel::Behavioral],
+        trust: Trust::NonFiniteBlocksTrust,
         archive_dir: PathBuf::from("where-bytes-land-is-not-part-of-a-measurement"),
     }
 }
@@ -82,6 +86,10 @@ fn a_plan_reads_back_the_bytes_that_name_it() {
         assert_eq!(a, b, "{name} did not survive the round trip");
     }
     assert_eq!(back.ablate, plan.ablate);
+    assert_eq!(
+        back.trust, plan.trust,
+        "a plan section that lost its trust rule would be read as the current one"
+    );
     assert!(
         back.archive_dir.as_os_str().is_empty(),
         "where a run writes is not part of what it measures, so it is not in the document"
@@ -478,28 +486,25 @@ fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
         "the refusal names the schema rather than a detail: {error}"
     );
 
-    // A freeze that cannot be promoted is a note rather than a pre-registration, so the file is
-    // checked as the definition it claims to be: with the draft schema replaced by the real one and
-    // nothing else changed, the *only* thing the reader may find missing is its corpus.
-    let promoted = text.replacen("aporia.protocol/draft-1", Protocol::SCHEMA, 1);
-    let value = Json::parse(&promoted).expect("the promoted copy is still JSON");
-    let error = Protocol::from_json(&value)
+    // A freeze that cannot be promoted is a note rather than a pre-registration, so the file is checked
+    // as the definition it claims to be. Two things were missing from it as frozen: a schema whose arms
+    // state a trust rule, and a corpus. The first is the instrument's job and it is now real, so the
+    // promotion performed here in memory — schema `/2`, each arm given the rule its own name already
+    // claims — leaves exactly one thing for the reader to refuse: the entries this experiment has not
+    // authored yet.
+    let promoted = promote(&Json::parse(&text).expect("it is JSON"));
+    let error = Protocol::from_json(&promoted)
         .err()
         .unwrap_or_else(|| panic!("the freeze parsed with its entry list still empty"));
     assert!(
         error.contains("entries.run"),
         "the refusal must be about the corpus it has not authored, got: {error}"
     );
-    // Hand it three existing entries and nothing else changes: it must read as a protocol, with its
-    // frozen plan, arms and decider intact. That is the difference between a definition waiting for a
-    // corpus and a document that was never machine-checkable in the first place.
-    let filled = promoted.replacen(
-        "\"run\": [],",
-        "\"run\": [\"edge/overflow_tail\", \"edge/pole_at_edge\", \"geometry/narrow_oblique\"],",
-        1,
-    );
-    let value = Json::parse(&filled).expect("the filled copy is JSON");
-    let protocol = Protocol::from_json(&value)
+    // Hand it three existing entries and nothing else changes: it reads as a protocol, with its frozen
+    // plan, its eight arms and its decider intact. That is the difference between a definition waiting
+    // for a corpus and a document that was never machine-checkable in the first place.
+    let filled = with_run(&promoted, &FROZEN_SAMPLE);
+    let protocol = Protocol::from_json(&filled)
         .expect("the freeze is a readable protocol once its entries exist");
     assert_eq!(protocol.arm_names().len(), 8);
     assert_eq!(protocol.plan.budgets, vec![320, 640, 1280, 2560]);
@@ -509,6 +514,11 @@ fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
         protocol.plan.ablate.is_empty(),
         "the plan section states no mask: each arm names its own, or the file is two experiments"
     );
+    assert_eq!(
+        protocol.plan.trust,
+        Trust::Current,
+        "and it states no rule either, for the same reason"
+    );
     assert!(
         Protocol::load(&path).is_err(),
         "and as committed, the runner cannot read the draft at all"
@@ -516,13 +526,13 @@ fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
     // Committing the file with an empty list is the discipline; a stray edit that fills it silently
     // would turn the freeze into a runnable plan without a review.
     assert!(
-        promoted.contains("\"run\": []"),
+        text.contains("\"run\": []"),
         "the committed freeze must still name no entry"
     );
 
     // What the freeze commits to, checked as fields so it cannot be quietly rewritten later.
     let field = |key: &str| -> Json {
-        value
+        filled
             .get(key)
             .unwrap_or_else(|| panic!("the freeze states no {key}"))
             .clone()
@@ -567,27 +577,118 @@ fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
     );
 }
 
-/// The eight arms are four trust variants across two channel masks, and the masks alone do not separate
-/// them: two arms of this freeze would today carry the same plan and therefore the same measurement
-/// identity, which the runner refuses to write twice. That collision is not a bug in the freeze, it is
-/// the freeze's first prerequisite stated as a fact about the current instrument.
-#[test]
-fn the_frozen_arms_cannot_be_told_apart_by_the_instrument_that_exists_today() {
+/// Which trust rule each of the E1.3b freeze's eight arm names claims.
+///
+/// The reader deliberately does not parse an arm's label — a name is prose, a field is a measurement —
+/// so this table is the author's promise rather than the instrument's check. It is a test because the
+/// freeze makes the promotion depend on it: the commit that fills `entries.run` has to write these exact
+/// values into `"trust"`, and an arm whose stated rule contradicts the name a report prints for it is a
+/// frozen experiment nobody can read.
+const FROZEN_RULES: [(&str, Trust); 8] = [
+    ("full-current-trust", Trust::Current),
+    ("full-min-channels-2", Trust::MinChannelsTwo),
+    ("full-nonfinite-blocks-trust", Trust::NonFiniteBlocksTrust),
+    ("full-both-trust-rules", Trust::BothRules),
+    ("no-physical-current-trust", Trust::Current),
+    ("no-physical-both-trust-rules", Trust::BothRules),
+    ("only-physical-current-trust", Trust::Current),
+    ("only-physical-both-trust-rules", Trust::BothRules),
+];
+
+/// Three entries that exist today, for the tests that need a non-empty `entries.run` to get as far as
+/// the reader's other refusals. These are not the experiment's corpus: the freeze's own entry list stays
+/// empty until the resolvable entries are authored.
+const FROZEN_SAMPLE: [&str; 3] = [
+    "edge/overflow_tail",
+    "edge/pole_at_edge",
+    "geometry/narrow_oblique",
+];
+
+/// One field of an object replaced, or appended when the object does not carry it.
+fn edited(value: &Json, key: &str, make: impl Fn(&Json) -> Json) -> Json {
+    let Json::Obj(fields) = value else {
+        return value.clone();
+    };
+    let mut out = fields.clone();
+    match out.iter_mut().find(|(name, _)| name == key) {
+        Some((_, held)) => {
+            let replacement = make(held);
+            *held = replacement;
+        }
+        None => out.push((key.to_string(), make(&Json::Null))),
+    }
+    Json::Obj(out)
+}
+
+/// The freeze promoted the way its promotion commit must promote it: the schema whose arms state a
+/// rule, and each arm given the rule its own name already claims.
+fn promote(value: &Json) -> Json {
+    let with_schema = edited(value, "schema", |_| Json::text(Protocol::SCHEMA_V2));
+    edited(&with_schema, "arms", |arms| {
+        let Json::Arr(list) = arms else {
+            unreachable!("the freeze states its arms as a list");
+        };
+        Json::Arr(
+            list.iter()
+                .map(|arm| {
+                    let name = arm
+                        .get("name")
+                        .and_then(Json::as_str)
+                        .expect("every frozen arm names itself");
+                    let (_, rule) = FROZEN_RULES
+                        .iter()
+                        .find(|(arm_name, _)| *arm_name == name)
+                        .unwrap_or_else(|| panic!("{name:?} is not one of the freeze's arms"));
+                    edited(arm, "trust", |_| Json::text(rule.name()))
+                })
+                .collect(),
+        )
+    })
+}
+
+/// The same protocol with `entries.run` replaced and the rest of its `entries` section untouched.
+fn with_run(value: &Json, names: &[&str]) -> Json {
+    edited(value, "entries", |entries| {
+        edited(entries, "run", |_| {
+            Json::Arr(names.iter().map(|n| Json::text(*n)).collect())
+        })
+    })
+}
+
+/// How many distinct values a list of names holds, without pulling in a set for one assertion.
+fn distinct(values: &[String]) -> usize {
+    let mut seen: Vec<&String> = Vec::new();
+    for value in values {
+        if !seen.contains(&value) {
+            seen.push(value);
+        }
+    }
+    seen.len()
+}
+
+/// The freeze's own arms, as the committed file states them.
+fn follow_up() -> Json {
     let path = corpus_root()
         .join("protocols")
         .join("e1-3b-trust-resolution.json");
-    let value =
-        Json::parse(&std::fs::read_to_string(path).expect("the follow-up protocol is in the tree"))
-            .expect("it is JSON");
-    let arms = value
+    Json::parse(&std::fs::read_to_string(path).expect("the follow-up protocol is in the tree"))
+        .expect("it is JSON")
+}
+
+/// The eight arms are four trust variants across three channel masks, and the masks alone do not
+/// separate them: eight names, three measurements, and no field anywhere that says which rule labelled a
+/// row. This is what the freeze's first prerequisite asks the instrument to fix.
+#[test]
+fn the_frozen_arms_are_eight_names_over_three_masks() {
+    let arms = follow_up()
         .get("arms")
         .and_then(Json::as_array)
         .expect("arms")
         .to_vec();
     assert_eq!(
         arms.len(),
-        8,
-        "four trust variants across two channel regimes"
+        FROZEN_RULES.len(),
+        "four trust variants across three channel masks"
     );
     assert!(
         arms.iter().any(|a| {
@@ -596,7 +697,8 @@ fn the_frozen_arms_cannot_be_told_apart_by_the_instrument_that_exists_today() {
                     .and_then(Json::as_array)
                     .is_some_and(<[Json]>::is_empty)
         }),
-        "the default arm must be today's policy with an empty mask, because it is the one the reproduction gate compares against committed rows"
+        "the default arm must be today's policy with an empty mask, because it is the one the \
+         reproduction gate compares against committed rows"
     );
     let masks: Vec<String> = arms
         .iter()
@@ -612,26 +714,117 @@ fn the_frozen_arms_cannot_be_told_apart_by_the_instrument_that_exists_today() {
                 .unwrap_or_default()
         })
         .collect();
-    // Three masks across eight arms: today the plan of `full-min-channels-2` would be byte-identical
-    // to `full-current-trust`, and the runner refuses to write one identity twice. The freeze is
-    // therefore unrunnable in a second, structural way — the trust dimension has to reach the plan and
-    // the identity before the arms can mean anything, which is the first prerequisite.
-    let distinct: Vec<&String> = {
-        let mut seen: Vec<&String> = Vec::new();
-        for mask in &masks {
-            if !seen.contains(&mask) {
-                seen.push(mask);
-            }
-        }
-        seen
-    };
+    // Three masks across eight arms. The trust dimension is the other four, and it is the dimension the
+    // experiment is about, so it has to be a field and not a word inside a label.
+    assert_eq!(distinct(&masks), 3, "eight arms over three channel masks");
+    let names: Vec<String> = arms
+        .iter()
+        .map(|a| {
+            a.get("name")
+                .and_then(Json::as_str)
+                .unwrap_or_default()
+                .to_string()
+        })
+        .collect();
     assert_eq!(
-        distinct.len(),
-        3,
-        "eight arms over three channel masks: the trust variants are not yet distinguishable"
+        names,
+        FROZEN_RULES
+            .iter()
+            .map(|(name, _)| (*name).to_string())
+            .collect::<Vec<_>>(),
+        "the table has to be read in the file's own order, or it checks nothing"
     );
     assert!(
-        distinct.len() < masks.len(),
-        "and that is exactly the collision the prerequisite exists to remove"
+        arms.iter()
+            .all(|a| a.get("trust").and_then(Json::as_str).is_none()),
+        "as frozen, no arm states its rule: the promotion commit is what adds them"
     );
+}
+
+/// Under the schema that only carries masks the freeze is a refused file, and under the schema whose
+/// arms state their rule the same eight arms are eight measurements with eight identities. The first
+/// refusal is the proof that the collision is now policed rather than silently written twice; the second
+/// half is the freeze's first prerequisite, met.
+#[test]
+fn the_frozen_arms_are_eight_measurements_once_the_rule_reaches_the_plan() {
+    let value = follow_up();
+    // Read as a mask-only file, with a corpus supplied so the reader gets past the empty list, the
+    // duplicate arms are refused.
+    let as_schema_one = with_run(
+        &edited(&value, "schema", |_| Json::text(Protocol::SCHEMA)),
+        &FROZEN_SAMPLE,
+    );
+    let error = Protocol::from_json(&as_schema_one).expect_err(
+        "eight arms that differ only in a word inside their names are three measurements",
+    );
+    assert!(error.contains("one measurement under two names"), "{error}");
+    assert!(
+        error.contains("full-current-trust") && error.contains("full-min-channels-2"),
+        "and it names the two arms it caught: {error}"
+    );
+
+    // Promoted, the same eight arms are eight plans and eight identities.
+    let promoted = with_run(&promote(&value), &FROZEN_SAMPLE);
+    let protocol = Protocol::from_json(&promoted).expect("a promoted freeze reads");
+    assert_eq!(protocol.arms.len(), 8);
+    for (name, rule) in FROZEN_RULES {
+        let arm = protocol
+            .arms
+            .iter()
+            .find(|a| a.name == name)
+            .unwrap_or_else(|| panic!("the promotion lost {name}"));
+        assert_eq!(
+            arm.trust, rule,
+            "{name} states a different rule than its name"
+        );
+    }
+    let mut identities: Vec<String> = Vec::new();
+    for arm in &protocol.arms {
+        let (plan, _frozen) = protocol.arm(&arm.name).expect("the arm selects");
+        assert_eq!(
+            plan.trust, arm.trust,
+            "the arm's rule has to reach the plan that runs it"
+        );
+        let id = identity_of(
+            RESULTS_SCHEMA,
+            &plan_identity_shape(&plan),
+            &Json::Arr(vec![]),
+        );
+        assert!(
+            !identities.contains(&id),
+            "{} shares an identity with an arm beside it",
+            arm.name
+        );
+        identities.push(id);
+        // The reference arm is the plan a committed E1.x row was measured by, field for field beside
+        // the ladder this protocol froze — which is what makes the reproduction gate a comparison at all.
+        if arm.trust == Trust::Current {
+            assert!(
+                !plan_json(&plan).to_compact().contains("trust"),
+                "the current rule must not rename a measurement it did not change"
+            );
+        } else {
+            assert!(
+                plan_json(&plan)
+                    .get("trust")
+                    .and_then(Json::as_str)
+                    .is_some(),
+                "{} is a variant that names itself nowhere",
+                arm.name
+            );
+        }
+    }
+    assert_eq!(identities.len(), 8, "eight arms, eight measurements");
+}
+
+/// The plan section as the identity digests it. A helper rather than a call to `results_json` because
+/// this test is about eight plans and not about a document: the same object the writer would have
+/// produced, without an environment to invent.
+fn plan_identity_shape(plan: &Plan) -> Json {
+    let mut environment = Environment::current();
+    environment.notes.clear();
+    results_json(&[], &[], plan, &environment, None)
+        .get("plan")
+        .expect("a document carries its plan")
+        .clone()
 }
