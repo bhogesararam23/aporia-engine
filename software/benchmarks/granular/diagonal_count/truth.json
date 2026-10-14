@@ -1,0 +1,45 @@
+{
+  "schema": "aporia.truth/3",
+  "method": "analytic",
+  "fault": "boundary_condition",
+  "meaning": "The number of diagonals of a convex n-gon, n(n-3)/2, relaxed from the integers to the real line so the atlas can bisect it like any other axis. A drawing tool is capped at 30 link records, so the count passes its limit past one crossing and stays past it: a monotone quadratic branch over the declared range, with no singularity anywhere.",
+  "variables": [
+    {
+      "name": "n",
+      "unit": "1",
+      "role": "vertices of the polygon, treated continuously; the identity is exact at the integers and monotone between them",
+      "lo": 2.0,
+      "hi": 14.0
+    }
+  ],
+  "mechanism": "a combinatorial count that grows quadratically past a fixed capability",
+  "channels": ["physical", "behavioral"],
+  "resolvable": true,
+  "resolvability": "One parameter, so the finest permitted leaf is 12/2^12 = 0.00293 vertices and the failing set is 4.6112 wide — 1573 leaves across, so a leaf can lie wholly inside it and the localisation bar of one half is cleared outright rather than approached. The crossing is at n = (3 + sqrt(249))/2. Its irrationality is what makes this entry worth having beside `rail_ceiling`: a value of the form (3 + sqrt(249))/2 cannot equal 2 + k/(2^m/…), any dyadic position, because a dyadic number is rational, so no leaf edge of any partition this atlas can build lands on the boundary.",
+  "source": "The diagonal count of a convex n-gon is n(n-3)/2 — every vertex joins to n-3 others, each diagonal counted twice — and the limit is the declared constant, so the crossing solves in one step: n^2 - 3n - 60 = 0 gives n = (3 ± sqrt(9 + 240))/2 = (3 ± sqrt(249))/2, and the negative root is outside the domain. Monotonicity on n > 1.5 follows from d/dn[n^2 - 3n - 60] = 2n - 3 > 0 there, so the failing set is one interval.",
+  "derivation": "`require links <= 30` fails where n(n-3)/2 > 30, i.e. n^2 - 3n - 60 > 0, whose positive root is (3 + sqrt(249))/2 = 9.388769… — between the integers 9 and 10, which is exactly what the closed form predicts: a hexadecagon has 54 diagonals, an octogon 20, so the count crosses 30 between the nonagon's 27 and the decagon's 35. On the declared domain the failing set is the interval (9.388769…, 14], width 4.611231, share 4.611231/12 = 0.38427 of the space; the corpus's own 32-point measure prints 0.379427, a lattice artefact of the same kind 0037 disclosed for `narrow_oblique` and disclosed here for the same reason. The declared box [9.3, 14] is a strict superset, and the predicate `n * (n - 3) / 2 > 30` carries the boundary; `corpus::verify` checks both directions at every grid point, which is where the hand algebra is tested rather than asserted.",
+  "why": "The predicates of this corpus speak a small arithmetic language, and it has no name for pi: an entry whose boundary is a transcendental number can declare it only through the algebra the predicate *can* express. sqrt(249) is in that language and pi is not, so this entry contributes the case E1.3b needs from `rail_ceiling` and `polygon`-shaped arithmetic alike — a crossing no leaf edge can sit on — without the region being decided by a constant the instrument cannot read. Its failing set also has a different shape from every other entry here: it grows quadratically, so the risk gradient the sensitivity channel sees rises across the region instead of flattening at an edge.",
+  "regions": [
+    {
+      "reason": "the polygon needs more link records than the drawing tool holds",
+      "axes": {
+        "n": [
+          9.3,
+          14
+        ]
+      },
+      "where": "n * (n - 3) / 2 > 30"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "n",
+      "at": 9.388769,
+      "tolerance": 0.01
+    }
+  ],
+  "matched_to": "aerospace/projectile_sign_mutant",
+  "expect": "a quadratic crossing between two integers, on a boundary no leaf edge can reach",
+  "narrow": false,
+  "curved": false
+}

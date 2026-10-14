@@ -1,0 +1,5 @@
+model diagonal_count "the diagonals a complete graph draws, relaxed to the reals, against a fixed tool limit" {
+  input n in [2, 14]
+  let links = n * (n - 3) / 2
+  require links <= 30
+}

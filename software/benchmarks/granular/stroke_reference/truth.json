@@ -1,0 +1,56 @@
+{
+  "schema": "aporia.truth/3",
+  "method": "analytic",
+  "fault": "gain_amplification",
+  "meaning": "A position servo driven past the end of its stroke. The setpoint sits just beyond where the arm can reach, so the tracking error law 12/(r - x) grows as the arm approaches the far end of its travel without any division by zero happening inside the domain: the pole is at gap = 0, and the smallest gap the declared domain allows is r - x = 1 mm.",
+  "variables": [
+    {
+      "name": "x",
+      "unit": "mm",
+      "role": "arm position, from the stroke datum",
+      "lo": 0.0,
+      "hi": 8.0
+    },
+    {
+      "name": "r",
+      "unit": "mm",
+      "role": "commanded setpoint, held beyond the end of the stroke",
+      "lo": 9.0,
+      "hi": 11.0
+    }
+  ],
+  "mechanism": "an error law referenced to a pole outside the domain, whose violating set is a wedge bounded by an oblique line",
+  "channels": ["physical", "sensitivity"],
+  "resolvable": true,
+  "resolvability": "Two parameters, so the depth cap leaves the finest leaf at about 2^6 subdivisions of each axis: x is 8/64 = 0.125 mm wide and r is 2/64 = 0.03125 mm wide. The wedge is 3 mm deep at r = 9 and 1 mm deep at r = 11, so along every declared setpoint it is between 8 and 24 x-leaves deep and a leaf can lie wholly inside it — the localisation bar of one half is cleared without reference to where the boundary falls. The boundary x = r - 4 also runs mostly *between* leaves rather than along them: moving r by one leaf step moves the boundary by 0.03125 mm, which is a leaf width in x only every fourth step, so three steps in four put the boundary through the middle of a leaf. Enclosure here is a property of the wedge's depth, not of an alignment.",
+  "source": "Closed-form solution of the declared inequality. gap = r - x >= 9 - 8 = 1 mm throughout the domain, so multiplying by it cannot change a sign: 12/gap <= 3 fails exactly where gap < 4, i.e. x > r - 4. The failing set is the trapezoid between the line x = r - 4 and the x = 8 edge, with parallel sides 3 mm (at r = 9) and 1 mm (at r = 11) over a height of 2 mm, so its area is (3 + 1)/2 * 2 = 4 against a domain of 8 * 2 = 16: exactly a quarter.",
+  "derivation": "The rule fails where 12/(r - x) > 3. Every point of the declared domain has r - x >= 1, so the division is finite everywhere and the equivalence 12 > 3(r - x) needs no sign case: x > r - 4. Against the declared bounds that is the quadrilateral with vertices (5, 9), (8, 9), (8, 11) and (7, 11) — a wedge whose long edge lies on the x = 8 end of the stroke, tapering as the setpoint recedes, bounded by the oblique line x = r - 4. The declared box [5, 8] x [9, 11] is the envelope and the predicate names the line, so the region as verified is the wedge itself, a quarter of the domain. This is the shape E1.3's `pole_at_edge` could not be: that entry puts its pole at x = 2 *inside* the declared domain and its failing band 1e-5 wide, and 0038 found that a band 0.00512 of a leaf wide can never be enclosed at any permitted depth. Moving the pole outside the domain keeps the divergence story and gives the wedge a depth the atlas can reach.",
+  "why": "E1.3b asks whether a truth-blind trust rule can stop a quiet leaf certifying a violated region once the region is reachable. This entry supplies the reachable version of the near-pole case, and its oblique boundary means a leaf half inside the wedge is a leaf the search had to find rather than one the partition handed it — the case where `current` can trust a straddling leaf that `min-channels-2` will not, and where a fall in over-claim should show up as a fall in over-claim rather than as silence.",
+  "regions": [
+    {
+      "reason": "the commanded setpoint is close enough that the tracking error law exceeds its budget",
+      "axes": {
+        "x": [
+          5,
+          8
+        ],
+        "r": [
+          9,
+          11
+        ]
+      },
+      "where": "x > r - 4"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "x",
+      "at": 5,
+      "tolerance": 0.125
+    }
+  ],
+  "matched_to": "geometry/diagonal_sum",
+  "expect": "an interior wedge bounded by an oblique line that mostly does not coincide with a leaf edge",
+  "narrow": false,
+  "curved": false
+}

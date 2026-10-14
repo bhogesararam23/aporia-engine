@@ -319,6 +319,117 @@ fn scratch(name: &str) -> PathBuf {
 }
 
 #[test]
+fn every_granular_entry_is_enclosed_and_says_so_the_same_way() {
+    // The corpus this experiment will measure, pinned against the instrument rather than against
+    // anybody's reading of it. Two things are checked at once: that each entry is enclosed by a
+    // permitted leaf, which is what earns it a place in the resolvable set, and that the entry's own
+    // `resolvable` claim agrees — a claim the audit is the second half of, and an entry that claimed
+    // resolvability the arithmetic denies is refused from the set rather than reclassified.
+    let corpus = entries();
+    let policy = policy();
+    let mut checked = 0usize;
+    for entry in corpus.iter().filter(|e| e.family == "granular") {
+        let record = reach(entry, &policy);
+        assert_eq!(
+            record.class,
+            Class::Enclosed,
+            "{} is not resolvable: {}",
+            record.entry,
+            record.row()
+        );
+        assert_eq!(
+            entry.truth.resolvable,
+            Some(true),
+            "{} does not claim what the instrument found",
+            record.entry
+        );
+        assert_eq!(
+            record.regions.len(),
+            entry.truth.regions.len(),
+            "{} classified a different number of regions than it declares",
+            record.entry
+        );
+        for region in &record.regions {
+            assert!(
+                region.witness_depth.is_some() && !region.witness_bounds.is_empty(),
+                "{} region {} is enclosed without a witness to check",
+                record.entry,
+                region.index
+            );
+            assert!(
+                region.best_declared_share >= aporia_bench::metrics::LOCALISATION_BAR,
+                "{} region {} does not reach the bar it was called enclosed on",
+                record.entry,
+                region.index
+            );
+            assert!(!region.reason.is_empty());
+        }
+        // The record each entry was authored to carry: no entry may reach this set by leaving its
+        // reasoning out.
+        assert!(
+            !entry.truth.mechanism.is_empty(),
+            "{} states no mechanism",
+            record.entry
+        );
+        assert!(
+            !entry.truth.resolvability.is_empty(),
+            "{} states no calculation",
+            record.entry
+        );
+        assert!(
+            !entry.truth.source.is_empty(),
+            "{} states no truth source",
+            record.entry
+        );
+        assert!(
+            !entry.truth.meaning.is_empty(),
+            "{} states no meaning",
+            record.entry
+        );
+        assert!(
+            !entry.truth.why.is_empty(),
+            "{} states no reason to be here",
+            record.entry
+        );
+        assert!(
+            !entry.truth.channels.is_empty() && !entry.truth.variables.is_empty(),
+            "{} declares no expected channels or no variables",
+            record.entry
+        );
+        checked += 1;
+    }
+    assert_eq!(checked, 5, "E1.3b's resolvable set is these five entries");
+}
+
+#[test]
+fn the_control_half_of_the_corpus_stays_unresolvable() {
+    // The sub-granular set E1.3b froze as its control: the entries whose over-claim 0038 explained by
+    // granularity. If one of them became enclosed, the account being tested would already be wrong, and
+    // this is where that would show up — before the run rather than in its interpretation.
+    for (id, class) in [
+        ("edge/overflow_tail", Class::SubGranular),
+        ("edge/pole_at_edge", Class::SubGranular),
+        ("geometry/narrow_oblique", Class::CarvedAway),
+    ] {
+        let record = reach(&one(id), &policy());
+        assert_eq!(record.class, class, "{}: {}", record.entry, record.row());
+        assert!(!record.class.resolvable());
+        assert_eq!(
+            record.regions.len(),
+            one(id).truth.regions.len(),
+            "{id} was not classified region by region"
+        );
+        for region in &record.regions {
+            assert!(
+                region.witness_bounds.is_empty(),
+                "{id} region {} found a witness and did not change class",
+                region.index
+            );
+        }
+    }
+}
+
+#[test]
 fn a_resolvable_claim_the_atlas_cannot_keep_is_refused_before_anything_runs() {
     // The refusal E1.3's condition needed. `edge/pole_at_edge` is sub-granular, so a protocol that
     // counts it among the resolvable rows is asking a trust rule to fix a partition limit, and the run

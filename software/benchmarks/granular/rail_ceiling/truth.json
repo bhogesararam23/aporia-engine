@@ -1,0 +1,45 @@
+{
+  "schema": "aporia.truth/3",
+  "method": "analytic",
+  "fault": "saturation_ceiling",
+  "meaning": "A saturating gap measurement. The output rises with the distance between a sensing face and its target and flattens towards a rail as the target leaves the linear range, so a fixed voltage ceiling is crossed once and stayed past: monotone in the gap, no interior turning point, no singularity inside the domain.",
+  "variables": [
+    {
+      "name": "s",
+      "unit": "mm",
+      "role": "gap between the sensing face and the target, measured from the datum the linear range starts at",
+      "lo": 0.0,
+      "hi": 6.0
+    }
+  ],
+  "mechanism": "a saturating monotone output crosses a fixed ceiling and stays past it to the domain edge",
+  "channels": ["physical", "behavioral"],
+  "resolvable": true,
+  "resolvability": "One parameter, so the atlas spends every permitted split on this axis: the finest leaf is 6/2^12 = 0.00146 mm and the failing set is 4 mm wide, 2730 of those leaves across. A leaf here can be *entirely* inside the region, which clears the localisation bar of one half by the widest margin this instrument can express. The crossing at s = 2 is not a leaf boundary at any granularity the ladder reaches: 2/(6/2^k) = 2^(k+1)/6 is never a whole number, because the denominator keeps a factor of 3 that no power of two cancels.",
+  "source": "Closed-form solution of the declared inequality. 8s/(2+s) < 4 with 2+s >= 2 throughout the domain gives 8s < 8+4s, so s < 2 exactly; monotonicity from d/ds[8s/(2+s)] = 16/(2+s)^2 > 0 makes the failing set one interval rather than two.",
+  "derivation": "The rule fails where 8s/(2+s) >= 4. Multiplying by (2+s), which is at least 2 on s in [0, 6] and so can neither vanish nor change sign, gives 8s >= 8 + 4s, hence s >= 2: the failing set is the interval [2, 6], exactly two thirds of the declared domain, running to and including the upper edge. At s = 2 the reading is exactly 4 V, which the rule counts as a violation because `require vout < 4` fails on equality, and the predicate is written `>= 4` to match that rather than the prose. The declared box and the predicate therefore describe the same set, and `corpus::verify` checks both directions of that claim on the grid. The property that makes this entry belong to E1.3b rather than to E1.3 is width: `edge/overflow_tail` declares an edge band 1e-5 wide, and 0038 measured that no leaf this atlas may build is half inside it, so its localisation was settled by the partition before any trust rule was consulted. This is the same edge-adjacent shape, widened until the depth cap permits enclosure.",
+  "why": "E1.3's safety condition could not be answered on its edge entries because nothing about the trust rule moved them: the region was unreachable. This entry removes that confound for one edge-adjacent case, so a row where a TRUSTED leaf overlaps the violation is a measurement of the rule. Under `current` a quiet leaf deep in [2, 6] needs only one channel applied to be trusted; under `min-channels-2` the same leaf is UNKNOWN while its better-measured neighbours stay trusted, and because the region is wide the difference cannot be blamed on granularity.",
+  "regions": [
+    {
+      "reason": "the gap voltage has passed the declared ceiling and the target is out of the linear range",
+      "axes": {
+        "s": [
+          2,
+          6
+        ]
+      },
+      "where": "8 * s / (2 + s) >= 4"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "s",
+      "at": 2,
+      "tolerance": 0.01
+    }
+  ],
+  "matched_to": "synthetic/wide_1d",
+  "expect": "a wide band against the domain edge, resolvable by three orders of magnitude in leaf width",
+  "narrow": false,
+  "curved": false
+}

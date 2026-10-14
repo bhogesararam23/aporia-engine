@@ -1,0 +1,6 @@
+model match_return "a matched stage's standing-wave figure, which is smallest at the match and violates its floor only near it" {
+  input f : Hz in [1, 9]
+  let ratio = f / (10 - f)
+  let figure = ratio + 1 / ratio
+  require figure >= 2.1
+}

@@ -1,0 +1,7 @@
+model stroke_reference "a servo's tracking error against a setpoint its stroke can approach but never reach" {
+  input x : mm in [0, 8]
+  input r : mm in [9, 11]
+  let gap = r - x
+  let err = 12 / gap
+  require err <= 3
+}

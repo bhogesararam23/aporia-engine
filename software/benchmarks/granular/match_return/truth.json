@@ -1,0 +1,50 @@
+{
+  "schema": "aporia.truth/3",
+  "method": "analytic",
+  "fault": "boundary_condition",
+  "meaning": "A matching stage written as a standing-wave figure: the impedance ratio r = f/(10-f) and its reciprocal summed, r + 1/r. That sum is smallest at the match and grows towards both ends of the band, so a *floor* on it is violated only in a band around the matched frequency — the shape none of this family's other entries has, since they are bands against an edge or a wedge across the middle.",
+  "variables": [
+    {
+      "name": "f",
+      "unit": "Hz",
+      "role": "frequency along the passband; the stage's design reference is the 10 Hz the ratio divides by",
+      "lo": 1.0,
+      "hi": 9.0
+    }
+  ],
+  "mechanism": "a number and its reciprocal summed, dipping below its floor in one interior band around its minimum",
+  "channels": ["physical", "behavioral", "sensitivity"],
+  "resolvable": true,
+  "resolvability": "One parameter, so every permitted split lands on this axis and the finest leaf is 8/2^12 = 0.00195 Hz. The failing band is 10/sqrt(41) = 1.56153 Hz wide, 800 of those leaves across, so a leaf can lie wholly inside it and the localisation bar of one half is cleared outright. Both edges are at f = 5 ± 5/sqrt(41), irrational numbers whose denominator is 41 — no dyadic grid the bisection can produce contains them, because 41 divides no power of two, so neither boundary falls on a leaf edge and the interior case is not handed to the atlas for free.",
+  "source": "The arithmetic mean - geometric mean inequality gives r + 1/r >= 2 for r > 0, with equality at r = 1, which is the standard fact behind a voltage standing-wave ratio. Substituting r = f/(10-f), positive on the whole declared domain, the rule `figure >= 2.1` fails where r^2 - 2.1r + 1 < 0; multiplying by (10-f)^2 > 0 turns that into 4.1f^2 - 41f + 100 < 0, whose roots are f = 5 ± 5/sqrt(41) exactly.",
+  "derivation": "ratio = f/(10-f) is positive and finite on f in [1, 9] — its pole at f = 10 lies outside the domain — so figure = ratio + 1/ratio is defined at every declared point and the equivalence can be taken through the multiplication without a sign case. The failing set is therefore f in (5 - 5/sqrt(41), 5 + 5/sqrt(41)) = (4.21924, 5.78076), width 1.56153 and share 1.56153/8 = 0.19519 of the domain; the corpus's own 32-point measure of it prints 0.200 exactly, because every midpoint of that lattice within the declared envelope falls inside the band: an interior band, symmetric about the match at f = 5, that touches neither edge. The declared box [4.2, 5.8] is a strict superset of it and the predicate `4.1 * f * f - 41 * f + 100 < 0` — the same quadratic in the input rather than in the ratio, chosen so that nothing inside the region's own test divides by a quantity that could vanish — carries the boundary. `corpus::verify` checks the two directions at every grid point, which is where the hand algebra is actually tested rather than asserted.",
+  "why": "Every entry E1.3 measured was a strip against an edge or a band across a pole, so a coarse leaf that over-claimed sat at the boundary of what the search would ever visit. An interior band is the case where a leaf can be *centred* on the violation: the search refines towards it, samples on both sides, and the leaf that straddles one edge is exactly the quiet-looking cell whose label the trust variants disagree about. It is also where converting TRUSTED into UNKNOWN is most visible, because the region is small enough that a rule refusing to label it loses a measurable share of resolution rather than only changing a word — the trade E1.3b's decision rule is written to tell apart.",
+  "regions": [
+    {
+      "reason": "the standing-wave figure dips below its declared floor near the matched frequency",
+      "axes": {
+        "f": [
+          4.2,
+          5.8
+        ]
+      },
+      "where": "4.1 * f * f - 41 * f + 100 < 0"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "f",
+      "at": 4.21924,
+      "tolerance": 0.01
+    },
+    {
+      "axis": "f",
+      "at": 5.78076,
+      "tolerance": 0.01
+    }
+  ],
+  "matched_to": "analytic/log_positive",
+  "expect": "one interior band around a minimum, with two irrational edges",
+  "narrow": false,
+  "curved": false
+}

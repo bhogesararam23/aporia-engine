@@ -1,0 +1,6 @@
+model tolerance_stack "two shims whose combined clearance, counted twice on one of them, exceeds the assembly limit" {
+  input a : mm in [0, 2]
+  input b : mm in [0, 2]
+  let stack = a + 2 * b
+  require stack <= 3
+}

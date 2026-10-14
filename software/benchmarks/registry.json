@@ -116,6 +116,17 @@
         "unbounded_interval",
         "inverted"
       ]
+    },
+    {
+      "name": "granular",
+      "purpose": "E1.3b's resolvable half: regions declared wide enough that a leaf the atlas is permitted to build can be at least half inside them, so a TRUSTED label over one is a decision the trust rule made rather than a limit of the partition. Each entry states its own resolvability calculation and the instrument checks it.",
+      "entries": [
+        "rail_ceiling",
+        "diagonal_count",
+        "match_return",
+        "stroke_reference",
+        "tolerance_stack"
+      ]
     }
   ],
   "fault_classes_covered": [
@@ -126,7 +137,9 @@
     "time_step_sensitivity",
     "state_update_ordering",
     "overflow_divergence",
-    "domain_assumption"
+    "domain_assumption",
+    "saturation_ceiling",
+    "gain_amplification"
   ],
   "fault_classes_not_covered_yet": [
     "incorrect_constant",

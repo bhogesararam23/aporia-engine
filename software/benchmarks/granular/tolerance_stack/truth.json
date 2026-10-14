@@ -1,0 +1,56 @@
+{
+  "schema": "aporia.truth/3",
+  "method": "analytic",
+  "fault": "boundary_condition",
+  "meaning": "Two shims stacked into one clearance, with one of them counted twice because it sits in two interfaces. The combined stack is a + 2b, a plane over the (a, b) square, and the assembly limit is crossed on one side of a straight oblique line — the region that matters is everything past that line, which includes a whole corner of the domain.",
+  "variables": [
+    {
+      "name": "a",
+      "unit": "mm",
+      "role": "thickness of the single-interface shim",
+      "lo": 0.0,
+      "hi": 2.0
+    },
+    {
+      "name": "b",
+      "unit": "mm",
+      "role": "thickness of the shim that sits in both interfaces, so it counts twice",
+      "lo": 0.0,
+      "hi": 2.0
+    }
+  ],
+  "mechanism": "a linear stack of two tolerances crossing an assembly limit along an oblique line, leaving a corner of the space wholly violated",
+  "channels": ["physical"],
+  "resolvable": true,
+  "resolvability": "Two parameters, so the depth cap leaves the finest leaf at about 2^6 subdivisions of each axis: 2/64 = 0.03125 mm on both. The violating side is half the domain, and the corner (2, 2) lies 3 mm of stack past the limit, so hundreds of whole leaves sit inside the region — the widest possible margin over the localisation bar of one half. The boundary a + 2b = 3 meets the axes at a = 3 and b = 1.5; the second is on the b grid (1.5/(2/64) = 48) and the segment's interior points generally are not, so part of the line is aligned and part is not — which is the point of stating the share of leaves that are wholly inside rather than trusting an alignment.",
+  "source": "The stack is the declared linear form and the limit is a constant, so the boundary is solved in one step: a + 2b = 3 gives the intercepts (3, 0) and (0, 1.5). The violating area is the complement inside the 2x2 square of the trapezoid under the line, which is the whole square minus the integral of (3 - 2b) over b from 0.5 to 1.5 plus nothing beyond — evaluated: area below the line is 2, so the failing area is 4 - 2 = 2, half the domain.",
+  "derivation": "`require stack <= 3` fails where a + 2b > 3. Both coefficients are positive, so the failing set is the half-plane above the line, clipped by the declared square to the quadrilateral with vertices (1, 1), (2, 0.5), (2, 2) and (0, 2). Its area is 2 on a domain of area 4, and its share — 0.5 — is the same as `analytic/sqrt_domain`'s, which is the rung it claims: same how-much, different shape, since that one is a half-plane cut by a square root and this one is a half-plane cut by a line with slope -1/2. The declared box is the whole domain and the predicate `a + 2 * b > 3` carries the boundary exactly, so no envelope is being claimed as the region.",
+  "why": "This is the case built to separate coarse trust from refined trust. Half the space is violated and the violation reaches a corner, so a leaf that straddles the line is *more* likely to be quiet than on an edge band: the search spends its budget where the risk signal appears, and a coarse leaf with the violated side behind it can carry few samples and one applied channel. Under `current` such a leaf may be trusted and its overlap with the region counts as over-claim; under `min-channels-2` the same leaf is UNKNOWN while its better-measured neighbours inside the corner stay trusted. If the two variants do not differ here, where a whole corner is at stake, then the channel-count rule is not doing what E1.3b's hypothesis H-RESOLVE claims for it. The instrument's own reachability record makes the case sharper than the prose can: this is the one entry of the five whose best leaf is the root cell itself, whose declared share comes out at exactly 0.5 — the localisation bar, met by the coarsest box the partition has. An atlas that never split would satisfy `localised` on this entry and still certify half the space.",
+  "regions": [
+    {
+      "reason": "the combined stack exceeds the assembly limit",
+      "axes": {
+        "a": [
+          0,
+          2
+        ],
+        "b": [
+          0,
+          2
+        ]
+      },
+      "where": "a + 2 * b > 3"
+    }
+  ],
+  "boundaries": [
+    {
+      "axis": "b",
+      "at": 1.5,
+      "tolerance": 0.03125
+    }
+  ],
+  "matched_to": "analytic/sqrt_domain",
+  "expect": "a half-plane past an oblique line, with a corner of the domain wholly violated",
+  "narrow": false,
+  "curved": false
+}

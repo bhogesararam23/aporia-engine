@@ -1,0 +1,5 @@
+model rail_ceiling "a proximity probe whose gap voltage leaves its declared ceiling in the top of its stroke" {
+  input s : mm in [0, 6]
+  let vout = 8 * s / (2 + s)
+  require vout < 4
+}

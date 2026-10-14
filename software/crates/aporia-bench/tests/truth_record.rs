@@ -242,31 +242,58 @@ fn a_variable_is_read_in_full_or_not_at_all() {
 }
 
 #[test]
-fn the_three_schemas_are_the_whole_vocabulary_and_the_old_ones_still_read() {
+fn the_three_schemas_are_the_whole_vocabulary_and_each_reads_as_itself() {
     assert_eq!(TRUTH_SCHEMAS.len(), 3);
     assert_eq!(TRUTH_SCHEMAS[0], "aporia.truth/1");
     assert_eq!(TRUTH_SCHEMAS[1], "aporia.truth/2");
     assert_eq!(TRUTH_SCHEMAS[2], "aporia.truth/3");
-    // Nothing about a committed file's meaning moved: the whole corpus still loads, every entry still
-    // reports a schema it wrote, and none of them states a `/3` field.
+    // Nothing about a pre-`/3` file's meaning moved: it still loads, and it still carries none of the
+    // record, because a reader must not be able to invent a claim an entry never stated.
     let entries = corpus::load(&corpus_root()).expect("the corpus loads");
     assert!(entries.len() > 20, "the committed corpus is still here");
+    let mut recorded = 0usize;
     for entry in &entries {
-        let doc = truth_file(&entry.id());
-        assert!(
-            doc.get("meaning").is_none() && doc.get("resolvable").is_none(),
-            "{} is a committed entry and must not state the new record",
-            entry.id()
-        );
-        assert!(
-            doc.get("schema").and_then(Json::as_str) != Some("aporia.truth/3"),
-            "{} was re-declared as /3 without this test knowing",
-            entry.id()
-        );
         assert!(
             TRUTH_SCHEMAS.contains(&entry.truth.schema.as_str()),
             "{} declares a schema this reader does not know",
             entry.id()
         );
+        if entry.truth.schema == "aporia.truth/3" {
+            assert!(
+                !entry.truth.mechanism.is_empty() && entry.truth.resolvable.is_some(),
+                "{} is a /3 entry with no mechanism or no resolvability claim",
+                entry.id()
+            );
+            assert!(
+                !entry.truth.variables.is_empty() && !entry.truth.channels.is_empty(),
+                "{} states no variables or no expected channels",
+                entry.id()
+            );
+            assert!(
+                !entry.truth.resolvability.is_empty()
+                    && !entry.truth.source.is_empty()
+                    && !entry.truth.meaning.is_empty()
+                    && !entry.truth.why.is_empty(),
+                "{} is a /3 entry with an empty part of its record",
+                entry.id()
+            );
+            recorded += 1;
+            continue;
+        }
+        let doc = truth_file(&entry.id());
+        assert!(
+            doc.get("meaning").is_none() && doc.get("resolvable").is_none(),
+            "{} is an older entry and must not state the new record",
+            entry.id()
+        );
+        assert!(
+            entry.truth.mechanism.is_empty() && entry.truth.resolvable.is_none(),
+            "{} was handed a /3 claim it never declared",
+            entry.id()
+        );
     }
+    assert_eq!(
+        recorded, 5,
+        "E1.3b's resolvable set is the only /3 half of the corpus"
+    );
 }
