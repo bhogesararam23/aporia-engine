@@ -1,10 +1,10 @@
 {
-  "schema": "aporia.protocol/draft-1",
+  "schema": "aporia.protocol/2",
   "id": "e1-3b-trust-resolution",
   "title": "E1.3b — does a truth-blind trust rule stop TRUSTED covering a violated region, and what does it cost?",
   "frozen": "2026-10-09",
-  "status": "FROZEN, NOT RUN, AND NOT RUNNABLE. Its `entries.run` is empty on purpose: the corpus it will measure does not exist yet, and the runner refuses an empty entry list, so there is no version of this file that can be measured against today. This definition was written before the entries were authored and before any number from it exists.",
-  "promotion": "The schema is `aporia.protocol/draft-1` deliberately, and the strict reader refuses an unrecognised schema by name: until the two prerequisite instrument changes below exist and the resolvable entries are authored, this file cannot be read as a plan at all, which is a stronger guarantee than being readable and wrongly runnable. It becomes `aporia.protocol/1` in the commit that fills `entries.run`, and that commit must not contain a measurement.",
+  "status": "FROZEN, NOT RUN. `entries.run` now names the eight entries this experiment measures: five authored to be resolvable and three carried over unchanged as the control. Nothing here has been measured — no E1.3b results document, archive or number exists, and the reproduction gate against E1.x's committed rows has not run yet.",
+  "promotion": "The schema is `aporia.protocol/2`, whose arms state their trust rule beside their channel mask and whose `entries` section carries `resolvable` and `sub_granular` as lists the reader checks cover `entries.run` exactly. The promotion happened in the commit that filled those lists, and that commit contains no measurement. It changed no deciding text: the plan, the ladder, the primary metric, its five outcomes and both ceilings are the ones frozen on 2026-10-09, and `aporia-bench reach` is the arithmetic that decided which entries could be claimed resolvable.",
   "supersedes_nothing": "E1.3's pass condition failed and stays failed. Nothing here reopens, re-reads or repairs E1.1/E1.2/E1.3, and no E1.x number is recomputed under a new rule.",
   "depends_on": [
     "0029 E13",
@@ -39,21 +39,43 @@
   },
   "plan_reason": "E1.x's ladder unchanged, so the `full` arm under the current rule is comparable with E1.x's committed rows, plus 2560 for one reason stated before any run: the reachability classes are defined against the depth the atlas reaches, and doubling the largest budget is the cheapest way to show a class is a depth limit rather than a budget limit. No threshold here was chosen after an E1.3b number; none exists.",
   "arms": [
-    { "name": "full-current-trust", "ablate": [] },
-    { "name": "full-min-channels-2", "ablate": [] },
-    { "name": "full-nonfinite-blocks-trust", "ablate": [] },
-    { "name": "full-both-trust-rules", "ablate": [] },
-    { "name": "no-physical-current-trust", "ablate": ["physical"] },
-    { "name": "no-physical-both-trust-rules", "ablate": ["physical"] },
-    { "name": "only-physical-current-trust", "ablate": ["behavioral", "numerical", "differential", "sensitivity"] },
-    { "name": "only-physical-both-trust-rules", "ablate": ["behavioral", "numerical", "differential", "sensitivity"] }
+    { "name": "full-current-trust", "ablate": [], "trust": "current" },
+    { "name": "full-min-channels-2", "ablate": [], "trust": "min-channels-2" },
+    { "name": "full-nonfinite-blocks-trust", "ablate": [], "trust": "non-finite-blocks-trust" },
+    { "name": "full-both-trust-rules", "ablate": [], "trust": "both-trust-rules" },
+    { "name": "no-physical-current-trust", "ablate": ["physical"], "trust": "current" },
+    { "name": "no-physical-both-trust-rules", "ablate": ["physical"], "trust": "both-trust-rules" },
+    { "name": "only-physical-current-trust", "ablate": ["behavioral", "numerical", "differential", "sensitivity"], "trust": "current" },
+    { "name": "only-physical-both-trust-rules", "ablate": ["behavioral", "numerical", "differential", "sensitivity"], "trust": "both-trust-rules" }
   ],
   "arms_reason": "Two dimensions, confounded with nothing: the channel masks E1.x used, and four truth-blind trust variants. `current-trust` is `Policy::default` exactly as measured in 0036 and 0037. `min-channels-2` requires two channels applied inside a leaf before it may be trusted — the cheapest test of whether trust is being granted on one sensor's silence. `nonfinite-blocks-trust` refuses TRUSTED where any reading in the leaf left the real numbers, which is the mechanism 0029 named. `both` is the conjunction, because two rules that each halve an over-claim are not one rule that halves it twice. −Physical and only-Physical carry through both dimensions because E2 and E1.x established Physical as load-bearing: a trust rule that works only on the full instrument is not a safety rule, it is an artefact of having four other channels talking.",
+  "arm_labels": "The arm names were frozen before the variants had names, so the third arm's label spells `nonfinite` where the variant it states is `non-finite-blocks-trust`. The label is left as it was frozen because nothing measures it: the `trust` field is what reaches the plan, the identity and the archive directory, and a reader who wants the rule an arm ran under reads that field rather than parsing a label.",
   "entries": {
-    "run": [],
-    "resolvable": "To be authored after this file is committed. Each entry's declared region must be wide enough that a leaf the policy permits could be at least half inside it — the instrument's own reachability function decides that at load time, and an entry it calls unresolvable is refused from this set rather than reclassified.",
-    "sub_granular": "The two E1.3 edge entries and `geometry/narrow_oblique`, unchanged, as the control set for the reachability claim. They are expected to over-claim under every variant; if they do not, 0038's account of why they failed is wrong, and that is the finding.",
-    "note": "No entry is named that does not exist yet, which is why the runner refuses this file today: the corpus is authored after the freeze and before any arm runs."
+    "run": [
+      "granular/rail_ceiling",
+      "granular/stroke_reference",
+      "granular/match_return",
+      "granular/diagonal_count",
+      "granular/tolerance_stack",
+      "edge/overflow_tail",
+      "edge/pole_at_edge",
+      "geometry/narrow_oblique"
+    ],
+    "resolvable": [
+      "granular/rail_ceiling",
+      "granular/stroke_reference",
+      "granular/match_return",
+      "granular/diagonal_count",
+      "granular/tolerance_stack"
+    ],
+    "sub_granular": [
+      "edge/overflow_tail",
+      "edge/pole_at_edge",
+      "geometry/narrow_oblique"
+    ],
+    "resolvable_reason": "The five `granular` entries, each declared as `aporia.truth/3` with its physical meaning, its variables with the units and spans the model itself declares, its mechanism, its expected channels, a resolvability derivation worked on paper, why it tests this question and a truth source from outside this repository. Each was derived before the instrument classified it, and `aporia-bench reach` calls all five `enclosed` under the frozen depth cap of 12 and localisation bar of 0.5: for each one a permitted leaf lies wholly inside the declared box, and the `where` carve leaves at least half of that leaf's volume genuinely violating. `granular/tolerance_stack` sits exactly on the bar — its box is the whole domain and its half-plane carves the best leaf to 0.500000 — and it is kept for that rather than rounded away, because the class is what the metric needs and the number is stated beside it. The corpus audit refuses an entry whose record is incomplete, whose declared units disagree with the model's own parameters, whose mechanism repeats another entry's, whose truth is sourced from this instrument, or whose resolvability claim the partition denies.",
+    "sub_granular_reason": "E1.3's two `edge` entries and `geometry/narrow_oblique`, unchanged, as the control set for the reachability claim. They are expected to over-claim under every variant; if they do not, 0038's account of why they failed is wrong, and that is the finding. The instrument classes `overflow_tail` and `pole_at_edge` `sub-granular` — best envelope share 0.010240 and 0.005120 of a leaf, so no permitted leaf is half inside either — and `narrow_oblique` `carved-away`: its envelope is reachable at a permitted depth while its band is not, the largest carved share among the 32 leaves measured being 0.031250. Two classes, one role: neither entry can contribute a localisation verdict, so neither enters a deciding quantity.",
+    "note": "No entry appears in `run` that is not in exactly one of the two sets, and no E1.x entry is re-measured except the three controls, whose rows are re-used as controls and never as evidence. The sets are the file's claim about the corpus; the runner refuses an entry whose claim its own arithmetic denies, rather than reclassifying it."
   },
   "primary_metric": {
     "name": "over-claim among the resolvable, and what replaced it",

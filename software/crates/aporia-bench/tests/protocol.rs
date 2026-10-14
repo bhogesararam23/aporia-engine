@@ -470,46 +470,48 @@ fn an_edited_protocol_reads_as_a_different_document_than_the_one_it_was_frozen_i
     assert_eq!(in_memory.digest, None);
 }
 #[test]
-fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
-    // `e1-3b-trust-resolution.json` is a pre-registration written before its corpus and before the
-    // instrument changes it depends on. The protection has to be structural rather than a note in
-    // prose: an unreadable schema cannot be measured against, so the file cannot quietly become a run.
+fn a_promoted_freeze_reads_and_is_pinned_to_the_sets_it_froze() {
+    // `e1-3b-trust-resolution.json` was a pre-registration written before its corpus and before the two
+    // instrument changes it depends on. Both exist now and the corpus is authored, so the protection
+    // moved: it is no longer that the runner cannot read the file, it is that the file is *readable and
+    // pinned* — the deciding text, the entry sets and the arm rules are checked as fields, so a later
+    // edit that quietly widens a set or reword a rule fails here rather than changing what was measured.
     let path = corpus_root()
         .join("protocols")
         .join("e1-3b-trust-resolution.json");
     let text = std::fs::read_to_string(&path).expect("the follow-up protocol is in the tree");
-    let value = Json::parse(&text).expect("it is JSON");
-    let error =
-        Protocol::from_json(&value).expect_err("a draft schema is not a protocol the runner reads");
-    assert!(
-        error.contains("aporia.protocol/draft-1"),
-        "the refusal names the schema rather than a detail: {error}"
+    let protocol = Protocol::load(&path).expect("a promoted freeze is a protocol the runner reads");
+    assert_eq!(protocol.id, "e1-3b-trust-resolution");
+    // The digest is of the file's bytes, so the promotion moved it and every document written from the
+    // promoted file cites the promoted version rather than the draft.
+    let digest = aporia_store::digest::sha256_hex(text.as_bytes());
+    assert_eq!(
+        protocol.digest.as_deref(),
+        Some(&digest[..16]),
+        "a document has to cite the bytes it was run from"
     );
 
-    // A freeze that cannot be promoted is a note rather than a pre-registration, so the file is checked
-    // as the definition it claims to be. Two things were missing from it as frozen: a schema whose arms
-    // state a trust rule, and a corpus. The first is the instrument's job and it is now real, so the
-    // promotion performed here in memory — schema `/2`, each arm given the rule its own name already
-    // claims — leaves exactly one thing for the reader to refuse: the entries this experiment has not
-    // authored yet.
-    let promoted = promote(&Json::parse(&text).expect("it is JSON"));
-    let error = Protocol::from_json(&promoted)
-        .err()
-        .unwrap_or_else(|| panic!("the freeze parsed with its entry list still empty"));
-    assert!(
-        error.contains("entries.run"),
-        "the refusal must be about the corpus it has not authored, got: {error}"
+    // The three lists, as the file states them.
+    let as_text =
+        |names: &[&str]| -> Vec<String> { names.iter().map(|s| (*s).to_string()).collect() };
+    assert_eq!(
+        protocol.entries,
+        as_text(&FROZEN_RUN),
+        "entries.run is not what was frozen"
     );
-    // Hand it three existing entries and nothing else changes: it reads as a protocol, with its frozen
-    // plan, its eight arms and its decider intact. That is the difference between a definition waiting
-    // for a corpus and a document that was never machine-checkable in the first place.
-    let filled = with_lists(&promoted, &FROZEN_SAMPLE, &FROZEN_SAMPLE, &[]);
-    let protocol = Protocol::from_json(&filled)
-        .expect("the freeze is a readable protocol once its entries exist");
-    assert_eq!(protocol.arm_names().len(), 8);
+    assert_eq!(protocol.resolvable, as_text(&FROZEN_RESOLVABLE));
+    assert_eq!(protocol.sub_granular, as_text(&FROZEN_CONTROL));
+    // The two sets are the whole run list, which is what the reader enforces and what makes the split
+    // the file's claim rather than the analysis's choice.
+    let mut both = protocol.resolvable.clone();
+    both.extend(protocol.sub_granular.iter().cloned());
+    assert_eq!(both.len(), protocol.entries.len());
+    // The frozen plan, field by field: the ladder is E1.x's plus the one budget the freeze explains,
+    // and neither a mask nor a rule is stated where the schema says each arm states its own.
     assert_eq!(protocol.plan.budgets, vec![320, 640, 1280, 2560]);
     assert_eq!(protocol.plan.grid, 41);
     assert_eq!(protocol.plan.differential_every, 11);
+    assert_eq!(protocol.arm_names().len(), 8);
     assert!(
         protocol.plan.ablate.is_empty(),
         "the plan section states no mask: each arm names its own, or the file is two experiments"
@@ -519,25 +521,89 @@ fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
         Trust::Current,
         "and it states no rule either, for the same reason"
     );
-    assert!(
-        Protocol::load(&path).is_err(),
-        "and as committed, the runner cannot read the draft at all"
-    );
-    // Committing the file with an empty list is the discipline; a stray edit that fills it silently
-    // would turn the freeze into a runnable plan without a review.
-    assert!(
-        text.contains("\"run\": []"),
-        "the committed freeze must still name no entry"
+    // E1.x measured seventeen entries and E1.3b measures eight. Only the three controls cross over, and
+    // they cross as the control set the freeze named — not as evidence. If a future edit added a
+    // geometry or discrete entry to this run list, E1.x's rows would be re-labelled under a trust rule
+    // without E1.x being re-run, which is the one thing `supersedes_nothing` forbids.
+    let geometry: Json = Json::parse(&protocol_text()).expect("E1.x's protocol is JSON");
+    let measured: Vec<&str> = geometry
+        .get("entries")
+        .and_then(|e| e.get("run"))
+        .and_then(Json::as_array)
+        .expect("E1.x states its entries")
+        .iter()
+        .filter_map(Json::as_str)
+        .collect();
+    let crossed: Vec<String> = protocol
+        .entries
+        .iter()
+        .filter(|name| measured.contains(&name.as_str()))
+        .cloned()
+        .collect();
+    assert_eq!(
+        crossed,
+        as_text(&FROZEN_CONTROL),
+        "only the three controls may be entries E1.x already measured"
     );
 
-    // What the freeze commits to, checked as fields so it cannot be quietly rewritten later.
+    // The claim the lists make is the one the instrument's own arithmetic makes. `cli`'s load-time gate
+    // refuses a resolvable entry the partition denies, so a freeze whose list the gate would refuse is a
+    // freeze that cannot be run — and the check belongs here, before any arm has measured anything,
+    // rather than as a surprise in the middle of a campaign.
+    let corpus = aporia_bench::corpus::load(&corpus_root()).expect("the committed corpus loads");
+    let policy = protocol.plan.trust.policy();
+    for name in &protocol.resolvable {
+        let entry = corpus
+            .iter()
+            .find(|e| &e.id() == name)
+            .unwrap_or_else(|| panic!("{name} is in the freeze and not in the corpus"));
+        let record = aporia_bench::reach::reach(entry, &policy);
+        assert_eq!(
+            record.class,
+            aporia_bench::reach::Class::Enclosed,
+            "{name} is claimed resolvable and the partition says {}",
+            record.class.name()
+        );
+    }
+    for name in &protocol.sub_granular {
+        let entry = corpus
+            .iter()
+            .find(|e| &e.id() == name)
+            .expect("the control set names a corpus entry");
+        let record = aporia_bench::reach::reach(entry, &policy);
+        assert!(
+            !record.class.resolvable(),
+            "{name} is the control for being unresolvable and the partition calls it {}",
+            record.class.name()
+        );
+    }
+}
+
+/// What the freeze commits to, checked as fields so a promotion cannot quietly rewrite the decider, and
+/// the two entry lists checked as load-bearing rather than decorative: each of the three ways a schema-2
+/// file can mis-state its universe is refused by name.
+#[test]
+fn the_promoted_freeze_still_states_the_decider_it_froze() {
+    let value = follow_up();
     let field = |key: &str| -> Json {
-        filled
+        value
             .get(key)
             .unwrap_or_else(|| panic!("the freeze states no {key}"))
             .clone()
     };
     assert_eq!(field("frozen").as_str(), Some("2026-10-09"));
+    assert_eq!(
+        field("schema").as_str(),
+        Some(Protocol::SCHEMA_V2),
+        "the promoted file is the schema whose arms state their rule"
+    );
+    assert!(
+        field("status")
+            .as_str()
+            .unwrap_or_default()
+            .contains("NOT RUN"),
+        "and it still says so: promotion makes a freeze runnable, not measured"
+    );
     assert!(
         field("supersedes_nothing")
             .as_str()
@@ -575,6 +641,40 @@ fn a_frozen_follow_up_that_cannot_be_read_cannot_be_run_by_accident() {
         }),
         "and one of them must be the prohibition that keeps the answer key out of the rule"
     );
+
+    // The lists are load-bearing rather than decorative.
+    for (what, entries) in [
+        (
+            "an entry in neither set",
+            with_lists(
+                &value,
+                &FROZEN_RUN,
+                &FROZEN_RESOLVABLE,
+                &FROZEN_CONTROL[..2],
+            ),
+        ),
+        (
+            "an entry in both sets",
+            with_lists(
+                &value,
+                &FROZEN_RUN,
+                &FROZEN_RESOLVABLE,
+                &[FROZEN_CONTROL[0], FROZEN_RESOLVABLE[0]],
+            ),
+        ),
+        (
+            "an empty deciding set",
+            with_lists(&value, &FROZEN_RUN, &[], &FROZEN_CONTROL),
+        ),
+    ] {
+        let error = Protocol::from_json(&entries)
+            .err()
+            .unwrap_or_else(|| panic!("{what} was accepted as a protocol"));
+        assert!(
+            error.contains("resolvable") || error.contains("cover entries.run"),
+            "{what}: the refusal must name the set it is about: {error}"
+        );
+    }
 }
 
 /// Which trust rule each of the E1.3b freeze's eight arm names claims.
@@ -595,10 +695,30 @@ const FROZEN_RULES: [(&str, Trust); 8] = [
     ("only-physical-both-trust-rules", Trust::BothRules),
 ];
 
-/// Three entries that exist today, for the tests that need a non-empty `entries.run` to get as far as
-/// the reader's other refusals. These are not the experiment's corpus: the freeze's own entry list stays
-/// empty until the resolvable entries are authored.
-const FROZEN_SAMPLE: [&str; 3] = [
+/// The five entries E1.3b authored for its deciding set, in the order the file names them.
+const FROZEN_RESOLVABLE: [&str; 5] = [
+    "granular/rail_ceiling",
+    "granular/stroke_reference",
+    "granular/match_return",
+    "granular/diagonal_count",
+    "granular/tolerance_stack",
+];
+
+/// The three entries that stay the control set: 0038's corpus, unchanged, expected to over-claim under
+/// every variant and never scored on.
+const FROZEN_CONTROL: [&str; 3] = [
+    "edge/overflow_tail",
+    "edge/pole_at_edge",
+    "geometry/narrow_oblique",
+];
+
+/// `entries.run`, which the schema-2 reader requires the two sets above to cover exactly.
+const FROZEN_RUN: [&str; 8] = [
+    "granular/rail_ceiling",
+    "granular/stroke_reference",
+    "granular/match_return",
+    "granular/diagonal_count",
+    "granular/tolerance_stack",
     "edge/overflow_tail",
     "edge/pole_at_edge",
     "geometry/narrow_oblique",
@@ -620,44 +740,35 @@ fn edited(value: &Json, key: &str, make: impl Fn(&Json) -> Json) -> Json {
     Json::Obj(out)
 }
 
-/// The freeze promoted the way its promotion commit must promote it: the schema whose arms state a
-/// rule, and each arm given the rule its own name already claims.
-fn promote(value: &Json) -> Json {
-    let with_schema = edited(value, "schema", |_| Json::text(Protocol::SCHEMA_V2));
+/// One field removed from an object, which is how a test writes the shape an older schema expects.
+fn without(value: &Json, key: &str) -> Json {
+    let Json::Obj(fields) = value else {
+        return value.clone();
+    };
+    Json::Obj(
+        fields
+            .iter()
+            .filter(|(name, _)| name != key)
+            .cloned()
+            .collect(),
+    )
+}
+
+/// The promoted freeze read as a mask-only file: the older schema, with every arm's rule taken back out
+/// of it. This is the shape the freeze had before the promotion, and the shape whose duplicate arms the
+/// reader now has to catch.
+fn as_mask_only(value: &Json) -> Json {
+    let with_schema = edited(value, "schema", |_| Json::text(Protocol::SCHEMA));
     edited(&with_schema, "arms", |arms| {
         let Json::Arr(list) = arms else {
             unreachable!("the freeze states its arms as a list");
         };
-        Json::Arr(
-            list.iter()
-                .map(|arm| {
-                    let name = arm
-                        .get("name")
-                        .and_then(Json::as_str)
-                        .expect("every frozen arm names itself");
-                    let (_, rule) = FROZEN_RULES
-                        .iter()
-                        .find(|(arm_name, _)| *arm_name == name)
-                        .unwrap_or_else(|| panic!("{name:?} is not one of the freeze's arms"));
-                    edited(arm, "trust", |_| Json::text(rule.name()))
-                })
-                .collect(),
-        )
+        Json::Arr(list.iter().map(|arm| without(arm, "trust")).collect())
     })
 }
 
-/// The same protocol with `entries.run` replaced and the rest of its `entries` section untouched.
-fn with_run(value: &Json, names: &[&str]) -> Json {
-    edited(value, "entries", |entries| {
-        edited(entries, "run", |_| {
-            Json::Arr(names.iter().map(|n| Json::text(*n)).collect())
-        })
-    })
-}
-
-/// The same protocol with all three entry lists written as the schema-2 reader requires them. As
-/// frozen, `resolvable` and `sub_granular` are prose about entries that do not exist yet; the
-/// promotion contract replaces that prose with the lists, and this is where the test says so.
+/// The same protocol with all three entry lists rewritten. The promoted file states them as lists, so a
+/// test that wants the reader's refusals about the universe has to mis-state one of them on purpose.
 fn with_lists(value: &Json, run: &[&str], resolvable: &[&str], sub_granular: &[&str]) -> Json {
     let list = |names: &[&str]| Json::Arr(names.iter().map(|n| Json::text(*n)).collect());
     edited(value, "entries", |entries| {
@@ -687,9 +798,9 @@ fn follow_up() -> Json {
         .expect("it is JSON")
 }
 
-/// The eight arms are four trust variants across three channel masks, and the masks alone do not
-/// separate them: eight names, three measurements, and no field anywhere that says which rule labelled a
-/// row. This is what the freeze's first prerequisite asks the instrument to fix.
+/// The eight arms are four trust variants across three channel masks. The masks alone do not separate
+/// them — eight names, three measurements — so the promotion had to put the rule in a field an arm
+/// states, which is what the freeze's first prerequisite asked the instrument for.
 #[test]
 fn the_frozen_arms_are_eight_names_over_three_masks() {
     let arms = follow_up()
@@ -746,26 +857,33 @@ fn the_frozen_arms_are_eight_names_over_three_masks() {
             .collect::<Vec<_>>(),
         "the table has to be read in the file's own order, or it checks nothing"
     );
-    assert!(
-        arms.iter()
-            .all(|a| a.get("trust").and_then(Json::as_str).is_none()),
-        "as frozen, no arm states its rule: the promotion commit is what adds them"
-    );
+    // The dimension the experiment is about is a field on every arm, not a word inside a label — which
+    // is the promotion contract, and what makes the eight arms above eight measurements rather than
+    // three names written twice.
+    for (name, rule) in FROZEN_RULES {
+        let arm = arms
+            .iter()
+            .find(|a| a.get("name").and_then(Json::as_str) == Some(name))
+            .unwrap_or_else(|| panic!("the file lost {name}"));
+        assert_eq!(
+            arm.get("trust").and_then(Json::as_str),
+            Some(rule.name()),
+            "{name} does not state the rule its label claims"
+        );
+    }
 }
 
 /// Under the schema that only carries masks the freeze is a refused file, and under the schema whose
 /// arms state their rule the same eight arms are eight measurements with eight identities. The first
-/// refusal is the proof that the collision is now policed rather than silently written twice; the second
+/// refusal is the proof that the collision is policed rather than silently written twice; the second
 /// half is the freeze's first prerequisite, met.
 #[test]
 fn the_frozen_arms_are_eight_measurements_once_the_rule_reaches_the_plan() {
     let value = follow_up();
-    // Read as a mask-only file, with a corpus supplied so the reader gets past the empty list, the
-    // duplicate arms are refused.
-    let as_schema_one = with_run(
-        &edited(&value, "schema", |_| Json::text(Protocol::SCHEMA)),
-        &FROZEN_SAMPLE,
-    );
+    // The same eight arms read as a mask-only file, with their rules taken back out, are three
+    // measurements under eight names — and the reader says so instead of writing two files that mean
+    // the same thing.
+    let as_schema_one = as_mask_only(&value);
     let error = Protocol::from_json(&as_schema_one).expect_err(
         "eight arms that differ only in a word inside their names are three measurements",
     );
@@ -775,9 +893,8 @@ fn the_frozen_arms_are_eight_measurements_once_the_rule_reaches_the_plan() {
         "and it names the two arms it caught: {error}"
     );
 
-    // Promoted, the same eight arms are eight plans and eight identities.
-    let promoted = with_lists(&promote(&value), &FROZEN_SAMPLE, &FROZEN_SAMPLE, &[]);
-    let protocol = Protocol::from_json(&promoted).expect("a promoted freeze reads");
+    // As committed, the eight arms are eight plans and eight identities.
+    let protocol = Protocol::from_json(&value).expect("the promoted freeze reads");
     assert_eq!(protocol.arms.len(), 8);
     for (name, rule) in FROZEN_RULES {
         let arm = protocol
