@@ -4,8 +4,8 @@
   "purpose": "E1.3b's infrastructure pilot: the properties the freeze required of the instrument before a variant number is worth reading. No deciding quantity is measured here.",
   "binary": {
     "path": "software/.scratch/e1x-bin/aporia-bench.exe",
-    "sha256": "c6b8010b73c607d9fec45c5b118db14577737fe707a571f2d910299612c79695",
-    "built_from_commit": "ff12271"
+    "sha256": "1fe2d45fd770e980cf0b174111030e527c92a8f5a6857b5e763bfe7458683409",
+    "built_from_commit": "93ad7c2"
   },
   "protocol": "benchmarks/protocols/e1-3b-trust-resolution.json",
   "protocol_digest": "ea5b9d7140131dc9",
