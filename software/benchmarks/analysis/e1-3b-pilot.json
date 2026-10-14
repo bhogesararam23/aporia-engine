@@ -1,0 +1,69 @@
+{
+  "schema": "aporia.pilot/1",
+  "generated_by": "software/scripts/e13b_pilot.py",
+  "purpose": "E1.3b's infrastructure pilot: the properties the freeze required of the instrument before a variant number is worth reading. No deciding quantity is measured here.",
+  "binary": {
+    "path": "software/.scratch/e1x-bin/aporia-bench.exe",
+    "sha256": "c6b8010b73c607d9fec45c5b118db14577737fe707a571f2d910299612c79695",
+    "built_from_commit": "ff12271"
+  },
+  "protocol": "benchmarks/protocols/e1-3b-trust-resolution.json",
+  "protocol_digest": "ea5b9d7140131dc9",
+  "namespaces": {
+    "results": [
+      "software/.scratch/e13b-pilot-a",
+      "software/.scratch/e13b-pilot-b",
+      "software/.scratch/e13b-pilot-variant"
+    ],
+    "archives": "software/.scratch/e13b-pilot-archives",
+    "why": "a pilot is not the experiment, and its bytes must not land in the namespace the reported numbers are read from"
+  },
+  "checks": {
+    "determinism": {
+      "identity": "57df85b26d89",
+      "identity_repeated": "57df85b26d89",
+      "rows": 160,
+      "row_fields_compared": 4480,
+      "excluded": [
+        "wall_ms",
+        "environment"
+      ],
+      "passed": true
+    },
+    "namespaces": {
+      "reference_arm": "full-current-trust",
+      "reference_identity": "57df85b26d89",
+      "variant_arm": "full-min-channels-2",
+      "variant_identity": "b27144fd2b06",
+      "variant_trust_mirror": "min-channels-2",
+      "reference_trust_mirror": "current",
+      "archive_suffix": "-trust-min-channels-2",
+      "reference_archive_files": 530,
+      "variant_archive_files": 593,
+      "reference_files_touched_by_the_variant": 0,
+      "passed": true
+    },
+    "cost": {
+      "pairs": 160,
+      "columns": [
+        "evaluations",
+        "instruction_steps"
+      ],
+      "passed": true
+    },
+    "replay": {
+      "sweeps_replayed": 8,
+      "records_matched": 17478,
+      "records_total": 17478,
+      "passed": true
+    },
+    "attribution": {
+      "column": "non_finite_readings",
+      "rows": 160,
+      "rows_nonzero": 0,
+      "note": "a count of zero is the honest reading of a corpus whose risks are fused into [0, 1]; the variant arm of the run will say what it changed with nothing to act on"
+    }
+  },
+  "verdict": "PASSED",
+  "problems": []
+}
