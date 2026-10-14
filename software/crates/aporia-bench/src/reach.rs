@@ -193,16 +193,17 @@ impl RegionReach {
             String::new()
         } else {
             format!(
-                "  witness {:?}",
+                "  witness {}",
                 self.witness_bounds
                     .iter()
                     .map(|[lo, hi]| format!("[{lo}, {hi}]"))
                     .collect::<Vec<_>>()
+                    .join(" x ")
             )
         };
         format!(
             "  region {} {class:<13} envelope {:.6} declared {:.6}  {} candidate(s), {} measured  \
-             finest leaf {}  {}{reason})",
+             finest leaf {}{bounds}  ({reason})",
             self.index,
             self.best_envelope_share,
             self.best_declared_share,
@@ -213,7 +214,6 @@ impl RegionReach {
                 .map(|w| format!("{w:.6}"))
                 .collect::<Vec<_>>()
                 .join(" x "),
-            bounds,
             class = self.class.name(),
             reason = self.reason,
         )
