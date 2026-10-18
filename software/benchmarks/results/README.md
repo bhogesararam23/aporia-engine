@@ -718,7 +718,7 @@ stays untested rather than answered.
 
 E1.3's safety condition failed on two entries whose declared regions no leaf the atlas is permitted to
 build could be half inside — 0038 established that, and it made the condition unanswerable rather than
-false. E1.3b is the experiment that can answer it: the same instrument, a corpus chosen so its regions
+false. E1.3b is the experiment built to ask it a question that can be answered: the same instrument, a corpus chosen so its regions
 *are* reachable, and a second axis beside the channel mask — the rule that decides when a leaf may be
 called trusted. The protocol is `benchmarks/protocols/e1-3b-trust-resolution.json`, frozen 2026-10-09,
 promoted with its corpus in `d89142b`; all eight documents below cite its bytes as digest
@@ -829,6 +829,29 @@ records. The second is left alone and named: `trusted_over_true` prints as `-0.0
 certified — 160 rows in `only-physical-both-trust-rules`, and 13 rows in E1.x's committed `full` document.
 It is the sign of a clamp rather than a negative volume, equal to zero in every comparison, and changing
 the arithmetic would rewrite the bytes of published rows to change how a zero is displayed.
+
+**What the freeze expected, what was measured, and what could not be measured.** The six readings gathered
+in one place, because a reviewer of this run asked what had actually been settled and the answer was
+spread over four headings above. Recomputed from the eight documents for this table, and equal to the
+numbers printed above.
+
+| the freeze named | what it expected | what the run gives | status |
+|---|---|---|---|
+| over-claim on a resolvable corpus | that a reachable corpus would still certify across a boundary | 9 of 100 rows under the full instrument, largest 0.001465 of its domain (0.39% of the region), none at 320 or 640 | measured |
+| rule 2, a variant as a safety improvement | over-claim at zero, UNKNOWN within 0.05, localisation within one pair | no arm satisfies it; the only arm at zero over-claim raised UNKNOWN by 0.5221 and certified nothing | measured, negative |
+| the non-finite trust rule | a leaf holding a reading that is not a number stops being trusted | `non_finite_readings` is 0 on all 1280 rows and on all 2475 gate rows; 0 of 160 rows differ from the arm sharing its mask | measured, never operative |
+| control cleanliness, the fourth quantity | suspicious volume on the controls, and controls certified more by an arm told less | no entry in `entries.run` carries `control`, so the metric has no rows in this run | unmeasurable, reported empty |
+| the three sub-granular entries | all of them over-claim under every variant | 18 of 60 rows: `narrow_oblique` 17, `overflow_tail` 1 at 2.5·10⁻⁶, `pole_at_edge` 0 | measured, expectation partly wrong |
+| the archive namespace | each arm's archives are its own and replacing one is visible | `archive_name` omitted the experiment, so two protocols named three shared directories | defect found, refusal shipped |
+
+Two rows of that table are the reason the next protocol exists, and both are registered in it rather than
+argued here: `aporia.protocol/3` obliges a freeze to name its control set in `entries.run`, and
+`e1-4-resolution-demand` asks the question rule 4 pointed at — whether the fault is the *scale* at which
+certification is granted rather than the requirements a trusted leaf must meet. It was frozen on 2026-10-19
+before its new entry was authored and before any arm ran, and nothing in this section is read as evidence
+about it. The provenance claim above — a tree differing only in line endings — is now a check rather than a
+remark: `scripts/eol-audit.sh` compares every byte-contract path against its stored blob, because `git
+status` and `git diff` disagree with each other exactly when a clean filter is hiding a difference.
 
 ## The controls, and a correction to this file
 
