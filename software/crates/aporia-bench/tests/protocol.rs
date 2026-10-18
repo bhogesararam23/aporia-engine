@@ -957,3 +957,287 @@ fn plan_identity_shape(plan: &Plan) -> Json {
         .expect("a document carries its plan")
         .clone()
 }
+
+/// The E1.4 freeze, as the tree holds it before any arm has run.
+fn e14_value() -> Json {
+    let path = e14_path();
+    let text = std::fs::read_to_string(&path).expect("the E1.4 freeze is in the tree");
+    Json::parse(&text).expect("it is JSON")
+}
+
+fn e14_path() -> PathBuf {
+    corpus_root()
+        .join("protocols")
+        .join("e1-4-resolution-demand.json")
+}
+
+/// Documents that cite a protocol id, so a freeze can be checked against whether it has been run.
+fn documents_citing(id: &str) -> Vec<PathBuf> {
+    let dir = corpus_root().join("results");
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut found = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+        if !name.starts_with("results-")
+            || path.extension().and_then(|e| e.to_str()) != Some("json")
+        {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(value) = Json::parse(&text) else {
+            continue;
+        };
+        if value
+            .get("protocol")
+            .and_then(|p| p.get("id"))
+            .and_then(Json::as_str)
+            == Some(id)
+        {
+            found.push(path);
+        }
+    }
+    found
+}
+
+#[test]
+fn a_freeze_the_reader_cannot_enforce_is_refused_rather_than_waved_through() {
+    // A pre-registration the runner cannot read is only a file, and the danger around it is the
+    // opposite of the one this suite was written against: not that a frozen plan is unenforceable,
+    // but that a later reader accepts a schema whose obligations it does not check. `/3` obliges an
+    // arm to state its resolution rule and `entries` to name a control set, and until this reader
+    // enforces those two things a `/3` file has to be refused by name rather than read with the
+    // obligations quietly dropped -- which is how a freeze acquires an axis afterwards and a run
+    // loses it.
+    let value = e14_value();
+    assert_eq!(
+        value.get("schema").and_then(Json::as_str),
+        Some("aporia.protocol/3"),
+        "E1.4 froze against a schema this reader does not have"
+    );
+    assert_eq!(
+        value.get("id").and_then(Json::as_str),
+        Some("e1-4-resolution-demand")
+    );
+    let error =
+        Protocol::load(&e14_path()).expect_err("the reader refuses a schema it cannot enforce");
+    assert!(
+        error.contains("aporia.protocol/3")
+            && error.contains(Protocol::SCHEMA)
+            && error.contains(Protocol::SCHEMA_V2),
+        "the refusal names the schema it was given and the two it reads: {error}"
+    );
+    // And refusing is not measuring: nothing may cite this freeze as a run while it cannot be read.
+    assert!(
+        documents_citing("e1-4-resolution-demand").is_empty(),
+        "a schema the reader refuses cannot have produced a results document"
+    );
+}
+
+/// A top-level field of the E1.4 freeze, named rather than defaulted when it is absent: the
+/// deciding text of a pre-registration has to go missing loudly.
+fn e14_field(key: &str) -> Json {
+    let value = e14_value();
+    value
+        .get(key)
+        .unwrap_or_else(|| panic!("the freeze states no {key}"))
+        .clone()
+}
+
+#[test]
+fn the_e1_4_freeze_states_its_metric_and_the_four_arms_it_moves() {
+    // The deciding text, pinned as fields while it is still only a promise. This is the part of a
+    // pre-registration that must not be editable after the run, and a reader that cannot yet enforce
+    // it can still make an edit show up here rather than in a table nobody questions.
+    let field = e14_field;
+    assert_eq!(field("frozen").as_str(), Some("2026-10-19"));
+
+    // The primary metric, its denominator, and the bar it is measured against.
+    let metric = field("primary_metric");
+    assert_eq!(
+        metric.get("name").and_then(Json::as_str),
+        Some("coarse_certified_volume")
+    );
+    assert!(
+        metric
+            .get("denominator")
+            .and_then(Json::as_str)
+            .unwrap_or_default()
+            .contains("declared domain"),
+        "the denominator is stated, because a share without one is a preference"
+    );
+    let share = field("plan")
+        .get("certify_share")
+        .and_then(Json::as_f64)
+        .expect("the bar is a plan field and not prose");
+    assert_eq!(
+        share, 0.003_906_25,
+        "2^-8 exactly, so no leaf sits on the bar by rounding"
+    );
+    assert_eq!(share, 2f64.powi(-8));
+
+    // Four arms, which is the whole grid of the two axes moved, on one mask and one trust rule.
+    let arms = field("arms")
+        .as_array()
+        .expect("the freeze states its arms")
+        .to_vec();
+    assert_eq!(
+        arms.len(),
+        4,
+        "two axes, four cells, no fifth arm for company"
+    );
+    for arm in &arms {
+        assert!(
+            arm.get("ablate")
+                .and_then(Json::as_array)
+                .is_some_and(<[Json]>::is_empty),
+            "every arm runs the full instrument: the channels are not what this freeze is testing"
+        );
+        assert_eq!(arm.get("trust").and_then(Json::as_str), Some("current"));
+        assert!(
+            arm.get("resolution").and_then(Json::as_str).is_some(),
+            "a /3 arm that omits its resolution rule is a different measurement saying so nowhere"
+        );
+    }
+    let rules: Vec<&str> = arms
+        .iter()
+        .filter_map(|a| a.get("resolution").and_then(Json::as_str))
+        .collect();
+    assert_eq!(
+        rules,
+        vec!["current", "demand", "withhold", "demand-and-withhold"],
+        "and in that order, so the control is the first row of every table"
+    );
+    // The plan states none of the three axes. An arm that does not name its own mask and rule would
+    // make this file two experiments wearing one identity, which is the refusal `/2` was built for.
+    let plan = field("plan");
+    for axis in ["ablate", "trust", "resolution"] {
+        assert!(
+            plan.get(axis).is_none(),
+            "the plan section states {axis}, which is the arms to state"
+        );
+    }
+}
+
+#[test]
+fn the_e1_4_freeze_names_its_entry_sets_and_its_decision_rule() {
+    // The second half of the same promise, in its own test because the two halves are decided by
+    // different arguments: what a row means is fixed by the metric, and which rows exist is fixed by
+    // the corpus. Someone editing a freeze after the fact changes one and not the other.
+    let field = e14_field;
+
+    // The entry sets, including the set E1.3b froze without.
+    let entries = field("entries");
+    let list = |key: &str| -> Vec<String> {
+        entries
+            .get(key)
+            .and_then(Json::as_array)
+            .unwrap_or_else(|| panic!("the freeze states no entries.{key}"))
+            .iter()
+            .filter_map(Json::as_str)
+            .map(str::to_string)
+            .collect()
+    };
+    let run = list("run");
+    let resolvable = list("resolvable");
+    let sub_granular = list("sub_granular");
+    let control = list("control");
+    assert!(
+        !control.is_empty(),
+        "a /3 freeze with no control set is the defect E1.3b reported as unmeasurable"
+    );
+    let mut covered = resolvable.clone();
+    covered.extend(sub_granular.iter().cloned());
+    covered.extend(control.iter().cloned());
+    covered.sort();
+    let mut sorted_run = run.clone();
+    sorted_run.sort();
+    assert_eq!(
+        covered, sorted_run,
+        "the three sets are the run list, exactly once each"
+    );
+    assert_eq!(
+        run.len(),
+        5,
+        "five entries: four declared regions and the clean control"
+    );
+    assert!(
+        run.contains(&"granular/fit_band".to_string()),
+        "the resolvable entry built to over-claim under the full instrument is why this freeze exists"
+    );
+
+    // Seven outcomes, the null one first, with the two ceilings that decide them inside the rule.
+    let rule = field("primary_metric")
+        .get("decision_rule")
+        .and_then(Json::as_array)
+        .expect("the decision rule travels with the metric it decides")
+        .to_vec();
+    assert_eq!(rule.len(), 7);
+    assert!(
+        rule[0]
+            .as_str()
+            .unwrap_or_default()
+            .contains("cannot state the question"),
+        "the first outcome is the one where the corpus cannot ask"
+    );
+    assert!(
+        rule[1]
+            .as_str()
+            .unwrap_or_default()
+            .contains("certifying almost nothing"),
+        "and the second refuses silence as a result, which is what E1.3b rule 3 had to learn"
+    );
+    let text = rule
+        .iter()
+        .filter_map(Json::as_str)
+        .collect::<Vec<_>>()
+        .join(" ");
+    assert!(
+        text.contains("0.10"),
+        "the UNKNOWN ceiling is stated in the rule, not in prose beside it"
+    );
+    assert!(
+        text.contains("one quarter"),
+        "and so is the floor under which an arm certifies nothing"
+    );
+
+    // A freeze records what it supersedes by not touching it.
+    let supersedes = field("supersedes_nothing")
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    assert!(
+        supersedes.contains("stays failed"),
+        "the condition E1.3 failed stays failed, as in every freeze since"
+    );
+    assert!(
+        supersedes.contains("E1.3b is measured"),
+        "and E1.3b's decision is cited as a measurement, not as a defect to repair"
+    );
+
+    // The status text and the tree have to agree, in whichever direction the run goes. Written as a
+    // two-way check so this assertion cannot be weakened later by editing the freeze to match a run:
+    // either the freeze still says NOT RUN and no document cites it, or documents exist and the
+    // freeze no longer claims it has not been measured.
+    let status = field("status").as_str().unwrap_or_default().to_string();
+    let measured = documents_citing("e1-4-resolution-demand");
+    if measured.is_empty() {
+        assert!(
+            status.contains("FROZEN, NOT RUN"),
+            "no document cites this freeze, so its status must still say it has not been run"
+        );
+    } else {
+        assert!(
+            !status.contains("NOT RUN"),
+            "{} results document(s) cite this freeze while its status still says NOT RUN",
+            measured.len()
+        );
+    }
+}

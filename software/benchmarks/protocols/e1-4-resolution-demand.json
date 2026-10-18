@@ -1,0 +1,212 @@
+{
+ "schema": "aporia.protocol/3",
+ "id": "e1-4-resolution-demand",
+ "title": "Does demanding a resolution, or withholding certification below one, buy knowledge - or only a new name for not having looked?",
+ "frozen": "2026-10-19",
+ "status": "FROZEN, NOT RUN. No E1.4 results document, archive or number exists. The entries this file names were listed before they were written and before any arm ran; `granular/fit_band` does not exist in the tree yet, and its resolvability claim below was worked on paper from its own declared form rather than read out of an instrument. Nothing here has been measured.",
+ "supersedes_nothing": "E1.3's pass condition failed and stays failed. E1.3b is measured and its decision stands as recorded: rule 3 fired, H-SILENCE was supported and H-RESOLVE was not, and the truth-blind trust rules changed what the instrument reported rather than what it knew. Nothing here re-reads, recomputes, relabels or re-scores an E1.x or E1.3b row. This is a new experiment with a new identity, run partly on entries that already have committed rows under other protocols, and its documents cite this protocol id and digest so that no reader can mistake one measurement for the other.",
+ "depends_on": [
+  "aporia.protocol/2 and the committed E1.3b arms, which established that the two truth-blind trust rules on offer do not reduce certified-over-true volume",
+  "0038, which established that a region thinner than any permitted leaf cannot be localised by any labelling rule",
+  "the reachability record (`aporia-bench reach`), which is what makes the entry lists below checkable rather than asserted"
+ ],
+ "question": "An atlas labels a leaf from the statistics of the evaluations that landed in it, and `refine` cuts a leaf only when it is already suspicious, when its mean risk says something is inside it, or when a neighbour disagrees. A quiet leaf is therefore never looked at more closely, and `TRUSTED` is handed out at whatever scale the search happened to reach. E1.3b tightened what a trusted cell must have - channels applied, readings finite - and measured that this changed nothing. This experiment asks the other question, about the scale at which certification is granted. Does a truth-blind rule that splits a quiet cell while it is coarser than a declared resolution certify less and know more? And does an explicit state between certified and unmeasurable - quiet, but not looked at finely enough - add information, or merely rename UNKNOWN?",
+ "main_hypotheses": {
+  "H-DEPTH": "The over-claim E1.3 measured is a statement about depth and budget, not about channels: a coarse quiet leaf overlaps a declared region because no evaluation landed inside it, and no requirement added to TRUSTED can see that. Falsified if a resolution demand does not reduce certified-over-true volume on the rows where the partition itself changed, or if the reduction is entirely accounted for by cells that became unmeasurable.",
+  "H-RESOLVE": "Demanding resolution before certifying reduces what is certified too coarsely and leaves localisation no worse, at a bounded cost in UNKNOWN area and a bounded cost in certification on a clean entry. Falsified by any ceiling in `decision_rule` being missed.",
+  "H-WITHHOLD": "An explicit state for quiet-but-too-coarse carries information UNKNOWN does not: the volume it holds is the volume refinement can recover, and it captures the over-claim the default rule certified. Falsified if the withheld volume captures no more of the real over-claim than the volume the same partition calls UNKNOWN, or if its growth tracks UNKNOWN's growth entry for entry.",
+  "H-RENAME": "The null hypothesis for the new state: the fourth label is UNKNOWN under a different name. Falsified by the withheld set and the UNKNOWN set separating on the informativeness pair in `primary_metric` - high capture of the real over-claim together with low withholding on the clean control."
+ },
+ "what_was_already_measured": {
+  "reading": "Taken from the committed E1.3b documents before this file was written, and used only to choose entries and to state the shape of the result this experiment expects. It sets no threshold: every ceiling below comes from the arithmetic in `certify_bar_derivation` and `decision_reason`, and no E1.4 arm has run.",
+  "full_current_trust_per_entry": {
+   "rows_per_entry": 20,
+   "over_claim_rows": {
+    "geometry/narrow_oblique": 17,
+    "granular/stroke_reference": 8,
+    "granular/diagonal_count": 1,
+    "edge/overflow_tail": 1,
+    "granular/rail_ceiling": 0,
+    "granular/tolerance_stack": 0,
+    "granular/match_return": 0,
+    "edge/pole_at_edge": 0
+   },
+   "largest_row_over_claim": {
+    "geometry/narrow_oblique": 0.00150108,
+    "granular/diagonal_count": 0.00146484,
+    "granular/stroke_reference": 0.00024414
+   },
+   "localisation": "geometry/narrow_oblique is detected in 20 of 20 rows and localised in 0 of 20, under every one of the eight arms. No trust rule moved it, which is what 0038 predicts for a sub-granular region."
+  },
+  "consequence_for_this_file": "The entries that over-claim under the full instrument are the ones whose declared region is thin relative to a leaf, and the ones that never over-claim are the loud compact ones. So this experiment has to measure certification scale directly, and it needs a resolvable entry that over-claims - the case E1.3b's own record says its corpus lacked."
+ },
+ "prerequisite_instrument_changes": [
+  "`aporia-boundary` gains a resolution axis on `Policy`, named so that its default is inert: `Resolution::Current` reproduces the committed labelling and the committed refinement exactly.",
+  "`aporia-boundary` gains a fourth `Label` state, `Provisional`, whose operational definition is the one in `the_new_state` below, and which is counted as neither certified nor unmeasurable anywhere in this experiment.",
+  "`refine` splits a leaf that is quiet but coarser than `certify_share` when the arm demands resolution, keeping the existing rule and its measured sample floor exactly as committed - a split must still be worth the samples it costs.",
+  "The neighbour-disagreement predicate that drives the committed refinement stays defined on SUSPICIOUS against the rest, and a PROVISIONAL leaf counts as disagreeing exactly as a TRUSTED one does. This is deliberate: arms A and C then produce the same partition and differ only in what it claims, so any difference between them is a difference in semantics and cannot be a difference in where the search went.",
+  "`Outcome` records `provisional_volume`, `coarse_certified_volume`, `coarse_certified_share` and `leaf_cells`, outside the measurement identity as `non_finite_readings` was, and the reproduction gate re-measures the committed rows to prove the fields beside them did not move.",
+  "`Protocol` gains `aporia.protocol/3`: every arm states its channel mask, its trust rule and its resolution rule, the plan section states none of the three, and `entries` carries `resolvable`, `sub_granular` and `control` and the three must cover `entries.run` exactly and disjointly. A `/3` file with an empty `control` list is refused, because E1.3b froze a control-cleanliness metric and then had no rows to measure it on.",
+  "The archive namespace carries the experiment and every result-affecting plan dimension, so two arms that are not the same measurement cannot write into one directory."
+ ],
+ "the_new_state": "PROVISIONAL: the leaf was sampled at or above the policy's own floor, was measured by the channels the mask allowed, saw nothing that met the bar for suspicion, and is coarser than `certify_share`. It says that at this scale nothing was found and that this scale is not the one this experiment certifies at. It does not say the space is unmeasurable - that is UNKNOWN, which is reached by a different route: too few samples, no channel applied, or a reading that is not a number. It does not say the space is clean - that is TRUSTED, which this state withholds. Whether the difference is real is a measurement: see H-WITHHOLD and the informativeness pair.",
+ "plan": {
+  "budgets": [
+   320,
+   640,
+   1280,
+   2560
+  ],
+  "strategies": [
+   "adaptive"
+  ],
+  "seeds": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "grid_per_axis": 41,
+  "minimise_budget": 4000,
+  "probe_every": 7,
+  "numerical_every": 11,
+  "differential_every": 11,
+  "symmetric_every": 1,
+  "refine_every": 40,
+  "calibrate_every": 25,
+  "certify_share": 0.00390625
+ },
+ "plan_reason": "The ladder, grid and rates are E1.3b's unchanged, so a row of this experiment is comparable to a row of that one and no arm gains an advantage from a different budget. One strategy, because the question is what a label means rather than how points are placed. Five seeds, because the deciding comparisons are paired per (entry, seed, budget) and one seed cannot separate a policy from a trajectory.",
+ "certify_bar_derivation": "`certify_share` is 2^-8. The frozen depth cap is 12 and a leaf at depth d holds 2^-d of its root's volume, so the finest leaf this atlas is permitted to build is 2^-12 of the declared domain and the bar sits four bisections above it: a cell may be certified only if the instrument was willing to go sixteen times finer than it did. The value is an exact power of two on purpose - a comparison against a rounded decimal can put a leaf exactly on the boundary through no fault of the measurement, and E1.3b had to explain a `-0.0` that came from precisely this class of representation question. The bar is a plan constant that reads no truth file: `Policy::classify` and `refine` see a number from the plan and the geometry of the cell, and never a declared region.",
+ "arms": [
+  {
+   "name": "A-current",
+   "ablate": [],
+   "trust": "current",
+   "resolution": "current"
+  },
+  {
+   "name": "B-demand",
+   "ablate": [],
+   "trust": "current",
+   "resolution": "demand"
+  },
+  {
+   "name": "C-withhold",
+   "ablate": [],
+   "trust": "current",
+   "resolution": "withhold"
+  },
+  {
+   "name": "D-demand-and-withhold",
+   "ablate": [],
+   "trust": "current",
+   "resolution": "demand-and-withhold"
+  }
+ ],
+ "arms_reason": "Four arms, which is the whole two-by-two grid of the axes this experiment can move: whether the partition must look closer, and whether a coarse quiet cell may be certified. Nothing else varies - every arm runs the full instrument (`ablate` empty) under the committed trust rule (`current`), because E1.3b measured those axes and a fifth arm re-running them here would be padding. D is the conjunction, and it is the only arm that can show whether the two axes are independent: if D does not behave like B and C together, the interaction is the finding.",
+ "entries": {
+  "run": [
+   "control/symplectic_spring",
+   "geometry/narrow_oblique",
+   "granular/stroke_reference",
+   "granular/tolerance_stack",
+   "granular/fit_band"
+  ],
+  "resolvable": [
+   "granular/stroke_reference",
+   "granular/tolerance_stack",
+   "granular/fit_band"
+  ],
+  "sub_granular": [
+   "geometry/narrow_oblique"
+  ],
+  "control": [
+   "control/symplectic_spring"
+  ],
+  "resolvable_reason": "Three entries whose declared region a permitted leaf can enclose. `granular/stroke_reference` and `granular/tolerance_stack` are carried over as E1.3b's reachability record classified them - both `enclosed` under the frozen depth cap and localisation bar - and each is here for a different reason, stated per entry below. `granular/fit_band` is new: an oblique band on a diametral interference, authored because E1.3b's record shows the resolvable entries it had did not over-claim much under the full instrument while the sub-granular one did, so the case this hypothesis stands or falls on - resolvable and over-claiming - was not in that corpus.",
+  "sub_granular_reason": "`geometry/narrow_oblique` is the band at |p - q - 0.5| <= 0.004, about four tenths of one per cent of its domain and thinner than the finest leaf the depth cap permits. E1.3b measured it as detected 20 of 20 and localised 0 of 20 under every arm. It is in this run list because it is the case where a resolution demand cannot help by construction, and so is the entry that separates the instrument having looked closer from the instrument having looked closer than the frozen partition is allowed to.",
+  "control_reason": "`control/symplectic_spring` declares `control: true` and no region. It is the only entry here that can measure false suspicion and unnecessary uncertainty, and it is in `entries.run` by name rather than by adjacency: E1.3b froze a control-cleanliness metric, then measured eight entries none of which was marked control, and had to report the metric as unmeasurable. That is the defect this list closes.",
+  "entry_why": {
+   "control/symplectic_spring": "Needed to price uncertainty. It has no declared region, so every withheld, unknown or suspicious fraction of its domain is a cost paid for nothing. It falsifies nothing on its own; it makes every other arm's gain readable as a net figure. If a quiet one-dimensional oscillator cannot be certified at all under a resolution demand, that is the demand's arithmetic and has to be printed rather than argued away.",
+   "geometry/narrow_oblique": "Needed as the case resolution cannot reach: sub-granular, so `demand` can only starve it of samples and `withhold` can only relabel it. It falsifies the entry design if arm B localises it, because that would mean the partition resolved a band four tenths of one per cent of the domain wide at a depth the frozen cap does not permit.",
+   "granular/stroke_reference": "Needed as a committed, already-audited resolvable entry that did over-claim under the full instrument - 8 of 20 rows, largest 0.00024414. It is the crossover case: the same (entry, seed, budget) cells E1.3b measured under `full-current-trust` are measured here under `A-current`, so A-current is not trusted as a reproduction, it is proved by the gate.",
+   "granular/tolerance_stack": "Needed as the coarse mixed cell. Half the space is violated, its own record says the best leaf its declaration can claim is the root cell at share 0.5, and it over-claims zero rows under the full instrument because the region is loud. It is the cost side of resolution: if demanding that quiet cells be refined degrades an entry E1.3b already localised in 20 of 20 rows, the demand is not free.",
+   "granular/fit_band": "Needed as the case the hypothesis stands or falls on: an oblique band that is resolvable - wider than two permitted leaves on every axis - whose straddling leaves can be quiet and unsampled, so that the default rule certifies straight across a boundary it cannot see. Its declared form is solved on paper in its own truth record. It falsifies nothing if `reach` does not class it `enclosed` at the frozen cap and bar: by `exclusions` it is then reported as unable to carry the hypothesis and the run stands without it."
+  }
+ },
+ "arm_labels": "The arm names carry an A/B/C/D prefix so the four cells of the two-by-two grid read in order in a table. The prefix is a label and measures nothing: the `resolution` field is what reaches the plan, the measurement identity and the archive directory, and a reader who wants the rule an arm ran under reads that field rather than parsing a name.",
+ "primary_metric": {
+  "name": "coarse_certified_volume",
+  "definition": "For one row: the sum, over the leaves labelled TRUSTED in the recorded final partition, of each leaf's volume as a fraction of the declared domain, counting only leaves whose fraction is strictly greater than `certify_share`. It is computed from the partition and the plan and reads no truth file, which is what makes it comparable on the control entry, where there is no region to compare against.",
+  "denominator": "The declared domain of the entry - the same denominator as `trusted_volume`, `unknown_volume` and `trusted_over_true` in every committed E1.x and E1.3b row, so the numbers of three experiments sit on one scale.",
+  "aggregation": "Mean over rows within an arm, each row weighted equally, reported per entry and per budget beside it. Equal weighting per row is deliberate: a volume-weighted mean would let an arm win by doing well on whichever entry has the most rows.",
+  "paired_comparison": "Every arm-versus-arm reading is a paired difference on the same (entry, seed, budget) cell. Unpaired means are not reported as evidence.",
+  "informativeness_pair": "Two quantities that decide H-WITHHOLD, both computed where the partition is identical by construction - arms A and C agree on it, so this compares claims and not searches. `capture` is the share of A-current's `trusted_over_true` volume that falls inside cells C-withhold labels PROVISIONAL, that is how much of the real over-claim the withheld set holds. `cost` is C-withhold's PROVISIONAL volume on `control/symplectic_spring` divided by A-current's TRUSTED volume there, that is how much certification was withdrawn where there was nothing to withdraw. A state that captures little and costs much is a synonym for not knowing.",
+  "why_not_the_committed_metric_alone": "`trusted_over_true` stays the safety guardrail and is reported unchanged, but it cannot decide this experiment by itself: arm C reduces it by definition, since a PROVISIONAL leaf is not a TRUSTED one and the volume it overlaps stops being counted. Reporting only that number would let a relabelling look like a discovery, which is the mistake E1.3b's rule 3 exists to catch.",
+  "decision_rule": [
+   "If A-current's `coarse_certified_volume` is zero on every row of every entry, stop and report that this corpus cannot state the question: nothing was certified at a scale coarser than the bar, so there is no resolution fault here to fix and no arm has anything to act on.",
+   "If an arm's mean `trusted_volume` on `control/symplectic_spring` is below one quarter of A-current's there, that arm is reported as certifying almost nothing. It is not an improvement on any reading of any other metric, and it is recorded under H-SILENCE as in E1.3b.",
+   "If an arm cuts mean `coarse_certified_volume` to half of A-current's or less, raises mean `unknown_volume` by no more than 0.10 absolute, lowers no entry's `localised_regions` sum, does not raise mean `trusted_over_true`, and keeps control-entry `trusted_volume` at or above a quarter of A-current's, it is a resolution improvement and is reported as one, named.",
+   "If `coarse_certified_volume` falls and safety holds but no entry's `localised_regions` sum rises anywhere, report certification discipline rather than detection gain: the instrument became honest about its scale without learning where anything was. This is a permitted and useful outcome, and it is not outcome 3.",
+   "If `capture` is below 0.5 while `cost` is above 0.5, the PROVISIONAL state withholds certification where there is nothing to withhold at least as often as it withholds certification where there is something, and H-WITHHOLD is refused in favour of H-RENAME: the new state is reported as UNKNOWN under another name.",
+   "If no arm cuts mean `coarse_certified_volume` below A-current's, the limitation is not the scale at which certification is granted, and this experiment reports the definition of TRUSTED as unresolved - E1.3b's rule 4 arrived at from the other side.",
+   "Independent of which of the above fires, report whether the budget crossing the bar's arithmetic predicts is present: a leaf must hold at least four samples to be split, so a quiet space bisected to depth d needs about 4 times 2^d evaluations before it can be certified at 2^-d, which puts the first budget at which the frozen bar can be met at roughly 1000 evaluations. If the per-budget readings do not show UNKNOWN giving back to TRUSTED between 640 and 1280, then this arithmetic or the depth accounting is wrong, and that is stated as a defect of this file."
+  ]
+ },
+ "secondary_metrics": [
+  "`unknown_volume`, `provisional_volume` and `suspicious_volume` means per arm and per entry. `provisional_volume` is never added to `unknown_volume` and no reading treats one as the other: the point of the state is that the two answer different questions, and summing them would decide H-RENAME by arithmetic.",
+  "`trusted_volume` mean per arm, and on the control entry in particular, because a policy that certifies nothing has not become safer.",
+  "`detected_regions` and `localised_regions` summed per entry over rows, as E1.3b reported them, so a fall in certification that is not accompanied by a rise in either is visible as what it is.",
+  "`false_positive_fraction` and `control_suspicious_volume` on the control entry: false suspicion, the E1.x quantity E1.3b could not measure.",
+  "`trusted_over_true` mean and maximum per arm: continuity with the two committed experiments.",
+  "Cost, charged as evaluations and separately as `leaf_cells` per row. A resolution demand buys its refinement out of measurements already made, so evaluations are equal across arms by construction and any real cost appears as cells. A difference that shows up in evaluations is a defect in this design, not a result.",
+  "Per-seed spread of every paired difference, so one lucky trajectory cannot carry a verdict."
+ ],
+ "decision_reason": "The ceilings were chosen before any arm ran and none is tuned to a hoped-for answer. 0.10 absolute on UNKNOWN rather than E1.3b's 0.05 because the arms here change the partition wholesale instead of re-labelling a handful of leaves, so a ceiling carried over unchanged would decide the experiment by the size of the intervention rather than by its effect; the cost of that choice is that outcome 3 is easier to reach here than it was in E1.3b, and it is stated so a reader can discount it. One quarter on control-entry certification is the arithmetic of the bar and not a hope: at a 2^-8 bar a quiet one-dimensional space whose leaves were never taken past depth 6 certifies nothing at all, so an arm that keeps a quarter of A-current's certification there has genuinely resolved part of a space that has no violation to find. 0.5 on `capture` and `cost` because below that the withheld set holds less than half of the real over-claim, and above that it withholds more clean certification than it captures violated certification - together the two are what a reader needs in order to decide whether the state is information.",
+ "comparison_rules": [
+  "Arms are compared against A-current and only on paired cells. A-current is this experiment's own control, measured with this binary; the committed E1.3b rows are cited as history rather than as a baseline.",
+  "An arm whose partition equals another's may not be reported as a second measurement of the same thing: if B and D produce identical partitions on an entry, that is reported as the demand having nothing left to demand there.",
+  "A row with zero `trusted_volume` contributes nothing to `coarse_certified_share` and is counted in the zero-certification report rather than dropped from the mean, so silence shows up as silence and not as missing data."
+ ],
+ "stopping_rules": [
+  "No arm runs before the corpus audit passes, before this file reads under `aporia.protocol/3`, and before the reproduction gate re-measures the committed E1.x and E1.3b rows and finds every declared field identical.",
+  "The pilot is one entry, two seeds and the two smallest budgets, and checks only determinism, namespace separation, equal charged cost and replay. It must not move a threshold, a tolerance or a criterion.",
+  "If `leaf_cells` reaches the partition cap on any row, that arm stops on that entry and the row is reported as capped rather than as measured.",
+  "If the reproduction gate fails on any committed field, the experiment stops and the gate is reported, in that order, before any E1.4 number is read."
+ ],
+ "exclusions": [
+  "An entry the instrument cannot class as its list claims is excluded by this rule and reported: an entry listed `resolvable` that `reach` does not call `enclosed` is reported as unable to carry the hypothesis and the run stands without it. The run is not re-tuned to keep the story.",
+  "Rows the harness refuses to measure are reported with the refusal and not skipped silently. A structurally unreachable entry is named with a reason; it is never counted as no-detection and never counted as safe.",
+  "No row is excluded because of what it says. Exclusions are decided by reachability class and by the partition cap, both of which are fixed before the run."
+ ],
+ "interpretations": {
+  "permitted": [
+   "This instrument can withhold a certification it cannot support at a declared scale, and report at what scale it withheld it.",
+   "A resolution demand can reduce what is certified too coarsely, and the cost of doing so is measurable in UNKNOWN area, in certification on a clean entry and in cells.",
+   "A fourth label can be distinguished from UNKNOWN by an informativeness test that does not depend on what the label is called."
+  ],
+  "forbidden": [
+   "TRUSTED does not become proven correct under any outcome of this experiment, and PROVISIONAL does not become probably fine.",
+   "A fall in TRUSTED volume is not safer unless outcome 3 fired, and a rise in UNKNOWN is not an improvement unless the frozen metric says so.",
+   "A policy that certifies nothing is not the best policy at certifying; it is the absence of a measurement.",
+   "Nothing here settles whether an unsampled violation exists. The instrument reports what its own partition can and cannot support, and the answer key stays outside the instrument."
+  ]
+ },
+ "audit_gate": "The corpus audit must pass on the whole corpus and must refuse by name: a control entry that declares a region; an entry in two of the three sets; an entry in none; a `/3` file with an empty control list; a `fit_band` record whose on-paper resolvability claim the instrument contradicts; a variable the model has no parameter for; a truth source taken from inside the instrument.",
+ "reproduction_gate": "Before any E1.4 arm is read: re-measure all eleven committed E1.x arms and all eight committed E1.3b arms with the binary that will run this experiment, into scratch namespaces, and require every field those documents declare to be identical, with `wall_ms` excluded as non-identity and with only the fields this file names as additions allowed to appear. A committed field that moved is a defect in the resolution axis default and stops the run.",
+ "not_claims": [
+  "that PROVISIONAL means probably safe. It means quiet at a scale this experiment does not certify at.",
+  "that TRUSTED will come to mean proven correct. It means quiet under the channels that ran, now stated with the scale it was granted at.",
+  "that this experiment resolves E1.3, whose condition failed and stays failed.",
+  "that a smaller over-claim number is by itself a safer instrument.",
+  "that any of this generalises past the one- and two-dimensional models in this corpus."
+ ],
+ "limitations_this_does_not_remove": [
+  "The bar is a plan constant, so certified at the right scale is measured against a resolution this experiment chose rather than one the model declared. A different bar gives different numbers, and the sensitivity is reported rather than argued away.",
+  "Certification depth is bounded by the sample floor, so every reading here is a statement about this budget ladder. Whether the crossing survives at 5120 and 10240 evaluations is a different experiment.",
+  "The corpus is four declared regions and a control, all analytically declared, all at one or two parameters. Nothing here speaks to a ten-parameter model, where 2^-12 of a domain is a much finer claim than it is here.",
+  "Truth is read only by the metric layer. That makes the primary metric computable without an answer key, and it also means the instrument cannot tell a quiet coarse cell that is genuinely clean from one that is genuinely violated - which is the limitation this whole experiment is about, and no arm here removes it."
+ ]
+}
