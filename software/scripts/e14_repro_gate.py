@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
-"""e14_repro_gate.py — re-measure both committed experiments and prove the scale axis moved nothing.
+"""e14_repro_gate.py — re-measure every committed experiment and prove the scale axis moved nothing.
 
 E1.4's control arm is the semantics that already produced every committed row in this repository, so the
-experiment means something only if that semantics still produces them. This runs all nineteen published
-arms — eleven of the frozen `e1-geometry` protocol and eight of `e1-3b-trust-resolution` — one at a time,
-exactly as the scripts that measured them ran them (`--plan` with `--arm`, and no flag that shapes what
-is measured), into a scratch namespace, and compares each replayed document with the committed one it has
-to be indistinguishable from.
+experiment means something only if that semantics still produces them. This runs all twenty-three published
+arms — eleven of the frozen `e1-geometry` protocol, eight of `e1-3b-trust-resolution` and four of
+`e1-4-resolution-demand` — one at a time, exactly as the scripts that measured them ran them (`--plan` with
+`--arm`, and no flag that shapes what is measured), into a scratch namespace, and compares each replayed
+document with the committed one it has to be indistinguishable from.
+
+The first two protocols are the gate the freeze asks for: an arm of an *earlier* experiment reproduced by
+*this* build. The four E1.4 arms are in here for a different reason, and it is a provenance reason. The
+runner refuses to write a second copy of a measurement it can see is the same one, so the published E1.4
+rows can only be re-measured into a scratch namespace and compared — which is what binds them to the bytes
+this gate names rather than to the hour of the day they were first written. An E1.4 arm that replayed
+different numbers would be a determinism defect in the run that is about to be reported.
 
 The comparison is the strong one, and it has to be: this phase added a fourth label, a policy axis, five
 row columns, two top-level document fields and an archive identity note. Any one of those touching the
@@ -48,7 +55,7 @@ OUT = os.path.join(ROOT, ".scratch", "e14-repro-results")
 ARCHIVE = os.path.join(ROOT, ".scratch", "e14-repro-archives")
 ARTIFACT = os.path.join(ROOT, "benchmarks", "analysis", "e1-4-reproduction-gate.json")
 
-PROTOCOLS = ["e1-geometry", "e1-3b-trust-resolution"]
+PROTOCOLS = ["e1-geometry", "e1-3b-trust-resolution", "e1-4-resolution-demand"]
 
 # Written by this build and predating the committed documents. Every one of these is outside the
 # measurement identity, which is why adding it cannot rename a measurement — and the reason the list is
@@ -76,7 +83,7 @@ def digest(path):
 
 
 def committed_arms():
-    """Every published arm of both experiments, ordered by file name."""
+    """Every published arm of the frozen experiments, ordered by file name."""
     out = []
     for name in sorted(os.listdir(RESULTS)):
         # The directory's README is prose about the namespace, not a document in it.
@@ -351,7 +358,8 @@ def main(argv):
         "generated_by": "scripts/e14_repro_gate.py",
         "purpose": (
             "prove that the scale axis E1.4 measures left every committed measurement it does not name "
-            "exactly as published"
+            "exactly as published, and that the bytes doing that also write the four E1.4 arms now being "
+            "read -- which is what binds a published row to a commit rather than to a time of day"
         ),
         "binary_sha256": binary_sha,
         "built_from_commit": arguments.commit,

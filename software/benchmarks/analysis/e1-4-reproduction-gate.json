@@ -54,7 +54,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 1044,
-   "wall_ms_replayed": 1195
+   "wall_ms_replayed": 1205
   },
   {
    "archives_naming_this_measurement": [
@@ -92,7 +92,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 1033,
-   "wall_ms_replayed": 1123
+   "wall_ms_replayed": 1266
   },
   {
    "archives_naming_this_measurement": [
@@ -130,7 +130,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 1089,
-   "wall_ms_replayed": 1256
+   "wall_ms_replayed": 1422
   },
   {
    "archives_naming_this_measurement": [
@@ -168,7 +168,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 1046,
-   "wall_ms_replayed": 1241
+   "wall_ms_replayed": 1485
   },
   {
    "archives_naming_this_measurement": [
@@ -309,7 +309,7 @@
    "sweeps": 40,
    "verdict": "identical",
    "wall_ms_committed": 3667,
-   "wall_ms_replayed": 3899
+   "wall_ms_replayed": 4909
   },
   {
    "archives_naming_this_measurement": [
@@ -450,7 +450,27 @@
    "sweeps": 40,
    "verdict": "identical",
    "wall_ms_committed": 3629,
-   "wall_ms_replayed": 3758
+   "wall_ms_replayed": 4343
+  },
+  {
+   "archives_naming_this_measurement": [
+    "2b75924a550c"
+   ],
+   "arm": "C-withhold",
+   "document": "results-2b75924a550c.json",
+   "identity": "2b75924a550c",
+   "identity_replayed": "2b75924a550c",
+   "protocol": "e1-4-resolution-demand",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": []
+   },
+   "rows": 100,
+   "sweeps": 25,
+   "verdict": "identical",
+   "wall_ms_committed": 4282,
+   "wall_ms_replayed": 3978
   },
   {
    "archives_naming_this_measurement": [
@@ -591,7 +611,7 @@
    "sweeps": 40,
    "verdict": "identical",
    "wall_ms_committed": 3586,
-   "wall_ms_replayed": 3520
+   "wall_ms_replayed": 4216
   },
   {
    "archives_naming_this_measurement": [
@@ -629,7 +649,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 1102,
-   "wall_ms_replayed": 1436
+   "wall_ms_replayed": 1736
   },
   {
    "archives_naming_this_measurement": [
@@ -770,7 +790,7 @@
    "sweeps": 40,
    "verdict": "identical",
    "wall_ms_committed": 4226,
-   "wall_ms_replayed": 3872
+   "wall_ms_replayed": 4269
   },
   {
    "archives_naming_this_measurement": [
@@ -911,7 +931,27 @@
    "sweeps": 40,
    "verdict": "identical",
    "wall_ms_committed": 3711,
-   "wall_ms_replayed": 4159
+   "wall_ms_replayed": 3954
+  },
+  {
+   "archives_naming_this_measurement": [
+    "5b437246799a"
+   ],
+   "arm": "D-demand-and-withhold",
+   "document": "results-5b437246799a.json",
+   "identity": "5b437246799a",
+   "identity_replayed": "5b437246799a",
+   "protocol": "e1-4-resolution-demand",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": []
+   },
+   "rows": 100,
+   "sweeps": 25,
+   "verdict": "identical",
+   "wall_ms_committed": 4368,
+   "wall_ms_replayed": 3271
   },
   {
    "archives_naming_this_measurement": [
@@ -949,7 +989,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 972,
-   "wall_ms_replayed": 1296
+   "wall_ms_replayed": 1311
   },
   {
    "archives_naming_this_measurement": [
@@ -987,7 +1027,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 1032,
-   "wall_ms_replayed": 1253
+   "wall_ms_replayed": 1278
   },
   {
    "archives_naming_this_measurement": [
@@ -1128,7 +1168,27 @@
    "sweeps": 40,
    "verdict": "identical",
    "wall_ms_committed": 4404,
-   "wall_ms_replayed": 4148
+   "wall_ms_replayed": 4349
+  },
+  {
+   "archives_naming_this_measurement": [
+    "9a242fe5a8aa"
+   ],
+   "arm": "B-demand",
+   "document": "results-9a242fe5a8aa.json",
+   "identity": "9a242fe5a8aa",
+   "identity_replayed": "9a242fe5a8aa",
+   "protocol": "e1-4-resolution-demand",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": []
+   },
+   "rows": 100,
+   "sweeps": 25,
+   "verdict": "identical",
+   "wall_ms_committed": 3226,
+   "wall_ms_replayed": 3271
   },
   {
    "archives_naming_this_measurement": [
@@ -1269,7 +1329,27 @@
    "sweeps": 40,
    "verdict": "identical",
    "wall_ms_committed": 4061,
-   "wall_ms_replayed": 4219
+   "wall_ms_replayed": 4530
+  },
+  {
+   "archives_naming_this_measurement": [
+    "bf3964c8d2d9"
+   ],
+   "arm": "A-current",
+   "document": "results-bf3964c8d2d9.json",
+   "identity": "bf3964c8d2d9",
+   "identity_replayed": "bf3964c8d2d9",
+   "protocol": "e1-4-resolution-demand",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": []
+   },
+   "rows": 100,
+   "sweeps": 25,
+   "verdict": "identical",
+   "wall_ms_committed": 4029,
+   "wall_ms_replayed": 3897
   },
   {
    "archives_naming_this_measurement": [
@@ -1307,7 +1387,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 856,
-   "wall_ms_replayed": 1059
+   "wall_ms_replayed": 1129
   },
   {
    "archives_naming_this_measurement": [
@@ -1345,7 +1425,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 775,
-   "wall_ms_replayed": 970
+   "wall_ms_replayed": 965
   },
   {
    "archives_naming_this_measurement": [
@@ -1383,7 +1463,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 943,
-   "wall_ms_replayed": 1106
+   "wall_ms_replayed": 1094
   },
   {
    "archives_naming_this_measurement": [
@@ -1421,7 +1501,7 @@
    "sweeps": 75,
    "verdict": "identical",
    "wall_ms_committed": 827,
-   "wall_ms_replayed": 932
+   "wall_ms_replayed": 1000
   },
   {
    "archives_naming_this_measurement": [
@@ -1562,11 +1642,11 @@
    "sweeps": 40,
    "verdict": "identical",
    "wall_ms_committed": 2183,
-   "wall_ms_replayed": 2705
+   "wall_ms_replayed": 2653
   }
  ],
- "binary_sha256": "ee17e52224449fbb5098bd48412b061ee95b19154ed8963705a3bbc9c84016ce",
- "built_from_commit": "50db217",
+ "binary_sha256": "ea444fda09a94594e89c15238529b302c0ad2b3e820ce2669d8fcd7ede35e378",
+ "built_from_commit": "6d41bc0",
  "compared": [
   "identity",
   "plan",
@@ -1592,9 +1672,10 @@
  "problems": [],
  "protocols": [
   "e1-geometry",
-  "e1-3b-trust-resolution"
+  "e1-3b-trust-resolution",
+  "e1-4-resolution-demand"
  ],
- "purpose": "prove that the scale axis E1.4 measures left every committed measurement it does not name exactly as published",
+ "purpose": "prove that the scale axis E1.4 measures left every committed measurement it does not name exactly as published, and that the bytes doing that also write the four E1.4 arms now being read -- which is what binds a published row to a commit rather than to a time of day",
  "reachability_summary": {
   "classes_changed": [],
   "figures_changed_with_class_held": [
@@ -1626,7 +1707,7 @@
   ],
   "why_reported": "the section is recomputed from the partition rule and sits outside the identity; the witness ranking changed under it, so the movement is listed by kind rather than compared away or left silent"
  },
- "rows_compared": 3755,
+ "rows_compared": 4155,
  "schema": "aporia.reproduction-gate/2",
  "verdict": "PASSED"
 }
