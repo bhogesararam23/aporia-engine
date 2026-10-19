@@ -81,6 +81,39 @@ pub fn audit(entries: &[Entry], per_axis: usize) -> Vec<Problem> {
     out.extend(new_regions_are_not_endpoint_only(entries));
     out.extend(resolvability_claims_hold(entries));
     out.extend(entry_directories_hold_only_what_the_loader_reads(entries));
+    out.extend(controls_declare_nothing_to_find(entries));
+    out
+}
+
+/// An entry marked `control` that declares a region is not a control.
+///
+/// The control's whole job in this corpus is to be a space where the model's own rules hold, so that
+/// suspicion on it is a false positive by definition and withheld or unknown volume on it is a cost paid
+/// for nothing. E1.x measured control cleanliness that way and E1.3b could not measure it at all,
+/// because its run list named no control; a `/3` freeze has to name one, and this is the rule that makes
+/// naming one mean something. An entry that claims to be a control *and* declares a region would let an
+/// arm pass the cleanliness metric by pointing at a space where there was a fault to find, which is not
+/// cleanliness but a different measurement wearing its name.
+fn controls_declare_nothing_to_find(entries: &[Entry]) -> Vec<Problem> {
+    let mut out = Vec::new();
+    for e in entries {
+        if !e.truth.control {
+            continue;
+        }
+        if !e.truth.regions.is_empty() || !e.truth.boundaries.is_empty() {
+            out.push(Problem {
+                entry: e.id(),
+                detail: format!(
+                    "is marked `control` and declares {} region(s) and {} boundar(ies); a control is \
+                     the space where nothing is to be found, so its suspicious volume measures false \
+                     suspicion and its withheld volume measures cost. Either unset `control` or drop \
+                     the declarations.",
+                    e.truth.regions.len(),
+                    e.truth.boundaries.len()
+                ),
+            });
+        }
+    }
     out
 }
 

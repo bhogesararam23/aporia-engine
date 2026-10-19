@@ -281,6 +281,32 @@ pub struct Outcome {
     /// An absolute volume rather than a ratio, so no arm can hand back a 0/0 that would have to be
     /// read as either a pass or an absence.
     pub trusted_over_true: f64,
+    /// Fraction of the domain labelled PROVISIONAL: quiet, and coarser than the scale the run's policy
+    /// certifies at. Reported separately and never added to `unknown_volume` — the two answers mean
+    /// different things, and a sum would let a policy convert a claim into an uncertainty statistic by
+    /// renaming it. Zero under the semantics every committed row was measured with.
+    pub provisional_volume: f64,
+    /// Fraction of the domain that is labelled TRUSTED while sitting in a leaf coarser than the
+    /// policy's `certify_share`. This is E1.4's primary quantity, and it is computable without the
+    /// answer key: it asks what the instrument signed off at a scale it was not willing to look at,
+    /// which is a property of the partition and the plan rather than of the model's declared regions —
+    /// and therefore measurable on a control entry, where there is no region to measure against.
+    pub coarse_certified_volume: f64,
+    /// `coarse_certified_volume` over `trusted_volume`: of everything certified, how much was certified
+    /// too coarsely. `None` when nothing was certified, because a share of zero certification is an
+    /// absence and not a perfect score — an arm that trusts nothing must not read as an arm that
+    /// certifies cleanly.
+    pub coarse_certified_share: Option<f64>,
+    /// The part of `trusted_over_true` that sits in leaves coarser than the certification bar. E1.4's
+    /// `capture` is this over `trusted_over_true` on the same arm: under a rule that withholds
+    /// certification the two partitions are identical by construction, so this is exactly the volume
+    /// the withheld state takes over from certification, and it can be read out of a row rather than
+    /// reconstructed from an archive.
+    pub trusted_over_true_coarse: f64,
+    /// How many leaves the finished partition holds, which is the currency a resolution demand spends.
+    /// Charged evaluations cannot show the cost of looking closer — a split re-arranges measurements
+    /// already paid for — so without this column a policy that doubled the partition would look free.
+    pub leaf_cells: u64,
     /// Did the localisation decision change when a curved region's overlap lattice doubled? `None`
     /// when no region needs a lattice — which is every box-only entry, and is why this is an
     /// absence rather than a flattering `false`.
@@ -371,6 +397,21 @@ impl Outcome {
             .filter(|c| c.label == Label::Unknown)
             .map(volume_of)
             .sum();
+        let provisional_volume: f64 = leaves
+            .iter()
+            .filter(|c| c.label == Label::Provisional)
+            .map(volume_of)
+            .sum();
+        // The bar comes from the atlas that produced these leaves, not from a policy assembled here:
+        // whether a certified cell was too coarse to certify is a question about the measurement that
+        // made it, and a second copy of the number would let a report score a run against a scale the
+        // run never used.
+        let policy = campaign.atlas.policy();
+        let coarse_certified_volume: f64 = leaves
+            .iter()
+            .filter(|c| c.label == Label::Trusted && policy.coarse(c))
+            .map(volume_of)
+            .sum();
 
         // A suspicious cell's justified share is its overlap with the union of declared regions.
         let false_positive_fraction = if suspicious_volume > 0.0 {
@@ -429,6 +470,19 @@ impl Outcome {
                 .map(|c| cell_fraction(model, &c.bounds) * truth.overlap_fraction(model, &c.bounds))
                 .sum::<f64>()
                 .clamp(0.0, 1.0),
+            provisional_volume,
+            coarse_certified_volume,
+            // A ratio with a stated empty case: `None` when nothing was certified, so an arm that
+            // trusts nothing cannot be read as an arm that certifies cleanly.
+            coarse_certified_share: (trusted_volume > 0.0)
+                .then(|| (coarse_certified_volume / trusted_volume).clamp(0.0, 1.0)),
+            trusted_over_true_coarse: leaves
+                .iter()
+                .filter(|c| c.label == Label::Trusted && policy.coarse(c))
+                .map(|c| cell_fraction(model, &c.bounds) * truth.overlap_fraction(model, &c.bounds))
+                .sum::<f64>()
+                .clamp(0.0, 1.0),
+            leaf_cells: campaign.atlas.coverage().cells as u64,
             lattice_sensitive,
             replay: None,
             replay_error: None,
@@ -468,6 +522,22 @@ impl Outcome {
             ("suspicious_volume", Json::number(self.suspicious_volume)),
             ("trusted_volume", Json::number(self.trusted_volume)),
             ("unknown_volume", Json::number(self.unknown_volume)),
+            // The scale axis, beside the volumes it partitions: PROVISIONAL kept out of UNKNOWN, and
+            // the certified volume that was too coarse to certify named as its own column rather than
+            // hidden inside `trusted_volume`.
+            ("provisional_volume", Json::number(self.provisional_volume)),
+            (
+                "coarse_certified_volume",
+                Json::number(self.coarse_certified_volume),
+            ),
+            (
+                "coarse_certified_share",
+                self.coarse_certified_share.map_or(Json::Null, Json::number),
+            ),
+            (
+                "trusted_over_true_coarse",
+                Json::number(self.trusted_over_true_coarse),
+            ),
             ("findings", Json::count(self.findings)),
             (
                 "duplicate_discovery_rate",
@@ -484,6 +554,9 @@ impl Outcome {
             ("census", self.census.to_json()),
             ("unplaced", Json::count(self.unplaced)),
             ("non_finite_readings", Json::count(self.non_finite_readings)),
+            // The partition's own size: what a resolution demand actually spends, since it does not
+            // spend evaluations.
+            ("leaf_cells", Json::count(self.leaf_cells)),
             ("trusted_over_true", Json::number(self.trusted_over_true)),
             (
                 "lattice_sensitive",

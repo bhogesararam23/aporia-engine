@@ -285,6 +285,14 @@ fn outcome(
         unplaced: 0,
         non_finite_readings: 0,
         trusted_over_true: 0.0,
+        // The scale columns, at the values the committed semantics produces: these fixtures are
+        // compared through `compare`, and a row that omitted them would not be a row a run could have
+        // written.
+        provisional_volume: 0.0,
+        coarse_certified_volume: 0.0,
+        coarse_certified_share: Some(0.0),
+        trusted_over_true_coarse: 0.0,
+        leaf_cells: 8,
         lattice_sensitive: None,
         census,
         replay: None,

@@ -233,6 +233,15 @@ impl Config {
                         "blocks_non_finite",
                         Json::Bool(self.policy.blocks_non_finite()),
                     ),
+                    // The scale axis, named beside the rule that decides a leaf's trustworthiness.
+                    // Recorded whether or not it is the default, because an archive is the bytes a
+                    // reported number is later opened from and a reader should not have to infer that
+                    // an absent field meant the semantics that existed first. The measurement identity
+                    // still carries this only when it moved (`plan_json`), so provenance is complete
+                    // without renaming a committed measurement, and the runner's namespace guard reads
+                    // an older manifest's silence as exactly that default.
+                    ("resolution", Json::text(self.policy.resolution.name())),
+                    ("certify_share", Json::number(self.policy.certify_share)),
                 ]),
             ),
         ])

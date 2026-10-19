@@ -359,7 +359,13 @@ fn announce_axes(plan: &harness::Plan) -> String {
             .collect::<Vec<_>>()
             .join(", ")
     };
-    format!("  trust rule {}  silences {}", plan.trust.name(), silenced)
+    format!(
+        "  trust rule {}  resolution {} (share {:#})  silences {}",
+        plan.trust.name(),
+        plan.resolution.name(),
+        plan.certify_share,
+        silenced
+    )
 }
 
 pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
@@ -671,13 +677,27 @@ fn reachability_gate(
     selected: &[corpus::Entry],
     plan: &harness::Plan,
 ) -> Result<Vec<String>, String> {
-    let policy = plan.trust.policy();
+    let mut policy = plan.trust.policy();
+    // The same policy the run labels with, assembled the same way `Plan::config` assembles it. The
+    // reachability classes do not read either field today — enclosure is a question about the depth cap,
+    // not about certification — and a gate that reconstructed a *near* copy of the measured policy
+    // would be one new field away from classifying a run the instrument never made.
+    policy.resolution = plan.resolution;
+    policy.certify_share = plan.certify_share;
     let mut notes = Vec::new();
     let mut refused: Vec<String> = Vec::new();
     for entry in selected {
         let reach = crate::reach::reach(entry, &policy);
         let claimed = protocol.resolvable.contains(&reach.entry);
         let expected_unreachable = protocol.sub_granular.contains(&reach.entry);
+        if protocol.control.contains(&reach.entry) {
+            // An entry the file names a control declares no region, so there is nothing for a leaf to
+            // enclose and the reachability question does not arise. What has to hold about it instead —
+            // that `control` is set and no region is declared — is a claim about the record, and the
+            // corpus audit refuses it there. Skipping the classification check is not skipping the
+            // entry: it stays in `entries.run` and is measured by every arm like any other row.
+            continue;
+        }
         if !claimed && !expected_unreachable && protocol.resolvable.is_empty() {
             // A file with no resolvable set makes no claim to check.
             continue;

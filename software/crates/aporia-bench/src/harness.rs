@@ -60,6 +60,21 @@ pub struct Plan {
     /// halves of the requirement can hold at once: the default reproducing its own identity, and a
     /// variant naming itself.
     pub trust: Trust,
+    /// Which rule this plan applies to a leaf's *scale* before certifying it. See
+    /// [`aporia_boundary::Resolution`].
+    ///
+    /// A plan field for the same reason [`Plan::trust`] is one, and with the same obligation: the rule
+    /// changes what a row means, so it travels into the recorded configuration, into the measurement
+    /// identity whenever it is not the default, and into the archive directory name. E1.3b is the
+    /// precedent — the one arm that reached zero certified-over-true volume got there by trusting
+    /// nothing at all, and that would have been indistinguishable from an arm that reached zero by
+    /// finding the violation, had the rule not been in the bytes that name the measurement.
+    pub resolution: aporia_boundary::Resolution,
+    /// The scale certification is withheld below, as a fraction of the root cell's volume. Read only
+    /// when [`Plan::resolution`] is not `Current`, and part of the identity whenever it is: two arms
+    /// that hold themselves to different resolutions are not the same experiment, and a bar that
+    /// travelled nowhere could be moved after the run without any document noticing.
+    pub certify_share: f64,
     /// Where per-entry archives go. Left empty, the harness skips archiving: the archives are the
     /// expensive part of a run and their numbers do not change the search.
     pub archive_dir: std::path::PathBuf,
@@ -109,6 +124,11 @@ impl Default for Plan {
             // Today's rule, the one every committed measurement in `benchmarks/results/` was labelled
             // under. A plan that wants another variant says so, and its identity says so with it.
             trust: Trust::Current,
+            // The semantics every committed row in `benchmarks/results/` was labelled under, and the
+            // bar it would have been measured against had any of them asked the question. Both are
+            // inert here: the bar is read only by a rule that is switched off.
+            resolution: aporia_boundary::Resolution::Current,
+            certify_share: aporia_boundary::Policy::default().certify_share,
             archive_dir: std::path::PathBuf::new(),
         }
     }
@@ -122,15 +142,23 @@ impl Plan {
     /// first. A caller that wants to know what a variant does to a campaign asks *this* function, so the
     /// answer is the one a run would have produced.
     pub fn config(&self, strategy: Strategy, budget: u64, seed: u64) -> Config {
+        // The trust rule the plan names, materialised onto the default thresholds. Under
+        // `Trust::Current` this is `Policy::default()` exactly, which is what makes the default variant
+        // a reproduction rather than a re-implementation.
+        let mut policy = self.trust.policy();
+        // The second axis a plan may move, set in the same place for the same reason: this is where a
+        // plan becomes the thing that measures, so a rule that reached the campaign by another route
+        // would be a second definition of the experiment. Under [`aporia_boundary::Resolution::Current`]
+        // both fields hold what `Policy::default()` already holds, which is why a default plan still
+        // writes the bytes that named a committed measurement.
+        policy.resolution = self.resolution;
+        policy.certify_share = self.certify_share;
         Config {
             budget,
             strategy,
             seed,
             probe_every: self.probe_every,
-            // The trust rule the plan names, materialised onto the default thresholds. Under
-            // `Trust::Current` this is `Policy::default()` exactly, which is what makes the default
-            // variant a reproduction rather than a re-implementation.
-            policy: self.trust.policy(),
+            policy,
             calibrate_every: self.calibrate_every,
             numerical_every: self.numerical_every,
             symmetric_every: self.symmetric_every,
@@ -187,6 +215,8 @@ impl Plan {
             "refine_every",
             "calibrate_every",
             "trust",
+            "resolution",
+            "certify_share",
         ];
         for (name, _) in fields {
             if !known.contains(&name.as_str()) {
@@ -268,6 +298,36 @@ impl Plan {
                 })?
             }
         };
+        // The second rule a plan may name, read the same way and for the same reason: absence means the
+        // semantics that produced every committed document in this repository, presence means a name
+        // this tool has to know. A pre-registration is obliged to state it, in
+        // [`Protocol::SCHEMA_V3`].
+        let resolution = match at("resolution") {
+            Err(_) => aporia_boundary::Resolution::Current,
+            Ok(value) => {
+                let text = value
+                    .as_str()
+                    .ok_or_else(|| "plan: resolution needs a variant name".to_string())?;
+                aporia_boundary::Resolution::parse(text).ok_or_else(|| {
+                    format!(
+                        "plan: unknown resolution variant {text:?}; this tool knows {}",
+                        aporia_boundary::Resolution::names().join(", ")
+                    )
+                })?
+            }
+        };
+        // A fraction rather than a name, and read even when the rule above leaves it inert: a plan that
+        // records the scale it was measured against says nothing different when the rule is off, and
+        // cannot be re-read afterwards as a different experiment when it is not.
+        let certify_share = match at("certify_share") {
+            Err(_) => aporia_boundary::Policy::default().certify_share,
+            Ok(value) => value
+                .as_f64()
+                .filter(|share| *share > 0.0 && *share <= 1.0)
+                .ok_or_else(|| {
+                    "plan: certify_share needs a fraction of the root cell, in (0, 1]".to_string()
+                })?,
+        };
         Ok(Self {
             budgets,
             strategies,
@@ -282,6 +342,8 @@ impl Plan {
             differential_every: count("differential_every")?,
             ablate,
             trust,
+            resolution,
+            certify_share,
             archive_dir: std::path::PathBuf::new(),
         })
     }
@@ -356,6 +418,14 @@ pub struct ProtocolArm {
     /// rule would be a different measurement from the arm beside it and would say so nowhere in the
     /// file that froze it.
     pub trust: Trust,
+    /// Which scale rule this arm certified under, carried per arm under [`Protocol::SCHEMA_V3`] for the
+    /// same reason the mask and the trust rule are: the arms of this protocol are a grid of declared
+    /// axes, and an arm that did not state its resolution rule would be a different measurement from
+    /// the one beside it and would say so nowhere in the file that froze it.
+    ///
+    /// `Current` under both earlier schemas, which is what makes those files keep meaning what they
+    /// said.
+    pub resolution: aporia_boundary::Resolution,
 }
 
 /// Who produced a measurement, when it came from a frozen protocol file rather than from a command
@@ -407,6 +477,17 @@ pub struct Protocol {
     /// experiment editing its own control set to keep the story.
     pub resolvable: Vec<String>,
     pub sub_granular: Vec<String>,
+    /// Which entries the file declares controls, as a [`Protocol::SCHEMA_V3`] file must say.
+    ///
+    /// Empty under the earlier schemas. The set exists because E1.3b froze a fourth quantity — control
+    /// cleanliness, suspicious volume on an entry that declares no region — and then ran a list of
+    /// entries none of which was marked as a control, so the metric had no rows and could only be
+    /// reported as unmeasurable. A `/3` file is refused if it cannot name one, because a quantity that
+    /// its own run list cannot produce was never a quantity to freeze in the first place.
+    ///
+    /// Checked against the corpus as well as against the run list: an entry in this set must carry
+    /// `control: true` and no declared region, or it is not a control in the sense the metric means.
+    pub control: Vec<String>,
     /// The first 16 hex digits of the SHA-256 of the file's bytes, set by `load` and absent for a
     /// protocol built by `from_json`, which has no file. It travels into every results document that
     /// arm writes, so an edit to a frozen pre-registration is visible as a different digest rather
@@ -426,8 +507,18 @@ impl Protocol {
     /// afterwards without that being visible in every document that cites it.
     pub const SCHEMA_V2: &'static str = "aporia.protocol/2";
 
-    /// The two schemas this reader accepts, in the order a refusal names them.
-    pub const SCHEMAS: [&'static str; 2] = [Self::SCHEMA, Self::SCHEMA_V2];
+    /// A protocol whose arms state a resolution rule beside their mask and trust rule, and whose
+    /// `entries` section names a control set.
+    ///
+    /// `/2` taught this by absence: it froze a control-cleanliness metric and then measured eight
+    /// entries, none of which was marked control, so the quantity had no rows and could only be
+    /// reported as unmeasurable. A `/3` file cannot be written in that shape — `entries.control` is
+    /// required and non-empty — and an arm that does not say which scale rule it certifies under is
+    /// refused, for the same reason an arm that did not say which channels it was blind to was refused.
+    pub const SCHEMA_V3: &'static str = "aporia.protocol/3";
+
+    /// The schemas this reader accepts, in the order a refusal names them.
+    pub const SCHEMAS: [&'static str; 3] = [Self::SCHEMA, Self::SCHEMA_V2, Self::SCHEMA_V3];
 
     /// Read a protocol from a file, naming the path in every refusal.
     pub fn load(path: &std::path::Path) -> Result<Self, String> {
@@ -462,6 +553,9 @@ impl Protocol {
         plan.ablate.clone_from(&arm.ablate);
         // The second axis an arm may move, set in the same place and for the same reason as the first.
         plan.trust = arm.trust;
+        // The third, and the one E1.4 varies: the bar itself stays the plan's, so four arms certify
+        // against one scale and a difference between them cannot be a difference in what "coarse" means.
+        plan.resolution = arm.resolution;
         Ok((
             plan,
             Frozen {
@@ -492,6 +586,10 @@ impl Protocol {
             ));
         }
         let v2 = schema == Self::SCHEMA_V2;
+        let v3 = schema == Self::SCHEMA_V3;
+        // The two schemas whose arms each state their own trust rule. `/3` inherits the obligation
+        // rather than relaxing it: a file that adds an axis is not allowed to forget one.
+        let rules_per_arm = v2 || v3;
         let text = |key: &str| -> Result<String, String> {
             value
                 .get(key)
@@ -508,11 +606,29 @@ impl Protocol {
                     .to_string(),
             );
         }
-        if v2 && plan_value.get("trust").is_some() {
+        if rules_per_arm && plan_value.get("trust").is_some() {
             return Err(format!(
                 "protocol: a {} plan section does not carry trust — each arm states its own trust \
                  rule, beside its mask",
                 Self::SCHEMA_V2
+            ));
+        }
+        if v3 && plan_value.get("resolution").is_some() {
+            return Err(format!(
+                "protocol: a {} plan section does not carry resolution — each arm states its own \
+                 scale rule, beside its mask and its trust rule",
+                Self::SCHEMA_V3
+            ));
+        }
+        if v3 && plan_value.get("certify_share").is_none() {
+            // The bar is the single number the scale rules act on, and every arm shares it on purpose:
+            // an experiment whose arms each chose a resolution would be several experiments. So the
+            // plan states it once, and a file that left it to this reader's default is refused rather
+            // than measured against a scale nobody froze.
+            return Err(format!(
+                "protocol: a {} plan must state certify_share, because the scale its arms hold \
+                 themselves to is part of what the file measures",
+                Self::SCHEMA_V3
             ));
         }
         // `Plan::from_json` requires every field it reads, including the mask, because a results
@@ -560,7 +676,7 @@ impl Protocol {
             // under cannot be the record of what it measured, and a file that says it in a place the
             // schema does not define would be read differently by two builds.
             let trust = match item.get("trust") {
-                Some(_) if !v2 => {
+                Some(_) if !rules_per_arm => {
                     return Err(format!(
                         "protocol: arm {name:?} states a trust variant, and {schema} arms state a \
                          mask only. Promote the file to {} in the commit that means to change what \
@@ -580,19 +696,54 @@ impl Protocol {
                         )
                     })?
                 }
-                None if v2 => {
+                None if rules_per_arm => {
                     return Err(format!(
-                        "protocol: arm {name:?} states no trust variant, and a {} arm is its mask \
-                         and its rule together",
-                        Self::SCHEMA_V2
+                        "protocol: arm {name:?} states no trust variant, and a {schema} arm is its \
+                         mask and its rule together",
                     ));
                 }
                 None => Trust::Current,
+            };
+            // The scale axis: obliged of a `/3` arm, refused on an earlier one, exactly as the trust
+            // rule above is. A file that could state a resolution rule in its plan or its arm would be
+            // read two ways by two builds, which is the reason these refusals are per schema rather
+            // than per field.
+            let resolution = match item.get("resolution") {
+                Some(_) if !v3 => {
+                    return Err(format!(
+                        "protocol: arm {name:?} states a resolution rule, and {schema} arms state a \
+                         mask{} only. Promote the file to {} in the commit that means to change what \
+                         it measures.",
+                        if v2 { " and its trust rule" } else { "" },
+                        Self::SCHEMA_V3
+                    ));
+                }
+                Some(value) => {
+                    let text = value.as_str().ok_or_else(|| {
+                        format!("protocol: arm {name:?} has a resolution rule that is not a name")
+                    })?;
+                    aporia_boundary::Resolution::parse(text).ok_or_else(|| {
+                        format!(
+                            "protocol: arm {name:?} names the unknown resolution variant {text:?}; \
+                             this tool knows {}",
+                            aporia_boundary::Resolution::names().join(", ")
+                        )
+                    })?
+                }
+                None if v3 => {
+                    return Err(format!(
+                        "protocol: arm {name:?} states no resolution rule, and a {} arm is its mask, \
+                         its trust rule and its scale rule together",
+                        Self::SCHEMA_V3
+                    ));
+                }
+                None => aporia_boundary::Resolution::Current,
             };
             arms.push(ProtocolArm {
                 name,
                 ablate,
                 trust,
+                resolution,
             });
         }
         // Two arms the instrument cannot tell apart are one measurement under two names, and a
@@ -603,13 +754,16 @@ impl Protocol {
             for other in arms.iter().skip(at + 1) {
                 let same_mask = arm.ablate.len() == other.ablate.len()
                     && arm.ablate.iter().all(|c| other.ablate.contains(c));
-                if same_mask && arm.trust == other.trust {
+                if same_mask && arm.trust == other.trust && arm.resolution == other.resolution {
                     return Err(format!(
-                        "protocol: arms {:?} and {:?} silence the same channels and trust under the \
-                         same rule, so they are one measurement under two names",
+                        "protocol: arms {:?} and {:?} silence the same channels, trust under the same \
+                         rule and certify at the same scale, so they are one measurement under two \
+                         names",
                         arm.name, other.name
                     ));
                 }
+                // A `/3` file that differs only in its bar is a different matter, and is refused by the
+                // plan check above rather than here: under this schema the bar is not an arm's to move.
             }
         }
         let string_list = |key: &str| -> Result<Vec<String>, String> {
@@ -638,9 +792,16 @@ impl Protocol {
         // entries it means by the resolvable set rather than leaving that to prose beside the numbers.
         // The two lists must cover `run` exactly: an entry in neither is a row whose universe would be
         // chosen by whoever read the file afterwards.
-        let (resolvable, sub_granular) = if v2 {
+        let (resolvable, sub_granular, control) = if rules_per_arm {
             let resolvable = string_list("resolvable")?;
             let sub_granular = string_list("sub_granular")?;
+            // The control set is obliged of a `/3` file and absent under `/2`, whose committed freeze
+            // could not acquire one without an edit after its own run.
+            let control = if v3 {
+                string_list("control")?
+            } else {
+                Vec::new()
+            };
             if resolvable.is_empty() {
                 return Err(
                     "protocol: entries.resolvable names no entry, so the deciding set of this \
@@ -648,30 +809,67 @@ impl Protocol {
                         .to_string(),
                 );
             }
-            let shared: Vec<&str> = resolvable
-                .iter()
-                .filter(|name| sub_granular.contains(name))
-                .map(String::as_str)
-                .collect();
-            if !shared.is_empty() {
+            if control.is_empty() && v3 {
                 return Err(format!(
-                    "protocol: entries.resolvable and entries.sub_granular both name {}; an entry \
-                     cannot sit in the deciding set and in the control beside it",
-                    shared.join(", ")
+                    "protocol: a {} file whose entries.control names no entry has no rows on which \
+                     false suspicion or unnecessary uncertainty could be measured. E1.3b froze a \
+                     control-cleanliness metric and then ran eight entries, none of them marked \
+                     control, and could only report the quantity as unmeasurable.",
+                    Self::SCHEMA_V3
                 ));
             }
-            let covered: Vec<&String> = resolvable.iter().chain(sub_granular.iter()).collect();
+            for (first_name, first, second_name, second) in [
+                (
+                    "entries.resolvable",
+                    &resolvable,
+                    "entries.sub_granular",
+                    &sub_granular,
+                ),
+                (
+                    "entries.resolvable",
+                    &resolvable,
+                    "entries.control",
+                    &control,
+                ),
+                (
+                    "entries.sub_granular",
+                    &sub_granular,
+                    "entries.control",
+                    &control,
+                ),
+            ] {
+                let shared: Vec<&str> = first
+                    .iter()
+                    .filter(|name| second.contains(name))
+                    .map(String::as_str)
+                    .collect();
+                if !shared.is_empty() {
+                    // Named by section, because a reader fixing a freeze needs to know which of the
+                    // three lists to edit and a message that says "two of the sets" makes them go and
+                    // look at all of them.
+                    return Err(format!(
+                        "protocol: {first_name} and {second_name} both name {}; an entry cannot be \
+                         in one set and in another beside it",
+                        shared.join(", ")
+                    ));
+                }
+            }
+            let covered: Vec<&String> = resolvable
+                .iter()
+                .chain(sub_granular.iter())
+                .chain(control.iter())
+                .collect();
             if covered.len() != names.len() || !names.iter().all(|n| covered.contains(&n)) {
                 return Err(format!(
-                    "protocol: entries.resolvable and entries.sub_granular must cover entries.run \
-                     exactly: run holds {} entry/entries and the two sets hold {}",
+                    "protocol: entries.resolvable, entries.sub_granular and entries.control must \
+                     cover entries.run exactly: run holds {} entry/entries and the sets hold {}",
                     names.len(),
                     covered.len()
                 ));
             }
-            (resolvable, sub_granular)
+            (resolvable, sub_granular, control)
         } else {
-            (Vec::new(), Vec::new())
+            (Vec::new(), Vec::new(), Vec::new())
         };
         // An experiment is only pre-registered if the thing that decides it is written down. A
         // protocol file without a primary metric is a plan, not a protocol, and the runner refuses it
@@ -679,7 +877,23 @@ impl Protocol {
         let metric = value
             .get("primary_metric")
             .ok_or_else(|| "protocol: primary_metric is missing".to_string())?;
-        for key in ["name", "universe", "definition"] {
+        // What a file is obliged to state about its decider grows with the schema rather than moving
+        // between them. `/1` and `/2` name a universe and a definition; `/3` states its denominator,
+        // how rows aggregate into an arm figure and that comparisons are paired — because a quantity
+        // like this one can be driven to zero by an arm that certifies nothing, and only a stated
+        // denominator and aggregation tell a reader which of the two happened.
+        let required: &[&str] = if v3 {
+            &[
+                "name",
+                "definition",
+                "denominator",
+                "aggregation",
+                "paired_comparison",
+            ]
+        } else {
+            &["name", "universe", "definition"]
+        };
+        for key in required {
             if metric.get(key).and_then(Json::as_str).is_none() {
                 return Err(format!("protocol: primary_metric.{key} is missing"));
             }
@@ -699,6 +913,7 @@ impl Protocol {
             entries: names,
             resolvable,
             sub_granular,
+            control,
             digest: None,
         })
     }
@@ -855,8 +1070,18 @@ pub fn archive_name(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -
     } else {
         format!("-trust-{}", plan.trust.name())
     };
+    // The third axis an arm can move, named the same way and for the same reason: two arms that share
+    // an entry, a seed and a mask but disagree about whether a coarse quiet leaf may be certified write
+    // archives that are not the same measurement, and an archive is the bytes a reported number is
+    // later opened from. A bar that differs between two arms of the same name is caught beside this, in
+    // the manifest's recorded configuration, which the pre-run namespace guard compares.
+    let resolution = if plan.resolution == aporia_boundary::Resolution::Current {
+        String::new()
+    } else {
+        format!("-res-{}", plan.resolution.name())
+    };
     format!(
-        "{}-{}-{}-seed{seed}{arm}{trust}",
+        "{}-{}-{}-seed{seed}{arm}{trust}{resolution}",
         entry.family,
         entry.name,
         strategy.name()
@@ -1112,6 +1337,12 @@ pub fn results_json(
         // present. The machine that enforces "different rule, different measurement" is the digest,
         // and [`plan_json`] carries it.
         ("trust", Json::text(plan.trust.name())),
+        // The scale axis, in every document for the same reason and with the same status: the identity
+        // carries it only when it moved, and a reader comparing two documents should not have to work
+        // out which optional field is the absent one. The bar travels with the rule because a rule
+        // without the scale it acted on is a word, not a measurement.
+        ("resolution", Json::text(plan.resolution.name())),
+        ("certify_share", Json::number(plan.certify_share)),
         ("plan", plan_value),
         ("entries", entries_value),
         // Could the atlas have enclosed what each entry declares, at the granularity this policy
@@ -1250,6 +1481,28 @@ pub fn plan_json(plan: &Plan) -> Json {
             .position(|(name, _)| name == "ablate")
             .map_or(fields.len(), |at| at + 1);
         fields.insert(at, ("trust".to_string(), Json::text(plan.trust.name())));
+    }
+    if plan.resolution != aporia_boundary::Resolution::Current {
+        // The third declared axis, beside the other two and under the same discipline: written only
+        // when it is not the default, so a default plan still serialises to the bytes that named the
+        // committed measurements, and written *with its bar*, because a plan that said it demanded a
+        // resolution and not which one could be re-run against a different scale without moving its
+        // identity. That is the one thing an axis carried in the plan exists to prevent.
+        let at = fields
+            .iter()
+            .position(|(name, _)| name == "ablate")
+            .map_or(fields.len(), |at| at + 1);
+        fields.insert(
+            at,
+            ("resolution".to_string(), Json::text(plan.resolution.name())),
+        );
+        fields.insert(
+            at + 1,
+            (
+                "certify_share".to_string(),
+                Json::number(plan.certify_share),
+            ),
+        );
     }
     Json::Obj(fields)
 }
@@ -1407,15 +1660,36 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
     // has always been in force: `explain` exists to answer why a label came out the way it did, and
     // the rule is the first thing a reader would have to assume without it.
     let _ = writeln!(out, "trust rule: {}", trust.name());
-    let coverage = campaign.atlas.coverage();
+    // The scale axis, named together with the number it acts on for the same reason: a quiet coarse
+    // leaf may have been left alone by a rule that is off, or reached and withheld by a rule that is
+    // on, and without the bar in front of the reader those two runs explain identically.
     let _ = writeln!(
         out,
-        "cells {} ({} leaves), suspicious {:.4} of the domain, trusted {:.4}, unknown {:.4}",
+        "resolution rule: {}, certifying nothing coarser than {:.8} of the domain",
+        plan.resolution.name(),
+        plan.certify_share,
+    );
+    let coverage = campaign.atlas.coverage();
+    let policy = campaign.atlas.policy();
+    let coarse_certified: f64 = campaign
+        .atlas
+        .leaf_ids()
+        .iter()
+        .filter_map(|id| campaign.atlas.cell(*id))
+        .filter(|c| c.label == aporia_boundary::Label::Trusted && policy.coarse(c))
+        .map(|c| c.relative_size(campaign.atlas.root()))
+        .sum();
+    let _ = writeln!(
+        out,
+        "cells {} ({} leaves), suspicious {:.4} of the domain, trusted {:.4}, unknown {:.4}, \
+         provisional {:.4}, trusted-but-coarser {:.4}",
         coverage.cells,
         campaign.atlas.leaf_ids().len(),
         coverage.suspicious,
         coverage.trusted,
-        coverage.unknown
+        coverage.unknown,
+        coverage.provisional,
+        coarse_certified
     );
     let _ = writeln!(
         out,

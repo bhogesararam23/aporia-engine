@@ -42,6 +42,11 @@ fn unusual() -> Plan {
         differential_every: 11,
         ablate: vec![Channel::Physical, Channel::Behavioral],
         trust: Trust::NonFiniteBlocksTrust,
+        // Unusual for the same reason as every other field here: a plan section that quietly dropped
+        // the scale axis would be read back as the committed semantics, and this fixture would pass.
+        // The bar is not a power of two on purpose, so a round-trip through text is exercised.
+        resolution: aporia_boundary::Resolution::Demand,
+        certify_share: 0.05,
         archive_dir: PathBuf::from("where-bytes-land-is-not-part-of-a-measurement"),
     }
 }
@@ -1007,37 +1012,291 @@ fn documents_citing(id: &str) -> Vec<PathBuf> {
     found
 }
 
+/// Replace a top-level field of the E1.4 freeze, in memory, for the refusals below.
+fn e14_with(value: &Json, key: &str, replacement: Json) -> Json {
+    let Json::Obj(fields) = value else {
+        panic!("the freeze is an object");
+    };
+    let mut out = fields.clone();
+    for (name, held) in &mut out {
+        if name == key {
+            *held = replacement.clone();
+        }
+    }
+    Json::Obj(out)
+}
+
+/// Drop one field from every object of a list, so a test can ask what a `/3` file that forgets to
+/// state an axis is told.
+fn e14_strip_items(value: &Json, list: &str, field: &str) -> Json {
+    let Json::Obj(fields) = value else {
+        panic!("the freeze is an object");
+    };
+    let mut out = fields.clone();
+    for (name, held) in &mut out {
+        if name != list {
+            continue;
+        }
+        let Json::Arr(items) = held else {
+            panic!("{list} is not a list");
+        };
+        let stripped = items
+            .iter()
+            .map(|item| {
+                let Json::Obj(pairs) = item else {
+                    panic!("a {list} entry is not an object");
+                };
+                Json::Obj(
+                    pairs
+                        .iter()
+                        .filter(|(key, _)| key != field)
+                        .cloned()
+                        .collect(),
+                )
+            })
+            .collect();
+        *held = Json::Arr(stripped);
+    }
+    Json::Obj(out)
+}
+
 #[test]
-fn a_freeze_the_reader_cannot_enforce_is_refused_rather_than_waved_through() {
-    // A pre-registration the runner cannot read is only a file, and the danger around it is the
-    // opposite of the one this suite was written against: not that a frozen plan is unenforceable,
-    // but that a later reader accepts a schema whose obligations it does not check. `/3` obliges an
-    // arm to state its resolution rule and `entries` to name a control set, and until this reader
-    // enforces those two things a `/3` file has to be refused by name rather than read with the
-    // obligations quietly dropped -- which is how a freeze acquires an axis afterwards and a run
-    // loses it.
+fn the_e1_4_freeze_reads_under_schema_3_and_its_obligations_are_enforced() {
+    // Promotion is the point of a schema version: an obligation a runner cannot check is a sentence in
+    // a file rather than a constraint on a measurement. `/3` says every arm states its mask, its trust
+    // rule and its scale rule, that the plan states none of the three but does state the bar, and that
+    // the run list is partitioned into a deciding set, a control-of-the-partition set and a set of
+    // entries marked control. This reads the frozen file and then refuses six edits to it.
+    let protocol = Protocol::load(&e14_path()).expect("a promoted schema is one the runner reads");
+    assert_eq!(protocol.id, "e1-4-resolution-demand");
+    let text = std::fs::read_to_string(e14_path()).expect("the freeze is in the tree");
+    let digest = aporia_store::digest::sha256_hex(text.as_bytes());
+    assert_eq!(
+        protocol.digest.as_deref(),
+        Some(&digest[..16]),
+        "a document has to cite the bytes it was run from"
+    );
+
+    // The arms: four cells of two declared axes, on one mask and one trust rule.
+    assert_eq!(protocol.arms.len(), 4, "two axes, four arms, no padding");
+    for arm in &protocol.arms {
+        assert!(
+            arm.ablate.is_empty(),
+            "{} silences a channel; this experiment varies the scale rule, not the evidence",
+            arm.name
+        );
+        assert_eq!(arm.trust, Trust::Current, "{}", arm.name);
+    }
+    let rules: Vec<&str> = protocol.arms.iter().map(|a| a.resolution.name()).collect();
+    assert_eq!(
+        rules,
+        vec!["current", "demand", "withhold", "demand-and-withhold"],
+        "and the control arm is the first row of the table"
+    );
+
+    // The plan holds the bar and none of the axes the arms hold.
+    assert_eq!(
+        protocol.plan.certify_share, 0.003_906_25,
+        "the bar the freeze states is the bar the plan carries"
+    );
+    assert_eq!(protocol.plan.certify_share, 2f64.powi(-8));
+    assert!(protocol.plan.ablate.is_empty(), "the plan states no mask");
+    assert_eq!(
+        protocol.plan.trust,
+        Trust::Current,
+        "the plan states no rule"
+    );
+    assert_eq!(
+        protocol.plan.resolution,
+        aporia_boundary::Resolution::Current,
+        "the plan states no scale rule either, for the same reason"
+    );
+
+    // The entry sets, including the one E1.3b froze without.
+    assert_eq!(
+        protocol.control,
+        vec!["control/symplectic_spring".to_string()]
+    );
+    assert_eq!(
+        protocol.sub_granular,
+        vec!["geometry/narrow_oblique".to_string()]
+    );
+    assert_eq!(
+        protocol.resolvable,
+        vec![
+            "granular/stroke_reference".to_string(),
+            "granular/tolerance_stack".to_string(),
+            "granular/fit_band".to_string()
+        ]
+    );
+
+    // An arm is a plan, not a label: choosing it has to move the axis that reaches the identity, the
+    // archive directory and the campaign's policy, or four arms measure one measurement four times.
+    use aporia_boundary::Resolution;
+    for (name, expected) in [
+        ("A-current", Resolution::Current),
+        ("B-demand", Resolution::Demand),
+        ("C-withhold", Resolution::Withhold),
+        ("D-demand-and-withhold", Resolution::DemandAndWithhold),
+    ] {
+        let (plan, frozen) = protocol
+            .arm(name)
+            .unwrap_or_else(|e| panic!("{}: {e}", protocol.id));
+        assert_eq!(plan.resolution, expected, "{name} did not reach the plan");
+        assert_eq!(
+            plan.certify_share, protocol.plan.certify_share,
+            "{name} moved the bar, which is the plan's to state"
+        );
+        assert_eq!(frozen.arm, name);
+    }
+    // The plan sections must differ, which is what puts the axis inside the measurement identity.
+    let sections: Vec<String> = protocol
+        .arms
+        .iter()
+        .map(|arm| {
+            let (plan, _) = protocol.arm(&arm.name).expect("an arm names itself");
+            plan_json(&plan).to_compact()
+        })
+        .collect();
+    let mut distinct = sections.clone();
+    distinct.sort();
+    distinct.dedup();
+    assert_eq!(
+        distinct.len(),
+        4,
+        "four arms whose plan sections are identical are one measurement under four names"
+    );
+    // A-current is the committed semantics: its plan section carries neither rule, neither mask, and
+    // neither scale axis, so it digests to the bytes that named the measurements already published.
+    assert!(
+        !sections[0].contains("resolution") && !sections[0].contains("certify_share"),
+        "the control arm wrote an axis into its own plan section: {}",
+        sections[0]
+    );
+
     let value = e14_value();
-    assert_eq!(
-        value.get("schema").and_then(Json::as_str),
-        Some("aporia.protocol/3"),
-        "E1.4 froze against a schema this reader does not have"
-    );
-    assert_eq!(
-        value.get("id").and_then(Json::as_str),
-        Some("e1-4-resolution-demand")
-    );
-    let error =
-        Protocol::load(&e14_path()).expect_err("the reader refuses a schema it cannot enforce");
+    let list =
+        |names: &[&str]| -> Json { Json::Arr(names.iter().map(|n| Json::text(*n)).collect()) };
+    for (what, edited) in [
+        (
+            "an arm that states no scale rule",
+            e14_strip_items(&value, "arms", "resolution"),
+        ),
+        (
+            "two arms that differ in nothing the instrument can see",
+            e14_with(
+                &value,
+                "arms",
+                Json::Arr(vec![
+                    Json::object(vec![
+                        ("name", Json::text("A-current")),
+                        ("ablate", Json::Arr(Vec::new())),
+                        ("trust", Json::text("current")),
+                        ("resolution", Json::text("current")),
+                    ]),
+                    Json::object(vec![
+                        ("name", Json::text("B-demand")),
+                        ("ablate", Json::Arr(Vec::new())),
+                        ("trust", Json::text("current")),
+                        ("resolution", Json::text("demand")),
+                    ]),
+                    Json::object(vec![
+                        ("name", Json::text("E-clone-of-A")),
+                        ("ablate", Json::Arr(Vec::new())),
+                        ("trust", Json::text("current")),
+                        ("resolution", Json::text("current")),
+                    ]),
+                ]),
+            ),
+        ),
+        (
+            "no control set, which is the defect E1.3b reported",
+            e14_with(&value, "entries", {
+                let Json::Obj(fields) = value.get("entries").expect("entries is an object") else {
+                    panic!("entries is not an object");
+                };
+                Json::Obj(
+                    fields
+                        .iter()
+                        .filter(|(key, _)| key != "control")
+                        .cloned()
+                        .chain(std::iter::once((
+                            "control".to_string(),
+                            Json::Arr(Vec::new()),
+                        )))
+                        .collect(),
+                )
+            }),
+        ),
+        (
+            "an entry in the resolvable set and in the control set",
+            e14_with(&value, "entries", {
+                let Json::Obj(fields) = value.get("entries").expect("entries is an object") else {
+                    panic!("entries is not an object");
+                };
+                Json::Obj(
+                    fields
+                        .iter()
+                        .map(|(key, held)| {
+                            if key == "control" {
+                                (key.clone(), list(&["granular/fit_band"]))
+                            } else {
+                                (key.clone(), held.clone())
+                            }
+                        })
+                        .collect(),
+                )
+            }),
+        ),
+        (
+            "a plan that states the scale rule itself",
+            e14_with(&value, "plan", {
+                let Json::Obj(fields) = value.get("plan").expect("plan is an object") else {
+                    panic!("plan is not an object");
+                };
+                let mut with_rule = fields.clone();
+                with_rule.push(("resolution".to_string(), Json::text("demand")));
+                Json::Obj(with_rule)
+            }),
+        ),
+        (
+            "a plan that leaves the bar to a default",
+            e14_with(&value, "plan", {
+                let Json::Obj(fields) = value.get("plan").expect("plan is an object") else {
+                    panic!("plan is not an object");
+                };
+                Json::Obj(
+                    fields
+                        .iter()
+                        .filter(|(key, _)| key != "certify_share")
+                        .cloned()
+                        .collect(),
+                )
+            }),
+        ),
+    ] {
+        let error = Protocol::from_json(&edited)
+            .err()
+            .unwrap_or_else(|| panic!("{what} was accepted as a protocol"));
+        assert!(
+            error.contains("resolution")
+                || error.contains("control")
+                || error.contains("certify_share")
+                || error.contains("two names"),
+            "{what}: the refusal has to name what it is refusing: {error}"
+        );
+    }
+
+    // And the older schemas keep refusing an axis they do not define: a `/2` file that gained a
+    // resolution field in one of its arms would otherwise be read two ways by two builds, which is the
+    // reason these obligations are per schema version rather than per field.
+    let as_v2 = e14_with(&value, "schema", Json::text(Protocol::SCHEMA_V2));
+    let error = Protocol::from_json(&as_v2)
+        .err()
+        .expect("a schema-2 arm may not state a scale rule");
     assert!(
-        error.contains("aporia.protocol/3")
-            && error.contains(Protocol::SCHEMA)
-            && error.contains(Protocol::SCHEMA_V2),
-        "the refusal names the schema it was given and the two it reads: {error}"
-    );
-    // And refusing is not measuring: nothing may cite this freeze as a run while it cannot be read.
-    assert!(
-        documents_citing("e1-4-resolution-demand").is_empty(),
-        "a schema the reader refuses cannot have produced a results document"
+        error.contains("resolution") && error.contains(Protocol::SCHEMA_V3),
+        "the refusal should name the axis and the schema that owns it: {error}"
     );
 }
 

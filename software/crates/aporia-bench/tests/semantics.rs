@@ -108,6 +108,14 @@ fn outcome(entry: &str, strategy: &'static str) -> aporia_bench::metrics::Outcom
         unplaced: 0,
         non_finite_readings: 0,
         trusted_over_true: 0.0,
+        // A partition that resolved everything it certified: the numbers an arm under the committed
+        // semantics produces, so this fixture stays a picture of a real campaign rather than of a
+        // field list half-filled.
+        provisional_volume: 0.0,
+        coarse_certified_volume: 0.0,
+        coarse_certified_share: Some(0.0),
+        trusted_over_true_coarse: 0.0,
+        leaf_cells: 4,
         lattice_sensitive: None,
         census: aporia_bench::metrics::Census {
             channels: Vec::new(),
