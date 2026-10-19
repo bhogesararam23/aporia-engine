@@ -450,6 +450,78 @@ fn explain_prints_the_decomposition_from_the_function_a_row_uses() {
     );
 }
 
+#[test]
+fn a_committed_row_predates_the_columns_and_absence_is_not_read_as_zero() {
+    // Every results file written before this phase lacks the six, and `aporia.results/2` is still its
+    // schema: the columns were added without renaming a single published measurement, which is what
+    // let the reproduction gate re-measure twenty-three arms and call the result identical. So a
+    // reader of an old file has to treat the missing key as *absence* — an entry that predates the
+    // question — and never as a zero, which on this corpus is the most flattering answer a row can
+    // carry.
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../benchmarks/results/results-92b377030d57.json");
+    let text = std::fs::read_to_string(&path).expect("the committed E1.3b document is in the tree");
+    let document = Json::parse(&text).expect("it is JSON");
+    let mut checked = 0usize;
+    for sweep in document
+        .get("sweeps")
+        .and_then(Json::as_array)
+        .unwrap_or(&[])
+    {
+        for row in sweep
+            .get("outcomes")
+            .and_then(Json::as_array)
+            .unwrap_or(&[])
+        {
+            for field in [
+                "declared_union_volume",
+                "trusted_over_true_union",
+                "unknown_over_true",
+                "suspicious_over_true",
+                "provisional_over_true",
+                "region_overlap_refusals",
+            ] {
+                assert!(
+                    row.get(field).is_none(),
+                    "a published row grew a column after the fact: {field}"
+                );
+            }
+            checked += 1;
+        }
+    }
+    assert!(
+        checked > 100,
+        "the document was walked but held no rows: {checked}"
+    );
+    assert_eq!(
+        document.get("schema").and_then(Json::as_str),
+        Some("aporia.results/2"),
+        "the schema a historical row declared is the schema it is still read under"
+    );
+
+    // And this build writes all six into every row it measures, so a document produced from here on
+    // states the decomposition even where the entry has no region to decompose.
+    let entry = fixture(
+        "clean",
+        "model clean \"\" {\n input x in [0, 1]\n let y = x * x\n require y < 1.0\n}\n",
+        r#"{"schema":"aporia.truth/1","method":"analytic","fault":"none","control":true,"regions":[],"boundaries":[]}"#,
+    );
+    let written = measured(&entry, 64).to_json();
+    for field in [
+        "declared_union_volume",
+        "trusted_over_true_union",
+        "unknown_over_true",
+        "suspicious_over_true",
+        "provisional_over_true",
+        "region_overlap_refusals",
+    ] {
+        assert!(
+            written.get(field).is_some(),
+            "this build omits {field} from a row it wrote itself"
+        );
+    }
+}
+
 /// The declared domain of a fixture, in the bounds the atlas partitions.
 fn domain(entry: &Entry) -> Vec<[f64; 2]> {
     aporia_bench::truth::domain_bounds(entry.model.as_ref().expect("the fixture compiles"))

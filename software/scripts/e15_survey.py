@@ -64,8 +64,23 @@ def rows(doc):
 
 
 def mean(group, field):
-    values = [row.get(field) or 0.0 for row in group]
+    """The mean of one column, or `None` when any row of the group does not state it.
+
+    A missing column is not a zero. A committed document written before the region columns existed
+    would otherwise be read as an entry that certifies nothing anywhere, which is the most flattering
+    thing a row of this corpus could be said to mean.
+    """
+    values = [row.get(field) for row in group]
+    if any(value is None for value in values):
+        return None
     return sum(values) / len(values)
+
+
+def total(group, field):
+    values = [row.get(field) for row in group]
+    if any(value is None for value in values):
+        return None
+    return sum(values)
 
 
 def table(groups):
@@ -76,6 +91,9 @@ def table(groups):
         certified = mean(group, "trusted_over_true_union")
         unknown = mean(group, "unknown_over_true")
         suspicious = mean(group, "suspicious_over_true")
+        stated = None if declared is None else (certified / declared if declared > 0 else None)
+        unmeasured = None if declared is None else (unknown / declared if declared > 0 else None)
+        flagged = None if declared is None else (suspicious / declared if declared > 0 else None)
         out.append(
             {
                 "arm": arm,
@@ -84,13 +102,15 @@ def table(groups):
                 "mean": {column: mean(group, column) for column in COLUMNS},
                 # The three rates a metric design turns on: how much of the declared region the
                 # instrument signs off, how much it leaves unmeasured, and how much it flags.
-                "certified_share_of_region": certified / declared if declared > 0 else None,
-                "unmeasured_share_of_region": unknown / declared if declared > 0 else None,
-                "flagged_share_of_region": suspicious / declared if declared > 0 else None,
-                "max_row_certified_over_region": max(
-                    (row.get("trusted_over_true_union") or 0.0) for row in group
+                "certified_share_of_region": stated,
+                "unmeasured_share_of_region": unmeasured,
+                "flagged_share_of_region": flagged,
+                "max_row_certified_over_region": (
+                    None
+                    if certified is None
+                    else max((row.get("trusted_over_true_union") or 0.0) for row in group)
                 ),
-                "refusals": sum(row.get("region_overlap_refusals") or 0 for row in group),
+                "refusals": total(group, "region_overlap_refusals"),
             }
         )
     return out
