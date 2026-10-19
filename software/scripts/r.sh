@@ -18,7 +18,16 @@ mkdir -p "$keep"
 for i in 1 2 3 4 5 6; do
   tag="run${i}"
   echo "attempt ${tag}:"
-  RUSTFLAGS="-C metadata=$tag" cargo build --release -p aporia-bench 2>&1 | tail -2
+  # A failed build leaves the previous binary sitting at target/release/, and copying that out would
+  # print a sha256 for bytes the tree does not contain -- which is exactly what this script exists to
+  # prevent. So the build's own exit state is checked before anything is copied.
+  out=$(RUSTFLAGS="-C metadata=$tag" cargo build --release -p aporia-bench 2>&1)
+  built=$?
+  echo "$out" | tail -2
+  if [ "$built" -ne 0 ]; then
+    echo "build failed: nothing was copied and no binary is claimed"
+    exit 1
+  fi
   cp target/release/aporia-bench.exe "$keep/candidate.exe" || exit 1
   if "$keep/candidate.exe" list >/dev/null 2>&1; then
     mv -f "$keep/candidate.exe" "$keep/aporia-bench.exe"
