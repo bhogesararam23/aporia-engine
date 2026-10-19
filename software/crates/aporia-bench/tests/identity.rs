@@ -526,6 +526,19 @@ fn the_criterion_a_leaf_is_certified_at_is_part_of_the_identity_only_where_it_ac
         "the bar the density criterion reads is part of the measurement it defines"
     );
 
+    // And the case the reproduction gate caught: a withholding arm on the *size* criterion never asks
+    // how many evaluations a leaf holds, so its density bar cannot be part of what was measured. Writing
+    // it unconditionally gave E1.4's three withholding arms a new identity over a field they could not
+    // have read — the same mistake one step further on as the `Current` case above, and the reason the
+    // rule is "written where a rule reads it" rather than "written when the axis exists".
+    let mut other_density = size.clone();
+    other_density.certify_density = 4_096.0;
+    assert_eq!(
+        named(&document(&size, &entries)),
+        named(&document(&other_density, &entries)),
+        "a bar no rule in this plan reads renamed a measurement"
+    );
+
     // `Demand` reads the criterion too — it is the rule that decides which coarse leaf to bisect —
     // so an arm that only demands resolution still carries its adequacy criterion in its name.
     let mut demand_only = plan(&[40], &["adaptive"], &[1]);

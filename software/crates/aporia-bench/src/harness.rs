@@ -1881,21 +1881,27 @@ pub fn plan_json(plan: &Plan) -> Json {
             ),
         );
         // The criterion and its bar travel with the rule that reads them, for the same reason the
-        // share does. Under `Resolution::Current` nothing is written for them, because a criterion
-        // that acts on no label is not a different measurement: two plans that differ only there must
-        // digest alike, or the runner would refuse the second as a duplicate of a measurement that is
-        // in fact identical to it.
-        fields.insert(
-            at + 2,
-            ("certify".to_string(), Json::text(plan.certify.name())),
-        );
-        fields.insert(
-            at + 3,
-            (
-                "certify_density".to_string(),
-                Json::number(plan.certify_density),
-            ),
-        );
+        // share does — and only where a rule reads them. A `size` plan never asks how many
+        // evaluations a leaf holds, so writing its density bar would rename measurements that the
+        // bar cannot have influenced: the reproduction gate caught exactly that, with E1.4's three
+        // withholding arms coming back under a different identity than the ones they published.
+        // Under `Resolution::Current` nothing is written for them either, because a criterion that
+        // acts on no label is not a different measurement: two plans that differ only there must
+        // digest alike, or the runner would refuse the second as a duplicate of a measurement that
+        // is in fact identical to it.
+        if plan.certify != aporia_boundary::Certify::Size {
+            fields.insert(
+                at + 2,
+                ("certify".to_string(), Json::text(plan.certify.name())),
+            );
+            fields.insert(
+                at + 3,
+                (
+                    "certify_density".to_string(),
+                    Json::number(plan.certify_density),
+                ),
+            );
+        }
     }
     Json::Obj(fields)
 }

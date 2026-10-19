@@ -67,9 +67,15 @@ fn a_default_plan_writes_the_bytes_that_named_every_committed_arm() {
     // Had `resolution` or `certify_share` been written unconditionally, this is the assertion that
     // would fail — and with it the claim that arm A is the same experiment as the arms already
     // published, rather than a new one wearing their numbers.
+    //
+    // E1.4's documents are in scope for the sharpest version of this: three of its four arms withheld
+    // or demanded at a scale rule, so their plan sections *do* carry the axis — and must not carry the
+    // criterion that was not invented yet, which would rename a published measurement without changing
+    // one number in it. That is not a hypothetical: the reproduction gate found exactly this, and the
+    // count below is the assertion that keeps it found.
     let mut republished = 0usize;
     for (doc, path) in documents() {
-        // The two experiments whose arms this phase has to reproduce, and nothing else: the earliest
+        // The three experiments whose arms this phase has to reproduce, and nothing else: the earliest
         // documents in this directory predate the strict plan section, so their plan is not an object
         // this reader can parse and their identity belongs to a results schema of its own.
         let protocol = doc
@@ -77,25 +83,44 @@ fn a_default_plan_writes_the_bytes_that_named_every_committed_arm() {
             .and_then(|p| p.get("id"))
             .and_then(Json::as_str)
             .unwrap_or_default();
-        if !matches!(protocol, "e1-geometry" | "e1-3b-trust-resolution") {
+        if !matches!(
+            protocol,
+            "e1-geometry" | "e1-3b-trust-resolution" | "e1-4-resolution-demand"
+        ) {
             continue;
         }
         let Some(recorded) = doc.get("plan") else {
             panic!("{} records no plan", path.display());
         };
         let plan = Plan::from_json(recorded).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        assert_eq!(
-            plan.resolution,
-            Resolution::Current,
-            "{} was measured under a rule the document does not name",
-            path.display()
-        );
-        assert_eq!(
-            plan.certify_share,
-            2f64.powi(-8),
-            "{} carries a bar no committed arm could have acted on",
-            path.display()
-        );
+        match protocol {
+            "e1-geometry" | "e1-3b-trust-resolution" => {
+                assert_eq!(
+                    plan.resolution,
+                    Resolution::Current,
+                    "{} was measured under a rule the document does not name",
+                    path.display()
+                );
+                assert_eq!(
+                    plan.certify_share,
+                    2f64.powi(-8),
+                    "{} carries a bar no committed arm could have acted on",
+                    path.display()
+                );
+            }
+            // E1.4's arms are the committed cases where the axis is *not* inert, and the criterion is
+            // not one of them: it did not exist when they ran. A plan section that gained a field the
+            // run could not have read would be a renamed measurement, so this is the assertion the
+            // reproduction gate's identity check rests on.
+            _ => {
+                assert_eq!(
+                    plan.certify,
+                    aporia_boundary::Certify::Size,
+                    "{} withheld on a criterion it never stated",
+                    path.display()
+                );
+            }
+        }
         assert_eq!(
             plan_json(&plan).to_compact(),
             recorded.to_compact(),
@@ -115,11 +140,12 @@ fn a_default_plan_writes_the_bytes_that_named_every_committed_arm() {
         );
         republished += 1;
     }
-    // Eleven E1.x arms and eight E1.3b arms: the nineteen documents this phase's reproduction gate
-    // re-measures. A count that fell short would mean a published arm stopped reading back.
+    // Eleven E1.x arms, eight E1.3b arms and four E1.4 arms: the twenty-three documents this phase's
+    // reproduction gate re-measures. A count that fell short would mean a published arm stopped
+    // reading back — which is what the gate's identity comparison is for, and what it found once.
     assert_eq!(
-        republished, 19,
-        "the two committed experiments are nineteen documents, and {republished} round-tripped"
+        republished, 23,
+        "the three committed experiments are twenty-three documents, and {republished} round-tripped"
     );
 }
 

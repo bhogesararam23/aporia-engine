@@ -1,0 +1,1668 @@
+{
+ "allowed_added_fields": {
+  "row": [
+   "coarse_certified_share",
+   "coarse_certified_volume",
+   "declared_union_volume",
+   "leaf_cells",
+   "non_finite_readings",
+   "provisional_over_true",
+   "provisional_volume",
+   "region_overlap_refusals",
+   "suspicious_over_true",
+   "thin_certified_volume",
+   "trusted_over_true_coarse",
+   "trusted_over_true_union",
+   "unknown_over_true"
+  ],
+  "rule": "any other added or missing key is a problem: the list is closed so that a document gaining a column stays a claim that can fail",
+  "top_level": [
+   "certify",
+   "certify_density",
+   "certify_share",
+   "reachability",
+   "resolution",
+   "trust"
+  ]
+ },
+ "archive_identity_rule": "every manifest the replay writes must name the measurement identity its own document publishes; an archive that names none is a problem, because the pre-run guard compares identities and can only be exact if the bytes it reads carry one",
+ "arms": [
+  {
+   "archives_naming_this_measurement": [
+    "022bde383614"
+   ],
+   "arm": "no-physical",
+   "document": "results-022bde383614.json",
+   "identity": "022bde383614",
+   "identity_replayed": "022bde383614",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 1044,
+   "wall_ms_replayed": 989
+  },
+  {
+   "archives_naming_this_measurement": [
+    "03a200e9e593"
+   ],
+   "arm": "only-physical",
+   "document": "results-03a200e9e593.json",
+   "identity": "03a200e9e593",
+   "identity_replayed": "03a200e9e593",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 1033,
+   "wall_ms_replayed": 1005
+  },
+  {
+   "archives_naming_this_measurement": [
+    "0704da190c01"
+   ],
+   "arm": "full",
+   "document": "results-0704da190c01.json",
+   "identity": "0704da190c01",
+   "identity_replayed": "0704da190c01",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 1089,
+   "wall_ms_replayed": 1251
+  },
+  {
+   "archives_naming_this_measurement": [
+    "085c328014c2"
+   ],
+   "arm": "no-differential",
+   "document": "results-085c328014c2.json",
+   "identity": "085c328014c2",
+   "identity_replayed": "085c328014c2",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 1046,
+   "wall_ms_replayed": 1150
+  },
+  {
+   "archives_naming_this_measurement": [
+    "0926754f96d3"
+   ],
+   "arm": "no-physical-current-trust",
+   "document": "results-0926754f96d3.json",
+   "identity": "0926754f96d3",
+   "identity_replayed": "0926754f96d3",
+   "protocol": "e1-3b-trust-resolution",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [
+     {
+      "class": "carved-away",
+      "committed": [
+       [
+        0.03125,
+        1.0,
+        8191,
+        null
+       ]
+      ],
+      "entry": "geometry/narrow_oblique",
+      "replayed": [
+       [
+        0.26171875,
+        1.0,
+        8191,
+        null
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        2
+       ]
+      ],
+      "entry": "granular/diagonal_count",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        4
+       ]
+      ],
+      "entry": "granular/match_return",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        1
+       ]
+      ],
+      "entry": "granular/rail_ceiling",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        4
+       ]
+      ],
+      "entry": "granular/stroke_reference",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        0.5,
+        1.0,
+        8191,
+        0
+       ]
+      ],
+      "entry": "granular/tolerance_stack",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        8191,
+        12
+       ]
+      ]
+     }
+    ],
+    "section_added": []
+   },
+   "rows": 160,
+   "sweeps": 40,
+   "verdict": "identical",
+   "wall_ms_committed": 3667,
+   "wall_ms_replayed": 3801
+  },
+  {
+   "archives_naming_this_measurement": [
+    "0b9c90d6963d"
+   ],
+   "arm": "no-physical-both-trust-rules",
+   "document": "results-0b9c90d6963d.json",
+   "identity": "0b9c90d6963d",
+   "identity_replayed": "0b9c90d6963d",
+   "protocol": "e1-3b-trust-resolution",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [
+     {
+      "class": "carved-away",
+      "committed": [
+       [
+        0.03125,
+        1.0,
+        8191,
+        null
+       ]
+      ],
+      "entry": "geometry/narrow_oblique",
+      "replayed": [
+       [
+        0.26171875,
+        1.0,
+        8191,
+        null
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        2
+       ]
+      ],
+      "entry": "granular/diagonal_count",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        4
+       ]
+      ],
+      "entry": "granular/match_return",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        1
+       ]
+      ],
+      "entry": "granular/rail_ceiling",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        4
+       ]
+      ],
+      "entry": "granular/stroke_reference",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        0.5,
+        1.0,
+        8191,
+        0
+       ]
+      ],
+      "entry": "granular/tolerance_stack",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        8191,
+        12
+       ]
+      ]
+     }
+    ],
+    "section_added": []
+   },
+   "rows": 160,
+   "sweeps": 40,
+   "verdict": "identical",
+   "wall_ms_committed": 3629,
+   "wall_ms_replayed": 3878
+  },
+  {
+   "archives_naming_this_measurement": [
+    "3cf4f9cc3d2d"
+   ],
+   "arm": "only-physical-current-trust",
+   "document": "results-3cf4f9cc3d2d.json",
+   "identity": "3cf4f9cc3d2d",
+   "identity_replayed": "3cf4f9cc3d2d",
+   "protocol": "e1-3b-trust-resolution",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [
+     {
+      "class": "carved-away",
+      "committed": [
+       [
+        0.03125,
+        1.0,
+        8191,
+        null
+       ]
+      ],
+      "entry": "geometry/narrow_oblique",
+      "replayed": [
+       [
+        0.26171875,
+        1.0,
+        8191,
+        null
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        2
+       ]
+      ],
+      "entry": "granular/diagonal_count",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        4
+       ]
+      ],
+      "entry": "granular/match_return",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        1
+       ]
+      ],
+      "entry": "granular/rail_ceiling",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        4
+       ]
+      ],
+      "entry": "granular/stroke_reference",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        0.5,
+        1.0,
+        8191,
+        0
+       ]
+      ],
+      "entry": "granular/tolerance_stack",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        8191,
+        12
+       ]
+      ]
+     }
+    ],
+    "section_added": []
+   },
+   "rows": 160,
+   "sweeps": 40,
+   "verdict": "identical",
+   "wall_ms_committed": 3586,
+   "wall_ms_replayed": 3477
+  },
+  {
+   "archives_naming_this_measurement": [
+    "3d9a9266bb80"
+   ],
+   "arm": "no-behavioral",
+   "document": "results-3d9a9266bb80.json",
+   "identity": "3d9a9266bb80",
+   "identity_replayed": "3d9a9266bb80",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 1102,
+   "wall_ms_replayed": 1302
+  },
+  {
+   "archives_naming_this_measurement": [
+    "57df85b26d89"
+   ],
+   "arm": "full-current-trust",
+   "document": "results-57df85b26d89.json",
+   "identity": "57df85b26d89",
+   "identity_replayed": "57df85b26d89",
+   "protocol": "e1-3b-trust-resolution",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [
+     {
+      "class": "carved-away",
+      "committed": [
+       [
+        0.03125,
+        1.0,
+        8191,
+        null
+       ]
+      ],
+      "entry": "geometry/narrow_oblique",
+      "replayed": [
+       [
+        0.26171875,
+        1.0,
+        8191,
+        null
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        2
+       ]
+      ],
+      "entry": "granular/diagonal_count",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        4
+       ]
+      ],
+      "entry": "granular/match_return",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        1
+       ]
+      ],
+      "entry": "granular/rail_ceiling",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        4
+       ]
+      ],
+      "entry": "granular/stroke_reference",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        0.5,
+        1.0,
+        8191,
+        0
+       ]
+      ],
+      "entry": "granular/tolerance_stack",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        8191,
+        12
+       ]
+      ]
+     }
+    ],
+    "section_added": []
+   },
+   "rows": 160,
+   "sweeps": 40,
+   "verdict": "identical",
+   "wall_ms_committed": 4226,
+   "wall_ms_replayed": 3719
+  },
+  {
+   "archives_naming_this_measurement": [
+    "5b2cb430341d"
+   ],
+   "arm": "full-nonfinite-blocks-trust",
+   "document": "results-5b2cb430341d.json",
+   "identity": "5b2cb430341d",
+   "identity_replayed": "5b2cb430341d",
+   "protocol": "e1-3b-trust-resolution",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [
+     {
+      "class": "carved-away",
+      "committed": [
+       [
+        0.03125,
+        1.0,
+        8191,
+        null
+       ]
+      ],
+      "entry": "geometry/narrow_oblique",
+      "replayed": [
+       [
+        0.26171875,
+        1.0,
+        8191,
+        null
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        2
+       ]
+      ],
+      "entry": "granular/diagonal_count",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        4
+       ]
+      ],
+      "entry": "granular/match_return",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        1
+       ]
+      ],
+      "entry": "granular/rail_ceiling",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        4
+       ]
+      ],
+      "entry": "granular/stroke_reference",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        0.5,
+        1.0,
+        8191,
+        0
+       ]
+      ],
+      "entry": "granular/tolerance_stack",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        8191,
+        12
+       ]
+      ]
+     }
+    ],
+    "section_added": []
+   },
+   "rows": 160,
+   "sweeps": 40,
+   "verdict": "identical",
+   "wall_ms_committed": 3711,
+   "wall_ms_replayed": 3819
+  },
+  {
+   "archives_naming_this_measurement": [
+    "77df45107e71"
+   ],
+   "arm": "no-numerical",
+   "document": "results-77df45107e71.json",
+   "identity": "77df45107e71",
+   "identity_replayed": "77df45107e71",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 972,
+   "wall_ms_replayed": 1074
+  },
+  {
+   "archives_naming_this_measurement": [
+    "80a82d173196"
+   ],
+   "arm": "no-sensitivity",
+   "document": "results-80a82d173196.json",
+   "identity": "80a82d173196",
+   "identity_replayed": "80a82d173196",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 1032,
+   "wall_ms_replayed": 1183
+  },
+  {
+   "archives_naming_this_measurement": [
+    "92b377030d57"
+   ],
+   "arm": "full-both-trust-rules",
+   "document": "results-92b377030d57.json",
+   "identity": "92b377030d57",
+   "identity_replayed": "92b377030d57",
+   "protocol": "e1-3b-trust-resolution",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [
+     {
+      "class": "carved-away",
+      "committed": [
+       [
+        0.03125,
+        1.0,
+        8191,
+        null
+       ]
+      ],
+      "entry": "geometry/narrow_oblique",
+      "replayed": [
+       [
+        0.26171875,
+        1.0,
+        8191,
+        null
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        2
+       ]
+      ],
+      "entry": "granular/diagonal_count",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        4
+       ]
+      ],
+      "entry": "granular/match_return",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        1
+       ]
+      ],
+      "entry": "granular/rail_ceiling",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        4
+       ]
+      ],
+      "entry": "granular/stroke_reference",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        0.5,
+        1.0,
+        8191,
+        0
+       ]
+      ],
+      "entry": "granular/tolerance_stack",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        8191,
+        12
+       ]
+      ]
+     }
+    ],
+    "section_added": []
+   },
+   "rows": 160,
+   "sweeps": 40,
+   "verdict": "identical",
+   "wall_ms_committed": 4404,
+   "wall_ms_replayed": 4587
+  },
+  {
+   "archives_naming_this_measurement": [
+    "b27144fd2b06"
+   ],
+   "arm": "full-min-channels-2",
+   "document": "results-b27144fd2b06.json",
+   "identity": "b27144fd2b06",
+   "identity_replayed": "b27144fd2b06",
+   "protocol": "e1-3b-trust-resolution",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [
+     {
+      "class": "carved-away",
+      "committed": [
+       [
+        0.03125,
+        1.0,
+        8191,
+        null
+       ]
+      ],
+      "entry": "geometry/narrow_oblique",
+      "replayed": [
+       [
+        0.26171875,
+        1.0,
+        8191,
+        null
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        2
+       ]
+      ],
+      "entry": "granular/diagonal_count",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        4
+       ]
+      ],
+      "entry": "granular/match_return",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        1
+       ]
+      ],
+      "entry": "granular/rail_ceiling",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        4
+       ]
+      ],
+      "entry": "granular/stroke_reference",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        0.5,
+        1.0,
+        8191,
+        0
+       ]
+      ],
+      "entry": "granular/tolerance_stack",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        8191,
+        12
+       ]
+      ]
+     }
+    ],
+    "section_added": []
+   },
+   "rows": 160,
+   "sweeps": 40,
+   "verdict": "identical",
+   "wall_ms_committed": 4061,
+   "wall_ms_replayed": 4097
+  },
+  {
+   "archives_naming_this_measurement": [
+    "bf3964c8d2d9"
+   ],
+   "arm": "A-current",
+   "document": "results-bf3964c8d2d9.json",
+   "identity": "bf3964c8d2d9",
+   "identity_replayed": "bf3964c8d2d9",
+   "protocol": "e1-4-resolution-demand",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": []
+   },
+   "rows": 100,
+   "sweeps": 25,
+   "verdict": "identical",
+   "wall_ms_committed": 4029,
+   "wall_ms_replayed": 3775
+  },
+  {
+   "archives_naming_this_measurement": [
+    "c6842681d33d"
+   ],
+   "arm": "only-numerical",
+   "document": "results-c6842681d33d.json",
+   "identity": "c6842681d33d",
+   "identity_replayed": "c6842681d33d",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 856,
+   "wall_ms_replayed": 765
+  },
+  {
+   "archives_naming_this_measurement": [
+    "e29495fd5b53"
+   ],
+   "arm": "only-behavioral",
+   "document": "results-e29495fd5b53.json",
+   "identity": "e29495fd5b53",
+   "identity_replayed": "e29495fd5b53",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 775,
+   "wall_ms_replayed": 721
+  },
+  {
+   "archives_naming_this_measurement": [
+    "e78b3bbfc421"
+   ],
+   "arm": "only-sensitivity",
+   "document": "results-e78b3bbfc421.json",
+   "identity": "e78b3bbfc421",
+   "identity_replayed": "e78b3bbfc421",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 943,
+   "wall_ms_replayed": 771
+  },
+  {
+   "archives_naming_this_measurement": [
+    "e921e2cf0d56"
+   ],
+   "arm": "only-differential",
+   "document": "results-e921e2cf0d56.json",
+   "identity": "e921e2cf0d56",
+   "identity_replayed": "e921e2cf0d56",
+   "protocol": "e1-geometry",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [],
+    "section_added": [
+     "aerospace/projectile_clean",
+     "analytic/sqrt_domain",
+     "discrete/clean_lattice",
+     "discrete/lattice_two",
+     "discrete/mixed_magnitude",
+     "discrete/scheme_branch",
+     "domain/inverted",
+     "domain/unbounded_interval",
+     "edge/overflow_tail",
+     "edge/pole_at_edge",
+     "electromagnetics/rlc_resonance",
+     "geometry/curved_arc",
+     "geometry/curved_clean",
+     "geometry/curved_product",
+     "geometry/diagonal_sum",
+     "geometry/narrow_oblique",
+     "synthetic/one_pct_2d"
+    ]
+   },
+   "rows": 225,
+   "sweeps": 75,
+   "verdict": "identical",
+   "wall_ms_committed": 827,
+   "wall_ms_replayed": 710
+  },
+  {
+   "archives_naming_this_measurement": [
+    "ecc765727d4b"
+   ],
+   "arm": "only-physical-both-trust-rules",
+   "document": "results-ecc765727d4b.json",
+   "identity": "ecc765727d4b",
+   "identity_replayed": "ecc765727d4b",
+   "protocol": "e1-3b-trust-resolution",
+   "reachability": {
+    "class_changed": [],
+    "figures_changed": [
+     {
+      "class": "carved-away",
+      "committed": [
+       [
+        0.03125,
+        1.0,
+        8191,
+        null
+       ]
+      ],
+      "entry": "geometry/narrow_oblique",
+      "replayed": [
+       [
+        0.26171875,
+        1.0,
+        8191,
+        null
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        2
+       ]
+      ],
+      "entry": "granular/diagonal_count",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3208,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        4
+       ]
+      ],
+      "entry": "granular/match_return",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        1638,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        1
+       ]
+      ],
+      "entry": "granular/rail_ceiling",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        5461,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        4
+       ]
+      ],
+      "entry": "granular/stroke_reference",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        3078,
+        12
+       ]
+      ]
+     },
+     {
+      "class": "enclosed",
+      "committed": [
+       [
+        0.5,
+        1.0,
+        8191,
+        0
+       ]
+      ],
+      "entry": "granular/tolerance_stack",
+      "replayed": [
+       [
+        1.0,
+        1.0,
+        8191,
+        12
+       ]
+      ]
+     }
+    ],
+    "section_added": []
+   },
+   "rows": 160,
+   "sweeps": 40,
+   "verdict": "identical",
+   "wall_ms_committed": 2183,
+   "wall_ms_replayed": 2352
+  }
+ ],
+ "binary_sha256": "77901a9a5adba7e3cdab4c02a0ffa4a9705a5fce47e6e4e53d094ee3201adc36",
+ "built_from_commit": "8f47c99",
+ "compared": [
+  "identity",
+  "plan",
+  "entries",
+  "protocol",
+  "question",
+  "refused",
+  "comparison",
+  "sweep summaries",
+  "every declared field of every row"
+ ],
+ "excluded": [
+  {
+   "field": "wall_ms",
+   "why": "declared a property of the machine, not of the measurement, by the protocols"
+  },
+  {
+   "field": "reachability",
+   "why": "recomputed from the partition rule rather than recorded from the run, and outside the identity; the witness ranking changed under it, so the movement is listed per entry rather than compared away"
+  }
+ ],
+ "generated_by": "scripts/e14_repro_gate.py",
+ "kept_because": "This is the gate run that stopped the experiment: the binary built at 8f47c99 could not re-measure E1.4's three withholding arms, because the plan section those arms published had gained two fields the run could not have read. Every other committed field it could reach came back identical. The fix is the commit that carries this file, and the passing run of the same gate on the same corpus is `e1-5-reproduction-gate.json`.",
+ "problems": [
+  "e1-4-resolution-demand/C-withhold: the runner exited 2: protocol e1-4-resolution-demand arm C-withhold \u00e2\u20ac\u201d 5 entries, 4 arm(s) frozen, budgets [320, 640, 1280, 2560], seeds [1, 2, 3, 4, 5]\n  trust rule current  resolution withhold (size: share 0.00390625, density 1024)  silences nothing\naporia-bench: D:\\APORIA\\software\\.scratch\\e14-repro-archives\\e1-4-resolution-demand\\C-withhold\\control-symplectic_spring-adaptive-seed1-res-withhold belongs to measurement 2b75924a550c, and this run is measurement d6e9fef9dd44. A directory                          name carries the entry, the strategy, the seed and the axes an arm states, not                          the experiment, so this is where two protocols that share those five are told                          apart. Pass --archive DIR.\nusage: aporia-bench <command> [flags]\n  list                      entries, faults and declared regions\n  verify [--grid N]         check the declarations against direct evaluation\n  audit  [--grid N]         check the corpus as a corpus: duplicates, difficulty rungs,\n                              unmapped discrete values, refusals that did not refuse\n  reach                     can the atlas enclose what each entry declares? Decided from\n                              the partition rule and the depth cap, before any run\n  run [--budgets a,b,..] [--strategies adaptive,levelset,stratified,random]\n      [--seeds n,..] [--grid N] [--out DIR] [--only family/name,..]\n      [--plan protocols/<id>.json --arm <name>]  run a frozen experiment definition;\n         with --plan every flag that shapes what is measured is refused, because an\n         override of a pre-registration is what a pre-registration forbids\n      [--pilot]  with --plan, run the reduced scope that file freezes: the pilot is\n         part of the pre-registration, so its size is read from the file and not\n         from a command line, and a file that froze none is refused\n      [--archive DIR] [--differential-every N] [--numerical-every N]\n      [--ablate channel,..]  drop a channel's READINGS, not its evaluations:\n         every arm still runs the same points at the same cost, so the arms are\n         comparable on cost and differ only in what was concluded. Names:\n         behavioral, physical, numerical, differential, sensitivity\n  verdict <results.json>   print the comparison from a recorded run\n  scan <family/name> [--samples N]  measure where the model's own rule switches\n  explain <family/name> [--budget N] [--strategy S] [--seed N]\n      one run opened up: the atlas, the bands, the findings and where the risk landed\n  e2 <full.json> <arm.json> [arm.json...] [--json]\n      compare ablation arms against the full arm, from committed results files;\n      refuses to pair documents that were not one experiment with two masks\n",
+  "e1-4-resolution-demand/D-demand-and-withhold: the runner exited 2: protocol e1-4-resolution-demand arm D-demand-and-withhold \u00e2\u20ac\u201d 5 entries, 4 arm(s) frozen, budgets [320, 640, 1280, 2560], seeds [1, 2, 3, 4, 5]\n  trust rule current  resolution demand-and-withhold (size: share 0.00390625, density 1024)  silences nothing\naporia-bench: D:\\APORIA\\software\\.scratch\\e14-repro-archives\\e1-4-resolution-demand\\D-demand-and-withhold\\control-symplectic_spring-adaptive-seed1-res-demand-and-withhold belongs to measurement 5b437246799a, and this run is measurement d0d4006ab8dd. A directory                          name carries the entry, the strategy, the seed and the axes an arm states, not                          the experiment, so this is where two protocols that share those five are told                          apart. Pass --archive DIR.\nusage: aporia-bench <command> [flags]\n  list                      entries, faults and declared regions\n  verify [--grid N]         check the declarations against direct evaluation\n  audit  [--grid N]         check the corpus as a corpus: duplicates, difficulty rungs,\n                              unmapped discrete values, refusals that did not refuse\n  reach                     can the atlas enclose what each entry declares? Decided from\n                              the partition rule and the depth cap, before any run\n  run [--budgets a,b,..] [--strategies adaptive,levelset,stratified,random]\n      [--seeds n,..] [--grid N] [--out DIR] [--only family/name,..]\n      [--plan protocols/<id>.json --arm <name>]  run a frozen experiment definition;\n         with --plan every flag that shapes what is measured is refused, because an\n         override of a pre-registration is what a pre-registration forbids\n      [--pilot]  with --plan, run the reduced scope that file freezes: the pilot is\n         part of the pre-registration, so its size is read from the file and not\n         from a command line, and a file that froze none is refused\n      [--archive DIR] [--differential-every N] [--numerical-every N]\n      [--ablate channel,..]  drop a channel's READINGS, not its evaluations:\n         every arm still runs the same points at the same cost, so the arms are\n         comparable on cost and differ only in what was concluded. Names:\n         behavioral, physical, numerical, differential, sensitivity\n  verdict <results.json>   print the comparison from a recorded run\n  scan <family/name> [--samples N]  measure where the model's own rule switches\n  explain <family/name> [--budget N] [--strategy S] [--seed N]\n      one run opened up: the atlas, the bands, the findings and where the risk landed\n  e2 <full.json> <arm.json> [arm.json...] [--json]\n      compare ablation arms against the full arm, from committed results files;\n      refuses to pair documents that were not one experiment with two masks\n",
+  "e1-4-resolution-demand/B-demand: the runner exited 2: protocol e1-4-resolution-demand arm B-demand \u00e2\u20ac\u201d 5 entries, 4 arm(s) frozen, budgets [320, 640, 1280, 2560], seeds [1, 2, 3, 4, 5]\n  trust rule current  resolution demand (size: share 0.00390625, density 1024)  silences nothing\naporia-bench: D:\\APORIA\\software\\.scratch\\e14-repro-archives\\e1-4-resolution-demand\\B-demand\\control-symplectic_spring-adaptive-seed1-res-demand belongs to measurement 9a242fe5a8aa, and this run is measurement b2224c535b40. A directory                          name carries the entry, the strategy, the seed and the axes an arm states, not                          the experiment, so this is where two protocols that share those five are told                          apart. Pass --archive DIR.\nusage: aporia-bench <command> [flags]\n  list                      entries, faults and declared regions\n  verify [--grid N]         check the declarations against direct evaluation\n  audit  [--grid N]         check the corpus as a corpus: duplicates, difficulty rungs,\n                              unmapped discrete values, refusals that did not refuse\n  reach                     can the atlas enclose what each entry declares? Decided from\n                              the partition rule and the depth cap, before any run\n  run [--budgets a,b,..] [--strategies adaptive,levelset,stratified,random]\n      [--seeds n,..] [--grid N] [--out DIR] [--only family/name,..]\n      [--plan protocols/<id>.json --arm <name>]  run a frozen experiment definition;\n         with --plan every flag that shapes what is measured is refused, because an\n         override of a pre-registration is what a pre-registration forbids\n      [--pilot]  with --plan, run the reduced scope that file freezes: the pilot is\n         part of the pre-registration, so its size is read from the file and not\n         from a command line, and a file that froze none is refused\n      [--archive DIR] [--differential-every N] [--numerical-every N]\n      [--ablate channel,..]  drop a channel's READINGS, not its evaluations:\n         every arm still runs the same points at the same cost, so the arms are\n         comparable on cost and differ only in what was concluded. Names:\n         behavioral, physical, numerical, differential, sensitivity\n  verdict <results.json>   print the comparison from a recorded run\n  scan <family/name> [--samples N]  measure where the model's own rule switches\n  explain <family/name> [--budget N] [--strategy S] [--seed N]\n      one run opened up: the atlas, the bands, the findings and where the risk landed\n  e2 <full.json> <arm.json> [arm.json...] [--json]\n      compare ablation arms against the full arm, from committed results files;\n      refuses to pair documents that were not one experiment with two masks\n"
+ ],
+ "protocols": [
+  "e1-geometry",
+  "e1-3b-trust-resolution",
+  "e1-4-resolution-demand"
+ ],
+ "purpose": "certify that the binary which will run E1.5 reproduces every committed E1.x, E1.3b and E1.4 field before any E1.5 arm is read",
+ "reachability_summary": {
+  "classes_changed": [],
+  "figures_changed_with_class_held": [
+   "geometry/narrow_oblique",
+   "granular/diagonal_count",
+   "granular/match_return",
+   "granular/rail_ceiling",
+   "granular/stroke_reference",
+   "granular/tolerance_stack"
+  ],
+  "section_added_for_entries": [
+   "aerospace/projectile_clean",
+   "analytic/sqrt_domain",
+   "discrete/clean_lattice",
+   "discrete/lattice_two",
+   "discrete/mixed_magnitude",
+   "discrete/scheme_branch",
+   "domain/inverted",
+   "domain/unbounded_interval",
+   "edge/overflow_tail",
+   "edge/pole_at_edge",
+   "electromagnetics/rlc_resonance",
+   "geometry/curved_arc",
+   "geometry/curved_clean",
+   "geometry/curved_product",
+   "geometry/diagonal_sum",
+   "geometry/narrow_oblique",
+   "synthetic/one_pct_2d"
+  ],
+  "why_reported": "the section is recomputed from the partition rule and sits outside the identity; the witness ranking changed under it, so the movement is listed by kind rather than compared away or left silent"
+ },
+ "rows_compared": 3855,
+ "schema": "aporia.reproduction-gate/2",
+ "superseded_by": "benchmarks/analysis/e1-5-reproduction-gate.json",
+ "verdict": "FAILED"
+}
