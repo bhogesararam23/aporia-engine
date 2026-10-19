@@ -1183,7 +1183,9 @@ fn credit_rounds(
         .iter()
         .map(|b| 1.0 / (1.0 + b.width() / axis_width(model, b.axis as usize)))
         .sum();
-    let resolved = atlas.coverage().resolved();
+    // `credit`, not `resolved`: the withheld state is a claim about certification and must not become a
+    // signal that changes where the search goes next. See [`aporia_boundary::Coverage::credit`].
+    let resolved = atlas.coverage().credit();
     let gain = suspicious * 0.2 + tightness * 0.5 + resolved;
     let from = *marker;
     let window = decisions.len() - from;

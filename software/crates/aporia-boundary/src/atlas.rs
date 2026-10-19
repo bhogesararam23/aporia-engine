@@ -1255,6 +1255,23 @@ impl Coverage {
     pub fn resolved(&self) -> f64 {
         (self.trusted + self.suspicious).clamp(0.0, 1.0)
     }
+
+    /// The figure a *search* credits itself with: everything that is not "we could not measure",
+    /// including [`Label::Provisional`].
+    ///
+    /// Distinct from [`Coverage::resolved`] for one reason, and it is a load-bearing one.
+    /// `PROVISIONAL` is `TRUSTED` with the claim withheld, so a progress signal built on `resolved()`
+    /// would shrink the moment certification is withheld -- and the acquisition that spends the next
+    /// evaluations on a shrinking signal places different points, which builds a different partition.
+    /// The control arm and the withholding arm would then be two searches rather than one search making
+    /// two claims, and the difference between their numbers would measure point placement instead of
+    /// semantics. Measured on the E1.4 pilot before this existed: the two arms disagreed on cell counts
+    /// on three of five entries (98 against 93, 303 against 253, 378 against 411) purely because the
+    /// label reached the credit.
+    #[must_use]
+    pub fn credit(&self) -> f64 {
+        (self.trusted + self.suspicious + self.provisional).clamp(0.0, 1.0)
+    }
 }
 
 #[cfg(test)]
