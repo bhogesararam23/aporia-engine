@@ -1,0 +1,50 @@
+{
+ "schema": "aporia.truth/3",
+ "method": "analytic",
+ "fault": "boundary_condition",
+ "meaning": "A valve map is unusable for two separate reasons: the spool is inside its dead band, or the pilot pressure is inside its own band, and either one alone makes the commanded flow unachievable. The entry therefore declares a region that is the union of two strips at right angles - a vertical band in spool displacement and a horizontal band in pilot pressure - meeting in a square where both faults are present at once. This is the corpus's shape for the question a per-region maximum cannot answer: a leaf that holds part of one strip and part of the other is untrustworthy over the sum of those parts, and the largest single region explains only one of them.",
+ "variables": [
+  {
+   "name": "stroke",
+   "unit": "1",
+   "role": "spool travel from the mid position, normalised by the half-stroke, so the band edges are the declared fractions 0.42 and 0.58 of it",
+   "lo": 0,
+   "hi": 1
+  },
+  {
+   "name": "pressure",
+   "unit": "1",
+   "role": "pilot pressure normalised by the supply, dimensionless",
+   "lo": 0,
+   "hi": 1
+  }
+ ],
+ "mechanism": "two independent bands whose failing sets meet at right angles, so the region is a union and the crossing square belongs to both",
+ "channels": [
+  "physical"
+ ],
+ "resolvable": true,
+ "resolvability": "Two parameters and a depth cap of 12 with the bisection alternating axes, so a leaf at the cap is six bisections deep per axis and 1/64 = 0.015625 of an axis wide on a side. Each band is 0.58 - 0.42 = 0.16 wide, which is 10.24 of those leaf widths, so a permitted leaf lies wholly inside either band with 4.6 leaf widths to spare on either side: best declared share 1.0 against a localisation bar of 0.5. The crossing square [0.42, 0.58] squared is itself one such region, 0.16 * 0.16 = 0.0256 of the domain, and it is the part the union counts once and a per-region maximum counts as one band.",
+ "source": "Each band is a declared quadratic in its own parameter with roots at the two positions read off the drawing, and the model combines them with the algebraic maximum `(a + b + |a - b|) / 2`, which is non-negative exactly when at least one of `a`, `b` is. So the failing set is the union of the two strips by construction rather than an approximation of one: `(stroke - 0.42)(0.58 - stroke) > 0` for the vertical band, the same expression in `pressure` for the horizontal one, and the declared regions are those two strips. The band edges sit at 0.42 and 0.58 rather than the rounder 0.425 and 0.575 for one reason: the frozen verification grid is 41 points per axis, whose columns are multiples of 1/40, and 0.425 = 17/40 is one of them - a closed declaration whose edge is a lattice point contains a point that does not violate, and the audit's `inside` direction is exact rather than tolerated. 0.42 = 16.8 steps and 0.58 = 23.2 steps are not lattice points, so the closed box and the open failing set agree on every point the grid visits. The engineering object is a valve authority or controllability map, where a dead band in the stroke axis and a dead band in the supply axis are independent limits on the same port and the usable area of the map is what remains outside both.",
+ "derivation": "`require worst * 1000.0 <= 0.0` fails where `worst > 0`, and `worst` is `max(in_stroke, in_pressure)`, each of which is positive strictly inside its own band. Over the 41-point verification grid the frozen plan uses, whose columns are 1/40 = 0.025 apart, each band catches 7 columns (0.425 through 0.575): the union is 7 columns by 41 rows plus 7 rows by 34 remaining columns, so the audit scores 287/1681 + 238/1681 = 0.1707 + 0.1416 = 0.3123 of the domain against the analytic union 0.16 + 0.16 - 0.16 * 0.16 = 0.2944. The gap is the lattice counting columns rather than widths - a band 6.4 of 40 steps wide catches 7 of them - which is a property of the verification resolution and not of the declaration, and the reason this entry's metric volume is the exact box union rather than the audit's score. The quantity this entry exists to make checkable is the gap between the two readings of the same box: a box spanning [0.34, 0.66] on both axes covers 0.5 of itself by the vertical band and 0.5 by the horizontal, so a maximum says 0.5 and the union says 0.5 + 0.5 - 0.25 = 0.75. At a localisation bar of 0.5 the maximum only just reaches the decision and the union clears it by half again, which is the whole difference between the two readings. `ode/euler_decay_2d` is the committed entry with twenty-four declared boxes and the same folding, and it is why the union path exists.",
+ "why": "E1.5's decomposition has to be measured on a region that is more than one box, or the new union column is a restatement of the old maximum and nothing distinguishes them. This entry is the deciding case for that claim and a deciding case for the resolution question as well: the union is 29.44% of the domain, so a coarse leaf can straddle either strip without a sample inside it, and the crossing square is certified-or-not space that both strips contribute to. The audit's own difficulty line for this entry reads 32% rather than 29.44% because it sums the two declared boxes and so counts the crossing square twice - the folding this entry exists to expose, and the reason the metric reports a union column beside it instead of restating that sum. It is in the resolvable set because each strip is 10.24 leaf widths across at the cap, so no part of the excuse available to `geometry/narrow_oblique` applies here.",
+ "regions": [
+  {
+   "reason": "the spool travel is inside its dead band, whatever the pilot pressure is",
+   "axes": {
+    "stroke": [0.42, 0.58]
+   }
+  },
+  {
+   "reason": "the pilot pressure is inside its own band, whatever the spool travel is",
+   "axes": {
+    "pressure": [0.42, 0.58]
+   }
+  }
+ ],
+ "boundaries": [],
+ "matched_to": "granular/stroke_reference",
+ "expect": "a cross: two strips 16% of their own axes wide, meeting in a square that belongs to both and is counted once",
+ "narrow": false,
+ "curved": false
+}

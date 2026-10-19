@@ -1,0 +1,7 @@
+model quiet_band "a spool valve whose seat clearance passes through the dead band where the port is neither open nor shut" {
+  input drive in [0, 1]
+  input bias in [0, 1]
+  let clearance = (drive - 0.47) * (0.53 - drive)
+  let flow = clearance * (1.0 + bias)
+  require flow * 1000.0 <= 0.0
+}

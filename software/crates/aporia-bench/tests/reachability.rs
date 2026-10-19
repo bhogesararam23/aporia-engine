@@ -15,7 +15,7 @@ use aporia_bench::cli;
 use aporia_bench::corpus;
 use aporia_bench::harness::{Plan, Protocol, RESULTS_SCHEMA, identity_of, results_json};
 use aporia_bench::metrics::LOCALISATION_BAR;
-use aporia_bench::reach::{Class, reach, reaches};
+use aporia_bench::reach::{Class, Reach, reach, reaches};
 use aporia_boundary::Trust;
 use aporia_store::{Environment, Json};
 use std::path::PathBuf;
@@ -318,38 +318,14 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
-#[test]
-fn every_granular_entry_is_enclosed_and_says_so_the_same_way() {
-    // The corpus this experiment will measure, pinned against the instrument rather than against
-    // anybody's reading of it. Two things are checked at once: that each entry is enclosed by a
-    // permitted leaf, which is what earns it a place in the resolvable set, and that the entry's own
-    // `resolvable` claim agrees — a claim the audit is the second half of, and an entry that claimed
-    // resolvability the arithmetic denies is refused from the set rather than reclassified.
-    let corpus = entries();
-    let policy = policy();
-    let mut checked = 0usize;
-    for entry in corpus.iter().filter(|e| e.family == "granular") {
-        let record = reach(entry, &policy);
-        assert_eq!(
-            record.class,
-            Class::Enclosed,
-            "{} is not resolvable: {}",
-            record.entry,
-            record.row()
-        );
-        assert_eq!(
-            entry.truth.resolvable,
-            Some(true),
-            "{} does not claim what the instrument found",
-            record.entry
-        );
-        assert_eq!(
-            record.regions.len(),
-            entry.truth.regions.len(),
-            "{} classified a different number of regions than it declares",
-            record.entry
-        );
-        for region in &record.regions {
+/// What the class each entry was given must say about the leaves it found, region by region.
+///
+/// The two halves are mirrors, and both are needed: an enclosed entry that produced no witness is a
+/// claim with nothing behind it, and an entry that disclaimed resolvability and then found a witness
+/// has been re-filed by a change to the cap rather than by its own geometry.
+fn witnesses_agree_with_the_class(record: &Reach) {
+    for region in &record.regions {
+        if record.class == Class::Enclosed {
             assert!(
                 region.witness_depth.is_some() && !region.witness_bounds.is_empty(),
                 "{} region {} is enclosed without a witness to check",
@@ -362,48 +338,116 @@ fn every_granular_entry_is_enclosed_and_says_so_the_same_way() {
                 record.entry,
                 region.index
             );
-            assert!(!region.reason.is_empty());
+        } else {
+            // The disclaiming entry has to fail the way 0038's edge entries failed: no witness at all,
+            // so there is no leaf for a resolution rule to have recovered.
+            assert!(
+                region.witness_depth.is_none() && region.witness_bounds.is_empty(),
+                "{} region {} found a witness and did not change class",
+                record.entry,
+                region.index
+            );
+            assert!(
+                region.best_declared_share < LOCALISATION_BAR,
+                "{} region {} reaches the bar on its declared box after all: {}",
+                record.entry,
+                region.index,
+                region.best_declared_share
+            );
         }
-        // The record each entry was authored to carry: no entry may reach this set by leaving its
-        // reasoning out.
         assert!(
-            !entry.truth.mechanism.is_empty(),
-            "{} states no mechanism",
+            !region.reason.is_empty(),
+            "{} region {} gives no reason",
+            record.entry,
+            region.index
+        );
+    }
+}
+
+/// The reasoning each entry in this family was authored to carry: no entry may reach the set by
+/// leaving its own account out, because the set is a claim about the instrument and not about a run.
+fn record_is_stated(entry: &corpus::Entry) {
+    let id = entry.id();
+    assert!(
+        !entry.truth.mechanism.is_empty(),
+        "{id} states no mechanism"
+    );
+    assert!(
+        !entry.truth.resolvability.is_empty(),
+        "{id} states no calculation"
+    );
+    assert!(
+        !entry.truth.source.is_empty(),
+        "{id} states no truth source"
+    );
+    assert!(!entry.truth.meaning.is_empty(), "{id} states no meaning");
+    assert!(
+        !entry.truth.why.is_empty(),
+        "{id} states no reason to be here"
+    );
+    assert!(
+        !entry.truth.channels.is_empty() && !entry.truth.variables.is_empty(),
+        "{id} declares no expected channels or no variables"
+    );
+}
+
+#[test]
+fn the_granular_family_is_enclosed_except_for_the_one_entry_that_declares_otherwise() {
+    // The corpus this experiment will measure, pinned against the instrument rather than against
+    // anybody's reading of it. Two things are checked at once: that each entry's class comes from the
+    // atlas's own partition rule and the truth language's own overlap measure, and that the entry's own
+    // `resolvable` claim agrees. The agreement has to hold in both directions, because both directions
+    // are a way for the corpus to lie: an entry that claimed resolvability the arithmetic denies is
+    // refused from the set rather than reclassified, and an entry that disclaims it may not be quietly
+    // re-filed as reachable by a later change to the depth cap.
+    let corpus = entries();
+    let policy = policy();
+    let family: Vec<&corpus::Entry> = corpus.iter().filter(|e| e.family == "granular").collect();
+    let mut enclosed = 0usize;
+    let mut beyond = 0usize;
+    for entry in &family {
+        let record = reach(entry, &policy);
+        assert_eq!(
+            entry.truth.resolvable == Some(true),
+            record.class.resolvable(),
+            "{} claims {:?} and the instrument found {}",
+            record.entry,
+            entry.truth.resolvable,
+            record.row()
+        );
+        assert_eq!(
+            record.regions.len(),
+            entry.truth.regions.len(),
+            "{} classified a different number of regions than it declares",
             record.entry
         );
-        assert!(
-            !entry.truth.resolvability.is_empty(),
-            "{} states no calculation",
-            record.entry
-        );
-        assert!(
-            !entry.truth.source.is_empty(),
-            "{} states no truth source",
-            record.entry
-        );
-        assert!(
-            !entry.truth.meaning.is_empty(),
-            "{} states no meaning",
-            record.entry
-        );
-        assert!(
-            !entry.truth.why.is_empty(),
-            "{} states no reason to be here",
-            record.entry
-        );
-        assert!(
-            !entry.truth.channels.is_empty() && !entry.truth.variables.is_empty(),
-            "{} declares no expected channels or no variables",
-            record.entry
-        );
-        checked += 1;
+        match record.class {
+            Class::Enclosed => enclosed += 1,
+            Class::SubGranular => beyond += 1,
+            other => panic!(
+                "{} is {} rather than enclosed or beyond reach: {}",
+                record.entry,
+                other.name(),
+                record.row()
+            ),
+        }
+        witnesses_agree_with_the_class(&record);
+        record_is_stated(entry);
     }
     // Five entries when E1.3b froze its resolvable set, six since E1.4 authored `granular/fit_band` into
-    // the same family: the count is the family's, not the freeze's, and a sixth entry that satisfies
-    // every claim the five make is the reason the check reads the family rather than a hard-coded list.
+    // the same family, ten since E1.5 authored four more. The count is the family's, not one freeze's,
+    // and the split is the new part: an entry can now be *filed* as beyond reach on purpose, so the
+    // check has to say which classes it expected rather than assume the family is all of one class.
     assert_eq!(
-        checked, 6,
-        "the granular family is E1.3b's five plus E1.4's band"
+        family.len(),
+        10,
+        "the granular family is E1.3b's five, E1.4's band and E1.5's four"
+    );
+    assert_eq!(enclosed, 9, "nine of them are enclosed by a permitted leaf");
+    assert_eq!(
+        beyond, 1,
+        "exactly one granular entry declares itself beyond reach, and it is the entry E1.5 authored to \
+         price the depth cap: granular/thin_reach"
     );
 }
 

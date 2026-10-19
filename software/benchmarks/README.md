@@ -62,6 +62,21 @@ above describes `e1-3b-trust-resolution.json` as it was at its freeze — its sc
 filled in `d89142b`, and eight arms were measured under digest `ea5b9d7140131dc9`, so the file now cited as
 unreadable is the one `results/README.md` reports.
 
+`protocols/e1-5-spatial-uncertainty-cost.json` is E1.5 — whether unsupported regional certification is a
+phenomenon of spatial scale at all, and if so whether the scale that matters is a leaf's size or the density
+of evidence inside it. It is the first `aporia.protocol/4`, and the one thing that schema adds is a frozen
+`pilot`: E1.4's stopping rule described a pilot of one entry and two budgets, its runner refuses every flag
+that shapes a measurement beside `--plan`, and so the pilot had no way to be smaller than the experiment and
+ran it whole. A `/4` file states the scope and `--pilot` reads it from the file, which can only narrow the
+plan in the four dimensions the plan already declares. Its primary metric divides by the entry's own declared
+region rather than by the domain, because the survey in `analysis/e1-5-region-column-survey.json` measured
+the whole certified over-claim of the committed corpus at 0.000171 of a domain whose regions cover 0.1609 of
+it; its two cost rules are a break-even exchange rate and a withdrawal bound rather than the absolute area
+ceiling E1.4 had; and its ten outcomes include the one E1.4's seven left unwritten — an arm that cuts the
+metric to zero, holds every other guard and pays more in blindness than it removes. It was committed naming
+four entries that did not exist yet; they are authored now, and `tests/e15_protocol.rs` checks that every
+name the freeze carries is answered by the corpus and classified the way the freeze claims it is.
+
 ## What a `truth.json` says
 
 `regions` is a union of axis-aligned boxes in the model's own parameter names. A point inside one of

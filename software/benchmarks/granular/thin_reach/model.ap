@@ -1,0 +1,7 @@
+model thin_reach "a shim whose tolerance band is narrower than any leaf this instrument is permitted to certify at" {
+  input shim in [0, 1]
+  input stack in [0, 1]
+  let clearance = (shim - 0.4975) * (0.5025 - shim)
+  let carried = clearance * (1.0 + stack)
+  require carried * 1000.0 <= 0.0
+}

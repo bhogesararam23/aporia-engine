@@ -1,0 +1,8 @@
+model mixed_cell "a valve map that is unusable in either of two independent bands, so its region is the union of a vertical and a horizontal strip" {
+  input stroke in [0, 1]
+  input pressure in [0, 1]
+  let in_stroke = (stroke - 0.42) * (0.58 - stroke)
+  let in_pressure = (pressure - 0.42) * (0.58 - pressure)
+  let worst = (in_stroke + in_pressure + abs(in_stroke - in_pressure)) / 2.0
+  require worst * 1000.0 <= 0.0
+}

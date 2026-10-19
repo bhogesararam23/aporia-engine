@@ -30,10 +30,13 @@ fn raw() -> Json {
     Json::parse(&text).expect("the freeze is JSON")
 }
 
-/// Every field name a row of this experiment can carry, read out of a row this build measured.
+/// Every field name this build can write into a results document: row columns, sweep summaries and
+/// top-level sections.
 ///
-/// From the writer rather than from a list, because a list of field names is a second definition of
-/// the schema and drifts from the first in exactly the way this test exists to catch.
+/// The row keys come from a row this build measured, because a list of them maintained by hand is a
+/// second definition of the schema and drifts from the first in exactly the way this audit exists to
+/// catch. The sweep and document keys come from a committed document, so a rule that names a
+/// per-seed figure rather than a per-row one is still checked against bytes a reader can open.
 fn recorded_fields() -> Vec<String> {
     let entries = aporia_bench::corpus::load(&corpus_root()).expect("the corpus loads");
     let entry = entries
@@ -54,10 +57,39 @@ fn recorded_fields() -> Vec<String> {
         aporia_search::Strategy::Adaptive,
         320,
     );
-    let Json::Obj(fields) = outcome.to_json() else {
-        panic!("a row is an object");
+    let mut fields = obj_keys(&outcome.to_json());
+    // A committed document, so the sweep-level and document-level names a reader can open are checked
+    // against the bytes that carry them rather than against this build's idea of them.
+    let document = {
+        let path = corpus_root()
+            .join("results")
+            .join("results-bf3964c8d2d9.json");
+        let text = std::fs::read_to_string(path).expect("the E1.4 reference document is committed");
+        Json::parse(&text).expect("it is JSON")
     };
-    fields.iter().map(|(key, _)| key.clone()).collect()
+    fields.extend(obj_keys(&document));
+    for sweep in document
+        .get("sweeps")
+        .and_then(Json::as_array)
+        .into_iter()
+        .flatten()
+    {
+        for key in obj_keys(sweep) {
+            if key != "outcomes" {
+                fields.push(key);
+            }
+        }
+    }
+    fields.sort();
+    fields.dedup();
+    fields
+}
+
+fn obj_keys(value: &Json) -> Vec<String> {
+    match value {
+        Json::Obj(fields) => fields.iter().map(|(key, _)| key.clone()).collect(),
+        _ => Vec::new(),
+    }
 }
 
 /// The names the freeze itself defines, which are quantities rather than columns: the primary metric,
@@ -73,7 +105,8 @@ const DECLARED_QUANTITIES: [&str; 8] = [
     "reduction",
 ];
 
-/// The words a protocol file backticks that are not measurements at all: schemas, flags, states.
+/// The words a protocol file backticks that are not measurements at all: schemas, flags, states and
+/// the names of the quantities the freeze defines in its own text.
 const NOT_FIELDS: [&str; 13] = [
     "aporia.protocol/3",
     "aporia.protocol/4",
@@ -87,17 +120,20 @@ const NOT_FIELDS: [&str; 13] = [
     "capped",
     "retention",
     "zero_benefit",
-    "no_benefit",
+    "what_was_already_measured",
 ];
 
 fn snake_case_in(text: &str) -> Vec<String> {
     let mut out = Vec::new();
+    // Skip, *then* step: the quoted spans are at indices 1, 3, 5 of a backtick split, and the other
+    // order walks the prose between them — which would let this audit pass while reading the halves
+    // of sentences nobody quoted. The parity is asserted by the caller for the same reason.
     for span in text
         .split('`')
         .collect::<Vec<_>>()
         .iter()
-        .step_by(2)
         .skip(1)
+        .step_by(2)
         .flat_map(|quoted| quoted.split_whitespace().collect::<Vec<_>>())
     {
         let word: String = span
@@ -122,8 +158,10 @@ fn the_freeze_reads_under_the_schema_it_declares_and_names_its_own_bytes() {
     let digest = protocol.digest.clone().expect("a loaded file has a digest");
     // The digest the four arm documents will cite. Pinned as a value because the point of the field is
     // that an edit after the run is visible: a test that only re-derived it from the same bytes could
-    // never notice the file having changed under them.
-    assert_eq!(digest, "1044fa5da8db54bf", "the freeze's bytes changed");
+    // never notice the file having changed under them. The pinned value has moved once, when the corpus
+    // this file named contradicted three of its sentences; `amended_before_running` is the record of
+    // that, every change was prose, and the assertions below hold the bars and the arm set still.
+    assert_eq!(digest, "293706f7b7706ffc", "the freeze's bytes changed");
     assert_eq!(protocol.arms.len(), 4);
     assert_eq!(protocol.plan.certify_density, 1_024.0);
     assert_eq!(protocol.plan.certify_share, 0.003_906_25);
@@ -205,6 +243,11 @@ fn every_quantity_the_decision_rule_reads_is_a_field_this_build_records() {
         text.push_str(outcome.as_str().unwrap_or_default());
         text.push(' ');
     }
+    assert_eq!(
+        text.split('`').count() % 2,
+        1,
+        "the deciding text has an odd number of backticks, so which spans are quoted at all is ambiguous and this audit would read the wrong halves of the sentences"
+    );
     let mut unexplained: Vec<String> = Vec::new();
     for name in snake_case_in(&text) {
         if recorded.contains(&name)
@@ -366,10 +409,12 @@ fn the_pilot_scope_is_a_subset_of_the_experiment_and_the_sets_cover_the_run_list
 }
 
 #[test]
-fn the_freeze_names_entries_that_do_not_exist_yet_and_refuses_to_measure_them_anyway() {
-    // The honest shape of a pre-registration: `run` lists four entries the corpus has not got, so the
-    // runner cannot be talked into a partial version of the experiment. Authoring them is the next
-    // phase, and this test is what says the freeze came first.
+fn the_freeze_names_its_own_bytes_and_the_corpus_answers_every_entry_it_named() {
+    // The freeze was committed while all four of its new entries existed only as names in this file —
+    // `tests/e15_protocol.rs` at that commit asserted exactly that. They are authored now, so the
+    // durable check is the one that outlives the ordering: the run list the freeze names is the list
+    // the loader reads, every entry it declares resolvable is enclosed by the atlas's own arithmetic,
+    // and the one it declares sub-granular is the one it says is not.
     let protocol = protocol();
     let entries = aporia_bench::corpus::load(&corpus_root()).expect("the corpus loads");
     let missing: Vec<&String> = protocol
@@ -377,16 +422,83 @@ fn the_freeze_names_entries_that_do_not_exist_yet_and_refuses_to_measure_them_an
         .iter()
         .filter(|name| !entries.iter().any(|e| e.id() == **name))
         .collect();
-    let mut sorted = missing.clone();
-    sorted.sort();
+    assert!(
+        missing.is_empty(),
+        "the freeze names {missing:?}, which the corpus lacks"
+    );
+    let policy = aporia_boundary::Policy::default();
+    for name in &protocol.resolvable {
+        let entry = entries
+            .iter()
+            .find(|e| &e.id() == name)
+            .unwrap_or_else(|| panic!("{name} is in the freeze's resolvable set"));
+        let record = aporia_bench::reach::reach(entry, &policy);
+        assert!(
+            record.class.resolvable(),
+            "{} is listed resolvable and the atlas says {}",
+            name,
+            record.class.name()
+        );
+    }
+    for name in &protocol.sub_granular {
+        let entry = entries
+            .iter()
+            .find(|e| &e.id() == name)
+            .unwrap_or_else(|| panic!("{name} is in the freeze's sub-granular set"));
+        let record = aporia_bench::reach::reach(entry, &policy);
+        assert!(
+            !record.class.resolvable(),
+            "{} is listed sub-granular and the atlas encloses it: the entry's own claim has to agree with the arithmetic either way, and it says {}",
+            name,
+            record.class.name()
+        );
+    }
+    // The control set is the one the corpus contract pins hardest: an entry named there declares no
+    // region, which is what makes its withheld and suspicious volume a cost rather than a result.
+    for name in &protocol.control {
+        let entry = entries
+            .iter()
+            .find(|e| &e.id() == name)
+            .expect("the freeze's control is in the corpus");
+        assert!(
+            entry.truth.control && entry.truth.regions.is_empty(),
+            "{name} is named a control and does not declare nothing"
+        );
+    }
+    // Every entry this experiment *authored* is box-declared, which is what the corrected exactness
+    // clause says: the union has to be a sum of widths for the four label columns to add up to the
+    // denominator the metric divides by. The carried-over entries are not all boxes, and the clause
+    // names that in the freeze rather than the corpus being edited to fit it.
+    let authored = [
+        "granular/quiet_band",
+        "granular/mixed_cell",
+        "granular/thin_reach",
+        "granular/semantic_step",
+    ];
+    let mut carved: Vec<String> = Vec::new();
+    for name in &protocol.entries {
+        let entry = entries
+            .iter()
+            .find(|e| &e.id() == name)
+            .expect("the freeze's entries are in the corpus");
+        if entry
+            .truth
+            .regions
+            .iter()
+            .any(|region| region.predicate.is_some())
+        {
+            carved.push(name.clone());
+        }
+        assert!(
+            !(authored.contains(&name.as_str()) && carved.last() == Some(name)),
+            "{name} was authored for E1.5 and carves a `where`, so its decomposition is a lattice \
+             estimate and cannot carry the metric"
+        );
+    }
     assert_eq!(
-        sorted,
-        vec![
-            "granular/mixed_cell",
-            "granular/quiet_band",
-            "granular/semantic_step",
-            "granular/thin_reach"
-        ],
-        "the E1.5 entry list was expected to name four entries that do not exist yet, and nothing else"
+        carved,
+        vec!["granular/tolerance_stack".to_string()],
+        "the freeze's exactness clause names the carved entries in `entries.run`, so the list is a \
+         claim a test can check"
     );
 }

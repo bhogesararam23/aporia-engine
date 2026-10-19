@@ -1,0 +1,44 @@
+{
+ "schema": "aporia.truth/3",
+ "method": "analytic",
+ "fault": "boundary_condition",
+ "meaning": "A spool valve opens when the spool is pushed past its seat clearance and shuts before it reaches the opposite seat; between those two points the port is neither open nor shut and the flow the actuator promises is not the flow the valve delivers. The entry declares that dead band as the fault. Its two parameters are the spool displacement and a bias current that scales the flow without moving the band, so the failing set is a vertical strip across the whole bias axis: six per cent of the drive axis wide, and 6% of the declared square.",
+ "variables": [
+  {
+   "name": "drive",
+   "unit": "1",
+   "role": "spool displacement from the mid position, normalised by the half-stroke so the axis is dimensionless and the seat positions are the declared fractions 0.47 and 0.53 of it",
+   "lo": 0,
+   "hi": 1
+  },
+  {
+   "name": "bias",
+   "unit": "1",
+   "role": "normalised pilot bias, dimensionless, multiplying the flow and therefore never moving the band",
+   "lo": 0,
+   "hi": 1
+  }
+ ],
+ "mechanism": "a dead band between two seat clearances that a coarse leaf can straddle without a single evaluation landing inside it",
+ "channels": [
+  "physical"
+ ],
+ "resolvable": true,
+ "resolvability": "Two parameters, depth cap 12, and a bisection that alternates axes because both spans start equal, so a leaf at the cap is six bisections deep on each axis and 1/64 = 0.015625 of the drive axis wide. The declared band is 0.53 - 0.47 = 0.06 wide, which is 3.84 of those leaf widths, so a permitted leaf lies wholly inside the band with 0.06 - 0.015625 = 0.0444 of the axis to spare between the two flanks: best declared share 1.0 against a localisation bar of 0.5. This is the arithmetic `fit_band` barely clears - its band is 0.0075 wide on either side of the line against leaves 0.00625 wide, a margin of a fifth of a leaf side - and the difference is deliberate: the margin here is in units of the band, not of the leaf, so a straddling leaf cannot be excused by the geometry being knife-edge. What the entry does *not* have is width in the second axis: the band spans the whole bias range, so every leaf that overlaps it in drive overlaps the region, whatever its extent in bias.",
+ "source": "The clearance is a declared quadratic in the displacement and its roots are the two seat positions, so the failing set is solved in one step: (drive - 0.47)(0.53 - drive) > 0 exactly for 0.47 < drive < 0.53, and the bias factor (1 + bias) is strictly positive on the declared span, so it scales the residual without moving a root. The engineering object is the overlap or lapped condition of a pilot-operated spool, where the manufacturer's tolerance stack leaves a displacement interval in which the port is partly open and the delivered flow is not the commanded one; the interval is bounded by the two seat positions on the drawing and not by anything this repository computes.",
+ "derivation": "`require flow * 1000.0 <= 0.0` with `flow = (drive - 0.47) * (0.53 - drive) * (1 + bias)` fails where the product is positive. Since `1 + bias` is in [1, 2] and never zero, the sign is the quadratic's: positive strictly between the roots 0.47 and 0.53. The declared region is that strip and nothing else; over the 41-point verification grid the frozen plan uses, whose columns are 1/40 = 0.025 apart, three of them - 0.475, 0.5, 0.525 - fall strictly between the roots, so the audit scores the failing set at 3/41 = 0.0732 of the domain against the analytic 0.06. The gap is the lattice counting columns rather than widths: the outermost of the three sits 0.005 inside its edge and the next columns out, 0.45 and 0.55, are 0.02 outside the band. Neither 0.47 nor 0.53 is a lattice point at this resolution (18.8 and 21.2 steps), so no grid point sits on a root and the two directions of the verification check cannot disagree about a boundary the grid never visits. The audit scores are therefore a lattice reading of this declaration, and the metric's region volumes are an exact box union; this file quotes the analytic 0.06 as the declared volume and names the lattice score as what the audit prints.",
+ "why": "This is the entry the frozen question needs and no committed entry supplies: a box-declared region, resolvable with margin, whose interior the instrument flags when it reaches it and does not flag when it does not. Every certified-over-region volume on it is therefore region space that no evaluation entered, which is the mechanism E1.4 stated as H-DEPTH and could not separate from a scale effect because its corpus had no entry that both over-claimed and was resolvable. Under a rule that withholds certification from leaves coarser than the bar, the straddling leaves stop being claims; under a rule that only demands resolution, they stop being leaves. If neither arm lowers this entry's certified-over-region share, the fault was never the scale at which certification is granted, and outcome 4 reports that. The design claim this entry makes about the instrument, stated here rather than in the protocol because a claim an entry makes about itself belongs in the entry, is that the default instrument's `certified_over_region_share` on it is at least 0.05: the band is wide enough of a leaf that a coarse leaf can be signed off across it, and the region is not loud enough for a sampled leaf to be stopped by. It is a prediction and not a derivation - the geometry says a straddle is possible, not how often one happens at a given budget - and E1.5's freeze is the record of it being checked before its arms ran.",
+ "regions": [
+  {
+   "reason": "the spool displacement lies between the two seat clearances, where the port is neither open nor shut",
+   "axes": {
+    "drive": [0.47, 0.53]
+   }
+  }
+ ],
+ "boundaries": [],
+ "matched_to": "granular/fit_band",
+ "expect": "a vertical strip 6% of the drive axis wide spanning the whole bias axis, with both flanks passing",
+ "narrow": true,
+ "curved": false
+}

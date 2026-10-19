@@ -1,0 +1,38 @@
+{
+ "schema": "aporia.truth/3",
+ "method": "analytic",
+ "fault": "boundary_condition",
+ "meaning": "A first-order stage is specified to settle no slower than a given fraction of its step, and the stage in this model settles more slowly whenever the duty it is run at pushes its response below the declared floor. The failing set is the wide upper interval of a single control axis - 42% of the axis - and there is nowhere on it for an evaluation to hide. The entry is in the experiment for what it cannot do for a policy: an arm that reduces certified-over-region volume here has taken it away from space the instrument was reaching, and the cost rules are what says so.",
+ "variables": [
+  {
+   "name": "duty",
+   "unit": "1",
+   "role": "normalised duty cycle of the drive, dimensionless, which is the quantity the settle spec is written against",
+   "lo": 0,
+   "hi": 1
+  }
+ ],
+ "mechanism": "a declared response floor the model misses across a wide interval of the one axis it depends on, so the failing space is sampled rather than skirted",
+ "channels": [
+  "physical",
+  "behavioral"
+ ],
+ "resolvable": true,
+ "resolvability": "One parameter and a depth cap of 12, so the finest permitted interval is 2^-12 = 0.000244 of the axis and the failing interval is 0.42 wide - seventeen hundred of them. A leaf lies wholly inside the declared region with the entire upper part of the axis to choose from: best envelope share 1.0 and best declared share 1.0 against a localisation bar of 0.5. The contrast with `granular/thin_reach` is the point of putting the number here: the same cap that encloses this region twenty times over cannot enclose a band 0.005 wide, and the two entries together are what separates a policy refusing a claim it should not have made from a policy refusing claims it could never have supported.",
+ "source": "The response is the declared linear function of the duty and the floor is a declared constant, so the failing set is solved in one step: 1 - 0.5·duty < 0.71 exactly for duty > 0.58, which is the interval 0.58 to 1.0 on the declared axis open at 0.58, because the equality there satisfies the requirement rather than failing it. The quantity being specified is the settled output of a first-order element against its commanded floor, which is how a drive datasheet gives a linearity or settle band; the coefficients are chosen for the ratio to the verification lattice, not read from a part.",
+ "derivation": "`require response >= 0.71` with `response = 1.0 - 0.5 * duty` fails where duty > 0.58. The declared region is [0.58, 1.0], a share of 0.42 of the axis. The 41-point verification grid the frozen plan uses runs k/40, so its column nearest the boundary is 0.6 and 0.58 is not a grid point (23.2 steps): every grid point inside the declaration - 0.6 through 1.0, seventeen columns - violates, and no grid point outside it does, so the audit scores 17/41 = 0.4146 against the analytic 0.42. Both directions of the declaration check are exact here rather than inside a tolerance, which is the direction this entry has to pass on its own numbers. 0.42 is within a factor of two of `granular/tolerance_stack`'s 0.5, the rung it is matched to, so the pair is comparable in how much of the space is wrong even though the shapes differ: tolerance_stack is a half-space in two parameters, this is an interval in one.",
+ "why": "Every other entry in this run list is there to give the experiment something to measure. This one is there to make a wrong answer impossible: it is a wide, resolvable, reliably sampled region, so the default instrument's certified-over-region share on it should be near zero and the only way an arm can lower it further is by certifying less of everything. A resolution rule that looks good on this entry is a rule that stopped measuring, and outcome 3's silence floor and the two cost rules are written to be read against it.",
+ "regions": [
+  {
+   "reason": "the duty is high enough that the stage's response falls below the declared settle floor",
+   "axes": {
+    "duty": [0.58, 1.0]
+   }
+  }
+ ],
+ "boundaries": [],
+ "matched_to": "granular/tolerance_stack",
+ "expect": "the upper 42% of a one-parameter axis, sampled densely enough that the instrument flags it rather than certifying it",
+ "narrow": false,
+ "curved": false
+}

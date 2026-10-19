@@ -943,10 +943,12 @@ fn a_stray_artefact_beside_an_entry_is_refused_rather_than_ignored() {
 #[test]
 fn the_committed_granular_entries_are_the_record_they_claim() {
     // Every entry the `granular` family holds, through the same rules the fixtures exercise, and with
-    // their own text: each claims resolvability and the instrument agrees. The family was E1.3b's five
-    // and became six when E1.4 authored `granular/fit_band` into it, so this counts the directory rather
-    // than one freeze's list — a seventh entry that failed to claim what the others claim has to show up
-    // here, not be filtered out by a number written before it existed.
+    // their own text. The family was E1.3b's five, became six when E1.4 authored `granular/fit_band`
+    // into it, and became ten when E1.5 authored its four: the two that give the resolution question
+    // something to act on, the one whose region is narrower than any leaf the certification bar allows,
+    // and the one that is wide, sampled and therefore only able to show what a policy costs. This counts
+    // the directory rather than one freeze's list — an entry that failed to claim what the others claim
+    // has to show up here, not be filtered out by a number written before it existed.
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../benchmarks");
     let entries = corpus::load(&root).expect("the committed corpus loads");
     let granular: Vec<corpus::Entry> = entries
@@ -956,11 +958,19 @@ fn the_committed_granular_entries_are_the_record_they_claim() {
         .collect();
     assert_eq!(
         granular.len(),
-        6,
-        "the granular family is E1.3b's five entries plus E1.4's band"
+        10,
+        "the granular family is E1.3b's five, E1.4's band and E1.5's four"
     );
     for e in &granular {
-        assert_eq!(e.truth.resolvable, Some(true), "{}", e.id());
+        // Exactly one entry in this family claims unresolvability, and it is the entry whose whole
+        // purpose is that claim: a family where the flag could drift either way would let a future
+        // entry be filed as unreachable because nobody re-read the list.
+        let expected = if e.id() == "granular/thin_reach" {
+            Some(false)
+        } else {
+            Some(true)
+        };
+        assert_eq!(e.truth.resolvable, expected, "{}", e.id());
         assert!(
             !e.truth.mechanism.is_empty()
                 && !e.truth.resolvability.is_empty()
@@ -986,6 +996,28 @@ fn the_committed_granular_entries_are_the_record_they_claim() {
             "{}: none of these boundaries is a curve, and claiming one would misdescribe the region",
             e.id()
         );
+    }
+    // E1.5's deciding entries are box-declared, because the region decomposition is only exact where
+    // the union is a sum of widths and a lattice estimate is not a denominator.
+    for e in &granular {
+        let e15 = [
+            "granular/quiet_band",
+            "granular/mixed_cell",
+            "granular/thin_reach",
+            "granular/semantic_step",
+        ]
+        .contains(&e.id().as_str());
+        if !e15 {
+            continue;
+        }
+        for (at, region) in e.truth.regions.iter().enumerate() {
+            assert!(
+                region.predicate.is_none(),
+                "{} region {at} carves a `where`, so its union share is a lattice estimate and cannot \
+                 carry the frozen metric",
+                e.id()
+            );
+        }
     }
     let mut mechanisms: Vec<&str> = granular
         .iter()

@@ -1,0 +1,44 @@
+{
+ "schema": "aporia.truth/3",
+ "method": "analytic",
+ "fault": "boundary_condition",
+ "meaning": "A shim is pressed into a stack when its thickness sits inside the tolerance band the drawing gives it, and outside that band the stack is either loose or the shim is a press fit. The band here is five thousandths of the shim's normalised travel - one twelfth of the width of the band `granular/quiet_band` declares, and narrower than any leaf this instrument is permitted to certify at. The entry exists so that a resolution rule is measured on a region it cannot reach: what it adds there is uncertainty the frozen cap forces, not a claim it recovered.",
+ "variables": [
+  {
+   "name": "shim",
+   "unit": "1",
+   "role": "shim thickness normalised by the nominal, so the tolerance band is the declared interval 0.4975 to 0.5025 of it",
+   "lo": 0,
+   "hi": 1
+  },
+  {
+   "name": "stack",
+   "unit": "1",
+   "role": "normalised stack preload, dimensionless, scaling the residual without moving the band",
+   "lo": 0,
+   "hi": 1
+  }
+ ],
+ "mechanism": "a tolerance band narrower than the finest leaf the certification bar allows, so no permitted partition can hold it and only the depth cap decides what is knowable about it",
+ "channels": [
+  "physical"
+ ],
+ "resolvable": false,
+ "resolvability": "Two parameters, depth cap 12, alternating bisection, so a leaf at the cap is six bisections deep per axis and 1/64 = 0.015625 of the shim axis wide. The band is 0.5025 - 0.4975 = 0.005 wide, which is 0.32 of that leaf width: no permitted leaf lies half inside it, the best envelope share is 0.32 against a localisation bar of 0.5, and the instrument classes the region as beyond reach. The same numbers put it twenty times *above* the finest interval the cap permits on one axis (2^-12 = 0.000244), which is what makes this a cap statement rather than the `geometry/narrow_oblique` statement - a leaf thin enough to sit inside the band in `shim` exists at depth 11 on that axis, but only by spending every bisection there, and then its extent in `stack` is the whole axis, so no leaf is half inside the declared set at any depth the cap permits. This is the entry where added uncertainty is a fact about the cap rather than about the label.",
+ "source": "The clearance is a declared quadratic in the normalised thickness with roots at the two tolerance limits, so the failing set is solved in one step: (shim - 0.4975)(0.5025 - shim) > 0 exactly for 0.4975 < shim < 0.5025, and the preload factor (1 + stack) is strictly positive on the declared span so it scales the residual without moving a root. The engineering object is an ISO limit-fit tolerance zone on a shim drawing, where the band is given by the fit class and the stack-up is what decides whether the assembly is loose or pressed; the numbers here are a normalised pair chosen for the ratio between the band and the partition, not a copy of a published table.",
+ "derivation": "`require carried * 1000.0 <= 0.0` with `carried = (shim - 0.4975) * (0.5025 - shim) * (1 + stack)` fails where the quadratic is positive, which is the open interval 0.4975 to 0.5025 on `shim` at every `stack`. On the 41-point verification grid the frozen plan uses, whose columns are 1/40 = 0.025 apart, exactly one column - 0.5 - lands strictly inside a band 0.005 wide centred there, so the audit scores the failing set at 1/41 = 0.0244 against the analytic 0.005 and the declaration check has one point to work on. The reachability check, which walks the candidate leaves rather than the columns, is what says whether the region can be enclosed at all, and it is the check this entry is authored for. That asymmetry is stated rather than smoothed because it is the entry's whole point: this is a region the instrument's own resolutions are too coarse to see, and an experiment that treated its uncertainty as recovered knowledge would be reading the label rather than the geometry.",
+ "why": "E1.4's exclusion rule already named the failure this entry is here to price: a resolvable claim that the instrument contradicts is reported, and the run stands without it. `thin_reach` is the opposite case, stated up front as unresolvable, so that a resolution rule cannot be credited for space it was never allowed to certify and cannot be blamed for uncertainty the frozen depth cap forces. It is in `entries.sub_granular` for the same reason `geometry/narrow_oblique` was in E1.4's list, and it is the entry that decides whether the experiment's cost terms are charging a policy for a state of the partition or for a state of the corpus.",
+ "regions": [
+  {
+   "reason": "the shim thickness lies inside its tolerance band, where the stack is neither loose nor pressed",
+   "axes": {
+    "shim": [0.4975, 0.5025]
+   }
+  }
+ ],
+ "boundaries": [],
+ "matched_to": "synthetic/one_pct_2d",
+ "expect": "a vertical strip one twelfth as wide as quiet_band's, spanning the whole stack axis, that no permitted leaf can be half inside",
+ "narrow": true,
+ "curved": false
+}

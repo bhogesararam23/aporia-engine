@@ -119,14 +119,18 @@
     },
     {
       "name": "granular",
-      "purpose": "E1.3b's resolvable half: regions declared wide enough that a leaf the atlas is permitted to build can be at least half inside them, so a TRUSTED label over one is a decision the trust rule made rather than a limit of the partition. Each entry states its own resolvability calculation and the instrument checks it. `fit_band` was added for E1.4: it is the first entry in this corpus authored for the *scale* at which certification is granted rather than for the evidence a leaf holds, and it is registered here rather than in a protocol prose so that the run list the freeze names is the list the loader reads.",
+      "purpose": "E1.3b's resolvable half: regions declared wide enough that a leaf the atlas is permitted to build can be at least half inside them, so a TRUSTED label over one is a decision the trust rule made rather than a limit of the partition. Each entry states its own resolvability calculation and the instrument checks it. `fit_band` was added for E1.4: it is the first entry in this corpus authored for the *scale* at which certification is granted rather than for the evidence a leaf holds, and it is registered here rather than in a protocol prose so that the run list the freeze names is the list the loader reads. Four more were added for E1.5: `quiet_band` is the resolvable region whose certified volume can only be region space no evaluation entered, `mixed_cell` declares its region as the union of two strips at right angles, which is the shape where a per-region maximum and a union come apart, `semantic_step` is the wide reliably-sampled region that prices a policy's cost rather than its gain, and `thin_reach` is the first entry in this family that disclaims resolvability - a band narrower than `certify_share`, so its uncertainty is a fact about the depth cap and no arm may be credited or blamed for it.",
       "entries": [
         "rail_ceiling",
         "diagonal_count",
         "match_return",
         "stroke_reference",
         "tolerance_stack",
-        "fit_band"
+        "fit_band",
+        "quiet_band",
+        "mixed_cell",
+        "thin_reach",
+        "semantic_step"
       ]
     }
   ],

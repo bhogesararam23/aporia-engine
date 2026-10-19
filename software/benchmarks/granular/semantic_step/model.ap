@@ -1,0 +1,5 @@
+model semantic_step "a first-order lag whose commanded settle time exceeds the spec over a third of its own step range" {
+  input duty in [0, 1]
+  let response = 1.0 - 0.5 * duty
+  require response >= 0.71
+}
