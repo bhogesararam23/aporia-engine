@@ -754,10 +754,11 @@ impl Truth {
         let volume = cell
             .iter()
             .fold(1.0f64, |acc, [lo, hi]| acc * (hi - lo).max(0.0));
-        if !(volume > 0.0) {
+        if volume <= 0.0 || !volume.is_finite() {
             // A leaf with no extent overlaps nothing, which is the convention `Declared::clipped`
-            // already keeps by dividing a zero intersection by a floored width. `!(volume > 0.0)` rather
-            // than `volume <= 0.0` so a non-finite extent refuses here too instead of being measured.
+            // already keeps by dividing a zero intersection by a floored width. A non-finite extent is
+            // refused alongside it rather than measured, because a share of an infinite cell is not a
+            // number any decomposition could add up.
             return Some(0.0);
         }
         if self.has_predicates() {

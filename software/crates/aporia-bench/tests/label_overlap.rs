@@ -106,13 +106,14 @@ fn bounds_hold(outcome: &Outcome, exact: bool) -> Vec<String> {
             "the four label overlaps sum to {sum}, more than the domain"
         ));
     }
-    if let Some(union) = outcome.trusted_over_true_union {
-        if exact && union + 1e-12 < outcome.trusted_over_true {
-            notes.push(format!(
-                "the union ({union}) came out under the best single region ({})",
-                outcome.trusted_over_true
-            ));
-        }
+    if exact
+        && let Some(union) = outcome.trusted_over_true_union
+        && union + 1e-12 < outcome.trusted_over_true
+    {
+        notes.push(format!(
+            "the union ({union}) came out under the best single region ({})",
+            outcome.trusted_over_true
+        ));
     }
     notes
 }
