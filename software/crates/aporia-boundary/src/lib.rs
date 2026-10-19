@@ -10,8 +10,10 @@
 //! reports cell counts so that cost is visible instead of hidden.
 //!
 //! Nothing here calls `TRUSTED` a proof. A trusted cell is one that was sampled enough, was measured
-//! by enough channels, and saw nothing.
+//! by enough channels, and saw nothing. Since E1.4 it is also one that was looked at closely enough:
+//! a quiet cell coarser than [`Resolution`]'s certification scale is `PROVISIONAL`, which is neither a
+//! claim about the space nor an admission of not having measured it.
 
 mod atlas;
 
-pub use atlas::{Atlas, Band, Cell, Coverage, FACE_EPS, Label, Point, Policy, Trust};
+pub use atlas::{Atlas, Band, Cell, Coverage, FACE_EPS, Label, Point, Policy, Resolution, Trust};

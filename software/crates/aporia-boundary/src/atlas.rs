@@ -158,6 +158,26 @@ pub enum Label {
     Unknown,
     /// Sampled, nothing unusual seen. Never "proven correct".
     Trusted,
+    /// Sampled and quiet, and coarser than the resolution this instrument certifies at.
+    ///
+    /// The state exists because [`Label::Trusted`] was being handed out at whatever scale the search
+    /// happened to reach: [`Atlas::refine`] cuts a leaf that is suspicious, that carries risk, or that
+    /// has a disagreeing neighbour, and never merely because it is coarse — so a leaf that no
+    /// evaluation had troubled was certified as though it had been examined. `PROVISIONAL` says
+    /// something narrower than `TRUSTED` and something more than `UNKNOWN`: nothing was found at this
+    /// scale, and this scale is not the one a claim is made at.
+    ///
+    /// It is not a softer `UNKNOWN`, and the difference is a measurement rather than a definition.
+    /// `UNKNOWN` is reached by a leaf with too few samples, no applied channel, or a reading that is
+    /// not a number; those do not become certifiable by bisecting the cell. A `PROVISIONAL` leaf holds
+    /// the samples and the channels already, so refinement can turn it into either of the definite
+    /// labels without buying evidence — which is why E1.4 pairs this state with an arm that demands the
+    /// refinement and measures whether the two states separate.
+    ///
+    /// Reached only under a [`Resolution`] that withholds certification. Under
+    /// [`Resolution::Current`], which every committed measurement in this repository used, no leaf is
+    /// ever labelled `PROVISIONAL`.
+    Provisional,
     /// Evidence points at a problem somewhere in here.
     Suspicious,
 }
@@ -168,6 +188,7 @@ impl Label {
         match self {
             Self::Unknown => '?',
             Self::Trusted => 'T',
+            Self::Provisional => 'P',
             Self::Suspicious => 'S',
         }
     }
@@ -177,7 +198,25 @@ impl Label {
         match self {
             Self::Unknown => "UNKNOWN",
             Self::Trusted => "TRUSTED",
+            Self::Provisional => "PROVISIONAL",
             Self::Suspicious => "SUSPICIOUS",
+        }
+    }
+
+    /// Which cells count as disagreeing for the purposes of refinement and boundary bands.
+    ///
+    /// `PROVISIONAL` shares a class with `TRUSTED` deliberately, and it is the reason this method
+    /// exists instead of a bare `!=` on the label: an arm that withholds certification must not also
+    /// move the partition, or the difference between it and the control would be a difference in where
+    /// the search went rather than in what the atlas claims. With this class, a partition built under
+    /// [`Resolution::Current`] and one built under [`Resolution::Withhold`] are the same partition,
+    /// cell for cell, and the only thing that differs is the word on it.
+    #[must_use]
+    pub fn adjacency(self) -> u8 {
+        match self {
+            Self::Unknown => 0,
+            Self::Suspicious => 1,
+            Self::Trusted | Self::Provisional => 2,
         }
     }
 }
@@ -300,6 +339,108 @@ impl Trust {
     }
 }
 
+/// What the instrument requires of a cell's *scale* before it certifies it, and what it does when the
+/// scale is not there.
+///
+/// The other axis on [`Policy`] moves what a trusted leaf must have *in* it — evaluations, applied
+/// channels, real numbers — and [`Trust`] records the measured result of tightening those: on a corpus
+/// chosen to be resolvable, no truth-blind requirement reduced certified-over-true volume, and the one
+/// arm that reached zero did it by trusting nothing at all. This axis is about the geometry of the leaf
+/// rather than its evidence, and it asks whether a leaf that is quiet because nothing was ever looked
+/// for inside it is a different claim from a leaf that is quiet because looking did not find anything.
+///
+/// Two things can be demanded, independently, which is why this is a four-variant grid rather than a
+/// list of rules:
+///
+/// * *demanding resolution* changes the partition — [`Atlas::refine`] bisects a quiet cell that is
+///   coarser than [`Policy::certify_share`] even though nothing about its evidence says to;
+/// * *withholding certification* changes only what the partition claims — a quiet coarse cell becomes
+///   [`Label::Provisional`] and is counted as neither certified nor unmeasurable.
+///
+/// `Withhold` alone leaves the cells where they are, by [`Label::adjacency`], so it can be compared
+/// with `Current` as a difference in claims and nothing else. `Demand` alone leaves the labels where
+/// they are, so a fall in certified volume there is a fall caused by the partition actually going
+/// finer — and, since a split shares the parent's samples out, by some children then failing
+/// [`Policy::min_samples`] and becoming `UNKNOWN`. Whether that trade is worth anything is what E1.4
+/// measures; nothing in this type pretends it is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Resolution {
+    /// The semantics every committed measurement in this repository was made under: a leaf that is
+    /// sampled, measured and unflagged is trusted whatever its size. A new variant must leave the
+    /// labels and the partition this one produces exactly where they are.
+    Current,
+    /// Bisect a quiet leaf while it is coarser than [`Policy::certify_share`], subject to the same
+    /// sample floor and depth cap the committed rule already obeys.
+    Demand,
+    /// Do not certify a quiet leaf that is coarser than [`Policy::certify_share`]: label it
+    /// [`Label::Provisional`] instead.
+    Withhold,
+    /// Both, because the combination is the one a reader will actually want — look closer, and hold
+    /// back the claim on whatever still cannot be resolved — and because it is the only arm that can
+    /// show whether the two axes are independent or interfere.
+    DemandAndWithhold,
+}
+
+impl Resolution {
+    /// Every variant, in the order a report lists them, [`Resolution::Current`] first because it is the
+    /// one every other is measured against.
+    pub const ALL: [Resolution; 4] = [
+        Resolution::Current,
+        Resolution::Demand,
+        Resolution::Withhold,
+        Resolution::DemandAndWithhold,
+    ];
+
+    /// The names a plan, a protocol file and an archive use for a variant. One name each, in both
+    /// directions, for the reason that killed the `halton` alias in `aporia_search::Strategy`.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Current => "current",
+            Self::Demand => "demand",
+            Self::Withhold => "withhold",
+            Self::DemandAndWithhold => "demand-and-withhold",
+        }
+    }
+
+    /// Exactly the names [`Resolution::name`] produces, so a refusal can never list a vocabulary the
+    /// parser has stopped accepting.
+    #[must_use]
+    pub fn names() -> [&'static str; 4] {
+        [
+            Self::Current.name(),
+            Self::Demand.name(),
+            Self::Withhold.name(),
+            Self::DemandAndWithhold.name(),
+        ]
+    }
+
+    /// Parse a variant name. An unknown name is `None` and every caller refuses it: a resolution rule
+    /// that fell back to a default would re-measure a published experiment without saying so.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        Some(match text {
+            "current" => Self::Current,
+            "demand" => Self::Demand,
+            "withhold" => Self::Withhold,
+            "demand-and-withhold" => Self::DemandAndWithhold,
+            _ => return None,
+        })
+    }
+
+    /// Whether this variant bisects quiet cells that are too coarse to certify.
+    #[must_use]
+    pub fn demands(self) -> bool {
+        matches!(self, Self::Demand | Self::DemandAndWithhold)
+    }
+
+    /// Whether this withholds certification from a quiet cell that is too coarse to certify.
+    #[must_use]
+    pub fn withholds(self) -> bool {
+        matches!(self, Self::Withhold | Self::DemandAndWithhold)
+    }
+}
+
 /// The thresholds that decide a label, and nothing else. Held apart from the partition so an
 /// experiment can record exactly what it meant by "suspicious".
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -347,6 +488,18 @@ pub struct Policy {
     /// measurement identity whenever it is not `Current`, and into the archive directory name. See
     /// [`Trust`].
     pub trust: Trust,
+    /// The scale below which this instrument will not certify a leaf, as a fraction of the root cell's
+    /// volume. Read only when [`Policy::resolution`] is not [`Resolution::Current`], and inert at that
+    /// point rather than decorative: it is the single number the two resolution rules act on, so an arm
+    /// that demands more resolution and an arm that withholds certification can be compared at all.
+    ///
+    /// Expressed as a fraction rather than a depth because a depth would be a statement about this
+    /// partition rule's bisection and a fraction is a statement about the space. The value the
+    /// experiments freeze is 2^-8: four bisections above the finest leaf the default depth cap permits.
+    pub certify_share: f64,
+    /// Which requirement, if any, this policy places on a leaf's *scale* before it certifies it, and
+    /// what it does when the scale is not there. See [`Resolution`].
+    pub resolution: Resolution,
 }
 
 impl Default for Policy {
@@ -360,6 +513,11 @@ impl Default for Policy {
             refine_below: 0.12,
             suspicious_channels: 2,
             trust: Trust::Current,
+            // 2^-8, four bisections above the finest leaf `max_depth` above permits. Inert under the
+            // `resolution` default, and stated rather than left at zero so that a policy built by
+            // hand and switched on measures something a reader can name.
+            certify_share: 0.003_906_25,
+            resolution: Resolution::Current,
         }
     }
 }
@@ -382,6 +540,31 @@ impl Policy {
     #[must_use]
     pub fn blocks_non_finite(&self) -> bool {
         self.trust.blocks_non_finite()
+    }
+
+    /// Whether a leaf is coarser than the scale this policy certifies at.
+    ///
+    /// A split bisects one axis of one cell, so a leaf at depth `d` holds exactly 2^-`d` of its root's
+    /// volume whichever axis was chosen — which is what lets this predicate read the depth the cell
+    /// already carries instead of reconstructing a volume from the root, and what makes it agree with
+    /// [`Cell::relative_size`]. A test pins that agreement, because the metric reports volume and this
+    /// hands out labels, and the two have to mean the same cell by "too coarse".
+    ///
+    /// Deliberately independent of [`Policy::resolution`]: whether a cell was certified at a scale the
+    /// experiment calls too coarse has to be answerable of an arm that never asked the question, or the
+    /// control cannot be scored on the yardstick the variants are scored on.
+    #[must_use]
+    pub fn coarse(&self, cell: &Cell) -> bool {
+        0.5f64.powi(i32::from(cell.depth)) > self.certify_share
+    }
+
+    /// Whether a leaf's label is a claim of quietness rather than of trouble or of no evidence: the
+    /// class that certification is granted in, and the class a resolution rule is allowed to act on.
+    /// [`Label::Provisional`] is in it because it is quiet, and out of it as a *claim* because
+    /// withholding is what puts it there.
+    #[must_use]
+    pub fn quiet(&self, cell: &Cell) -> bool {
+        cell.label.adjacency() == Label::Trusted.adjacency()
     }
 
     /// Classify one cell from its accumulated statistics.
@@ -429,6 +612,19 @@ impl Policy {
         }
         if cell.measured.count_ones() < self.min_channels_required() {
             return Label::Unknown;
+        }
+        if self.resolution.withholds() && self.coarse(cell) {
+            // Everything above says this leaf is sampled, measured and quiet, and this line asks the one
+            // question [`Trust`] never asks: at what scale. Reaching it is a fact about the cell's
+            // geometry, so unlike the two committed rules this one fires wherever the partition is
+            // coarser than the bar — which is why it is priced on a clean entry as well as on a
+            // violated one, and why a reader gets to see the price.
+            //
+            // It says nothing about whether a violation is inside. The instrument is still truth-blind
+            // here, and the claim withheld is certification, not knowledge: `PROVISIONAL` is the atlas
+            // reporting that it did not look closely enough to promise anything, which is a smaller
+            // claim than `TRUSTED` and a larger one than `UNKNOWN`.
+            return Label::Provisional;
         }
         Label::Trusted
     }
@@ -630,7 +826,22 @@ impl Atlas {
 
     /// Split every leaf that looks like it straddles a transition: it has seen enough to have an
     /// opinion, it is not already at the depth limit, and either it is suspicious, or its mean risk
-    /// says something is inside it, or it sits next to a cell with a different label.
+    /// says something is inside it, or it sits next to a cell with a different label — or, under a
+    /// [`Resolution`] that demands it, it is quiet and coarser than [`Policy::certify_share`].
+    ///
+    /// That fourth reason is the whole of [`Resolution::Demand`], and it is the only way this partition
+    /// ever looks at a quiet cell at all: nothing above fires on a leaf that has been sampled, is
+    /// unflagged and has a neighbour with the same claim, so under the committed rule a coarse quiet
+    /// leaf is certified at its own scale forever and no label can tell a reader that the scale was
+    /// never tested. The reason is restricted to [`Policy::quiet`] cells rather than opened to any
+    /// coarse leaf for the reason the paragraph below records: a leaf that is already `UNKNOWN` from
+    /// too few samples gets *less* evidence from a split, never more.
+    ///
+    /// What it costs is measured, not assumed. A split shares the parent's samples out, so demanding
+    /// resolution deep enough buys cells that fail [`Policy::min_samples`] and land in `UNKNOWN` — a
+    /// fall in certified volume that is a withdrawal of claim rather than a discovery, which is why
+    /// E1.4 reports UNKNOWN area and localisation beside the certified volume, and why its decision
+    /// rule refuses an arm that stops certifying as anything other than safe.
     ///
     /// The sample requirement applies to *every* reason for splitting, including suspicion. It used
     /// to apply only to the mean-risk branch, and measured what that cost: at a 640 budget the atlas
@@ -655,6 +866,9 @@ impl Atlas {
                 let worth_splitting = cell.samples >= self.policy.min_samples
                     && (cell.label == Label::Suspicious
                         || cell.mean_risk() > self.policy.refine_below
+                        || (self.policy.resolution.demands()
+                            && self.policy.quiet(cell)
+                            && self.policy.coarse(cell))
                         || self.has_disagreeing_neighbour(id));
                 cell.depth < self.policy.max_depth && worth_splitting
             };
@@ -806,7 +1020,14 @@ impl Atlas {
             .filter(|other| **other != id)
             .any(|other| {
                 let o = &self.cells[*other as usize];
-                o.samples > 0 && o.label != Label::Unknown && o.label != me.label && me.touches(o)
+                // Compared by [`Label::adjacency`] and not by equality, so that adding
+                // `PROVISIONAL` cannot move a partition: an arm that withholds certification has to be
+                // the same atlas as the arm that does not, or the difference between their numbers
+                // would be a difference in where the search went and not in what the leaf claims.
+                o.samples > 0
+                    && o.label != Label::Unknown
+                    && o.label.adjacency() != me.label.adjacency()
+                    && me.touches(o)
             })
     }
 
@@ -829,7 +1050,9 @@ impl Atlas {
                 if ca.label == Label::Unknown || cb.label == Label::Unknown {
                     continue;
                 }
-                if ca.label == cb.label {
+                if ca.label.adjacency() == cb.label.adjacency() {
+                    // Same class, so no transition is claimed between them: `TRUSTED` beside
+                    // `PROVISIONAL` is one quiet neighbourhood reported at two scales, not a boundary.
                     continue;
                 }
                 for axis in 0..ca.bounds.len() {
@@ -865,7 +1088,7 @@ impl Atlas {
     #[must_use]
     pub fn coverage(&self) -> Coverage {
         let root = self.cells[0].clone();
-        let (mut trusted, mut suspicious, mut unknown) = (0.0, 0.0, 0.0);
+        let (mut trusted, mut suspicious, mut unknown, mut provisional) = (0.0, 0.0, 0.0, 0.0);
         let mut samples = 0;
         for id in &self.leaves {
             let c = &self.cells[*id as usize];
@@ -874,6 +1097,7 @@ impl Atlas {
             match c.label {
                 Label::Trusted => trusted += size,
                 Label::Suspicious => suspicious += size,
+                Label::Provisional => provisional += size,
                 Label::Unknown => unknown += size,
             }
         }
@@ -881,6 +1105,7 @@ impl Atlas {
             trusted,
             suspicious,
             unknown,
+            provisional,
             cells: self.leaves.len(),
             samples,
             unplaced: self.unplaced,
@@ -1011,6 +1236,13 @@ pub struct Coverage {
     pub trusted: f64,
     pub suspicious: f64,
     pub unknown: f64,
+    /// Volume the atlas calls quiet and refuses to certify because it is coarser than
+    /// [`Policy::certify_share`]. Kept out of both `trusted` and `unknown` on purpose: adding it to
+    /// `unknown` would let a policy turn a claim into an uncertainty statistic by renaming it, and
+    /// adding it to `trusted` would be the fault this state exists to stop. Under
+    /// [`Resolution::Current`] it is always zero, which is what makes the committed measurements'
+    /// coverage line up with the numbers published from them.
+    pub provisional: f64,
     pub cells: usize,
     pub samples: u32,
     /// Measurements the partition could not place. See [`Atlas::leaf_of`].
@@ -2078,5 +2310,300 @@ mod tests {
             Label::Trusted,
             "a point with no evidence in it does not change the answer"
         );
+    }
+
+    // ---- the resolution axis: what a leaf's *scale* has to do with before it is certified ----
+
+    /// Quiet evaluations spread over a model's space, so a partition can be built without any evidence
+    /// of a fault in it. `hot` indexes carry a risk high enough to make their cell suspicious, which is
+    /// how a test gets a partition that has actually split without resorting to the demand rule.
+    fn spread(model: &Model, count: usize, hot: bool) -> Vec<Point> {
+        let spans: Vec<[f64; 2]> = model
+            .params
+            .iter()
+            .map(|p| match &p.domain {
+                Domain::Interval { lo, hi } => [*lo, *hi],
+                Domain::Choices(v) => {
+                    let first = v.first().copied().unwrap_or(0.0);
+                    [
+                        v.iter().fold(first, |acc, x| acc.min(*x)),
+                        v.iter().fold(first, |acc, x| acc.max(*x)),
+                    ]
+                }
+            })
+            .collect();
+        (0..count)
+            .map(|i| {
+                // A van der Corput-ish walk: every axis gets a different irrational step, so the points
+                // land in different cells rather than all on one line.
+                let x: Vec<f64> = spans
+                    .iter()
+                    .enumerate()
+                    .map(|(a, [lo, hi])| {
+                        let t = (i as f64 * (0.618_033_988_7 + a as f64 * 0.137)).fract();
+                        lo + t * (hi - lo)
+                    })
+                    .collect();
+                let risk = if hot && i % 7 == 0 { 0.9 } else { 0.0 };
+                Point {
+                    observation: i as u64,
+                    x,
+                    risk,
+                    channels: 0b1,
+                    measured: 0b1,
+                    fact: false,
+                }
+            })
+            .collect()
+    }
+
+    fn filled(model: &Model, policy: Policy, points: &[Point]) -> Atlas {
+        let mut atlas = Atlas::new(model, policy);
+        for p in points {
+            atlas.record(&p.x, p.risk, p.measured);
+        }
+        atlas.relabel();
+        atlas
+    }
+
+    /// The settling loop `aporia_search` runs once a campaign is over: label from the finished evidence,
+    /// then let the partition settle, then label again.
+    fn settle(mut atlas: Atlas, points: &[Point], rounds: usize) -> Atlas {
+        atlas.remeasure(points);
+        for _ in 0..rounds {
+            if atlas.refine() == 0 {
+                break;
+            }
+        }
+        atlas.relabel();
+        atlas
+    }
+
+    #[test]
+    fn a_quiet_leaf_too_coarse_to_certify_is_provisional_and_not_unknown() {
+        let model = modelnd(2);
+        let points = spread(&model, 20, false);
+
+        // The committed semantics: sampled, measured, unflagged — and certified, whatever its size.
+        let current = filled(&model, Policy::default(), &points);
+        assert_eq!(current.root().label, Label::Trusted);
+
+        // The withholding rule sees the same leaf, with the same statistics, and declines.
+        let withheld = filled(
+            &model,
+            Policy {
+                resolution: Resolution::Withhold,
+                ..Policy::default()
+            },
+            &points,
+        );
+        assert_eq!(withheld.root().label, Label::Provisional);
+        let coverage = withheld.coverage();
+        assert_eq!(
+            coverage.trusted, 0.0,
+            "certification was withheld, not lost"
+        );
+        assert_eq!(coverage.unknown, 0.0, "and it did not become unmeasurable");
+        assert_eq!(coverage.provisional, 1.0);
+        // Neither resolved nor a gap in the evidence, which is the whole claim of the state.
+        assert_eq!(coverage.resolved(), 0.0);
+        assert_eq!(
+            coverage.trusted + coverage.provisional + coverage.unknown + coverage.suspicious,
+            1.0,
+            "the four volumes are a partition of the domain"
+        );
+    }
+
+    #[test]
+    fn withholding_certification_moves_no_cell_and_splits_no_leaf() {
+        // The freeze's control claim: arms A and C differ only in what the atlas says about the cells it
+        // already has. Without this, a fall in certified volume could be a fall in where the search went,
+        // and the comparison would be about trajectories rather than about semantics.
+        let model = modelnd(2);
+        // Evidence that does split the partition, so "the same cells" is a non-trivial claim: some leaves
+        // here are suspicious, their neighbours are not, and bands exist between them.
+        let points = spread(&model, 64, true);
+        let current = settle(Atlas::new(&model, Policy::default()), &points, 6);
+        let withheld = settle(
+            Atlas::new(
+                &model,
+                Policy {
+                    resolution: Resolution::Withhold,
+                    ..Policy::default()
+                },
+            ),
+            &points,
+            6,
+        );
+
+        assert!(
+            current.cells.len() > 2,
+            "this fixture was supposed to build a partition, not one leaf"
+        );
+        assert_eq!(
+            current.cells.len(),
+            withheld.cells.len(),
+            "withholding certification changed the number of cells"
+        );
+        for (a, b) in current.cells.iter().zip(&withheld.cells) {
+            assert_eq!(a.depth, b.depth, "a cell moved in depth: {:?}", a.bounds);
+            assert_eq!(a.bounds, b.bounds, "a cell moved in space");
+            assert_eq!(a.samples, b.samples);
+            if a.label == Label::Trusted {
+                assert_eq!(
+                    b.label,
+                    Label::Provisional,
+                    "a trusted cell did not become provisional: {:?}",
+                    b.bounds
+                );
+            } else {
+                assert_eq!(
+                    a.label, b.label,
+                    "only the trusted cells were allowed to change their label"
+                );
+            }
+        }
+        // Suspicion and the bands between labelled cells are unchanged, because `Label::adjacency` puts
+        // PROVISIONAL in the same class as TRUSTED: `bands` reports the same boundaries for both.
+        assert_eq!(current.bands().len(), withheld.bands().len());
+    }
+
+    #[test]
+    fn demanding_resolution_buys_cells_and_pays_in_sample_starvation_at_low_budget() {
+        // What the demand rule actually does to a quiet space, measured rather than argued: a split
+        // shares the parent's samples out, so a leaf with four evaluations cuts itself into two leaves
+        // that can no longer be trusted. Below roughly 4 x 2^8 evaluations a 2^-8 bar cannot be met at
+        // all, and the certified volume becomes UNKNOWN instead of becoming finer.
+        let model = modelnd(2);
+        let coarse_policy = Policy {
+            resolution: Resolution::Demand,
+            ..Policy::default()
+        };
+
+        let thin = spread(&model, 128, false);
+        let current_thin = settle(Atlas::new(&model, Policy::default()), &thin, 8);
+        let demand_thin = settle(Atlas::new(&model, coarse_policy), &thin, 8);
+        assert_eq!(
+            current_thin.leaves.len(),
+            1,
+            "nothing asked the quiet root to split"
+        );
+        assert!(
+            demand_thin.leaves.len() > 8,
+            "the demand did not go looking: {} leaves",
+            demand_thin.leaves.len()
+        );
+        let starved = demand_thin.coverage();
+        assert_eq!(
+            starved.trusted, 0.0,
+            "every leaf it made was too thinly sampled"
+        );
+        assert_eq!(
+            starved.unknown, 1.0,
+            "and the whole domain became unmeasurable"
+        );
+
+        // The crossing the bar's arithmetic predicts: to certify at 2^-8 with a floor of four samples a
+        // leaf, the space needs about 4 x 2^8 evaluations inside it. Same policy, same geometry, more
+        // evidence, and the certified volume comes back at the resolution the bar asks for.
+        let deep = spread(&model, 1024, false);
+        let demand_deep = settle(Atlas::new(&model, coarse_policy), &deep, 8);
+        let earned = demand_deep.coverage();
+        // Not the whole domain: a leaf whose sample count is not a power of two splits into children
+        // that fall under the floor together, so both go UNKNOWN and the recovery is partial. Measured
+        // here at 0.6992 of the domain against 0.0 at 128 evaluations, which is the crossing this test
+        // exists to pin -- its size is the fixture's arithmetic, not a number a report cites.
+        assert!(
+            earned.trusted > 0.5,
+            "at 1024 evaluations the demand should certify most of the space, and trusted {} of it",
+            earned.trusted
+        );
+        for id in demand_deep.leaf_ids() {
+            let cell = demand_deep.cell(*id).expect("a leaf is a cell");
+            if cell.label == Label::Trusted {
+                assert!(
+                    !demand_deep.policy().coarse(cell),
+                    "a leaf trusted under the demand rule is still coarser than the bar: depth {}",
+                    cell.depth
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_coarse_test_and_the_root_relative_volume_agree_about_which_leaves_are_coarse() {
+        // `Policy::coarse` reads a leaf's depth; the report reads its volume against the root. They have
+        // to mean the same cell by "too coarse", because one hands out labels and the other prices them.
+        // Evidence that does split the partition: a quiet atlas under the committed rule is one leaf,
+        // and one leaf tests the agreement between two formulas for nothing.
+        let model = modelnd(3);
+        let mut atlas = Atlas::new(&model, Policy::default());
+        for p in spread(&model, 64, true) {
+            atlas.record(&p.x, p.risk, 0b1);
+        }
+        for _ in 0..6 {
+            atlas.refine();
+        }
+        atlas.relabel();
+        let policy = atlas.policy();
+        let root = atlas.root().clone();
+        assert!(
+            atlas.leaves.len() > 8,
+            "this fixture was supposed to make a deep partition and made {}",
+            atlas.leaves.len()
+        );
+        for id in atlas.leaf_ids() {
+            let cell = atlas.cell(*id).expect("a leaf is a cell");
+            let by_depth = 0.5f64.powi(i32::from(cell.depth));
+            let by_geometry = cell.relative_size(&root);
+            assert!(
+                (by_depth - by_geometry).abs() < 1e-12,
+                "a leaf at depth {} holds {} of the domain by depth and {} by geometry",
+                cell.depth,
+                by_depth,
+                by_geometry
+            );
+            assert_eq!(
+                policy.coarse(cell),
+                by_geometry > policy.certify_share,
+                "the two definitions of coarse disagreed at depth {}",
+                cell.depth
+            );
+        }
+        // The bar is a power of two, so a leaf can sit on it exactly and the comparison is decidable
+        // rather than a matter of how the division rounded.
+        let on_the_bar = Policy::default().certify_share == 0.5f64.powi(8);
+        assert!(on_the_bar, "the default certification bar is 2^-8 exactly");
+    }
+
+    #[test]
+    fn the_current_rule_is_inert_whatever_the_bar_says() {
+        // A plan that names `Current` and a bar of 2^-4 must reproduce the committed measurements: the
+        // bar is read by the two resolution rules and by nothing else, so an inert axis with a moved bar
+        // is still the semantics every published row was labelled under.
+        let model = modelnd(2);
+        let points = spread(&model, 64, true);
+        let committed = settle(Atlas::new(&model, Policy::default()), &points, 6);
+        let moved_bar = settle(
+            Atlas::new(
+                &model,
+                Policy {
+                    certify_share: 0.0625,
+                    ..Policy::default()
+                },
+            ),
+            &points,
+            6,
+        );
+        assert_eq!(committed.cells.len(), moved_bar.cells.len());
+        for (a, b) in committed.cells.iter().zip(&moved_bar.cells) {
+            assert_eq!(
+                a.label, b.label,
+                "{:?} changed under an inert axis",
+                b.bounds
+            );
+            assert_eq!(a.bounds, b.bounds);
+        }
+        assert_eq!(moved_bar.coverage().provisional, 0.0);
     }
 }

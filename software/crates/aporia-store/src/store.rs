@@ -745,11 +745,12 @@ fn summary_json(run: &Run<'_>, counts: &Counts, finding_bytes: u64) -> Json {
 }
 
 /// The label as text, so a reader that only knows strings can still group findings.
+///
+/// Spelled by [`Label::name`] rather than restated here: this function and that one produce the same
+/// four words, and a second list of them is how an archive came to print a label the atlas had stopped
+/// handing out. Adding a state to `Label` now costs nothing here and shows up, undeniably, in the
+/// archive's bytes.
 #[must_use]
 pub fn label_text(label: Label) -> &'static str {
-    match label {
-        Label::Trusted => "TRUSTED",
-        Label::Suspicious => "SUSPICIOUS",
-        Label::Unknown => "UNKNOWN",
-    }
+    label.name()
 }
