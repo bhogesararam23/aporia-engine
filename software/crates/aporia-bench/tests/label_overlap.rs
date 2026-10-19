@@ -416,6 +416,40 @@ fn the_union_and_the_best_single_region_are_not_the_same_number_on_the_committed
     );
 }
 
+#[test]
+fn explain_prints_the_decomposition_from_the_function_a_row_uses() {
+    // The readable output is where a metric either becomes part of how the instrument is understood or
+    // stays a column nobody opens. It is printed from `Outcome::measure` rather than recomputed here,
+    // so what a reader sees and what a results document carries cannot drift into two definitions.
+    let root = aporia_bench::corpus_root();
+    let entries = aporia_bench::corpus::load(&root).expect("the committed corpus loads");
+    let entry = entries
+        .iter()
+        .find(|e| e.id() == "granular/stroke_reference")
+        .expect("the entry E1.4 crossed over is in the corpus");
+    let plan = aporia_bench::harness::Plan::default();
+    let text = aporia_bench::harness::explain(entry, &plan, Strategy::Adaptive, 1)
+        .expect("the entry compiles");
+    assert!(
+        text.contains("region decomposition:"),
+        "explain has to state the decomposition: {text}"
+    );
+    for needle in [
+        "declared regions cover",
+        "certified",
+        "unknown",
+        "suspicious",
+        "provisional",
+        "best single region",
+    ] {
+        assert!(text.contains(needle), "the line omits {needle}:\n{text}");
+    }
+    assert!(
+        !text.contains("refused a region overlap"),
+        "this entry is stateable, so the refusal sentence must not print:\n{text}"
+    );
+}
+
 /// The declared domain of a fixture, in the bounds the atlas partitions.
 fn domain(entry: &Entry) -> Vec<[f64; 2]> {
     aporia_bench::truth::domain_bounds(entry.model.as_ref().expect("the fixture compiles"))

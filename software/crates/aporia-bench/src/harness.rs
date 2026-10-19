@@ -1836,6 +1836,29 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
             if detected { "yes" } else { "no" }
         );
     }
+    // The decomposition, measured by the same function that writes it into a results row. Printed
+    // here rather than recomputed, because an `explain` that derived its own copy of a metric would
+    // be a second definition of it, and the whole point of the four columns is that there is one.
+    let outcome = crate::metrics::Outcome::measure(entry, &campaign, 0, strategy, budget);
+    let _ = writeln!(
+        out,
+        "region decomposition: the declared regions cover {:.6} of the space, of which the partition \
+         leaves certified {:.6}, unknown {:.6}, suspicious {:.6}, provisional {:.6} — certified reads \
+         {:.6} to the best single region it lies in",
+        outcome.declared_union_volume,
+        outcome.trusted_over_true_union.unwrap_or(f64::NAN),
+        outcome.unknown_over_true.unwrap_or(f64::NAN),
+        outcome.suspicious_over_true.unwrap_or(f64::NAN),
+        outcome.provisional_over_true.unwrap_or(f64::NAN),
+        outcome.trusted_over_true,
+    );
+    if outcome.region_overlap_refusals > 0 {
+        let _ = writeln!(
+            out,
+            "{} leaves refused a region overlap, so the four columns above state nothing",
+            outcome.region_overlap_refusals
+        );
+    }
     let _ = writeln!(out, "findings: {}", campaign.findings.len());
     for f in campaign.findings.iter().take(6) {
         let _ = writeln!(
