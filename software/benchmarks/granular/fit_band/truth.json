@@ -1,0 +1,52 @@
+{
+  "schema": "aporia.truth/3",
+  "method": "analytic",
+  "fault": "boundary_condition",
+  "meaning": "A locating pin pressed into a bore. What matters at assembly is the diametral interference, pin minus bore, and a design that lets it pass through zero is in trouble on both sides of it: too small a negative difference and the part slides, too small a positive one and the two surfaces gall because there is no clearance to hold oil. The band around zero where neither condition holds is the transition fit, and this entry declares that band as the fault. Over the declared square of pin and bore the failing set is the strip along the diagonal, an oblique band one fifth the width of the space it lies across.",
+  "variables": [
+    {
+      "name": "pin",
+      "unit": "m",
+      "role": "pin diameter, declared on the drawing in millimetres (scale to SI 1e-3)",
+      "lo": 9.8,
+      "hi": 10.2
+    },
+    {
+      "name": "bore",
+      "unit": "m",
+      "role": "bore diameter, declared in millimetres like the pin, over the same 0.4 mm tolerance band",
+      "lo": 9.8,
+      "hi": 10.2
+    }
+  ],
+  "mechanism": "a diametral difference that changes sign inside its own tolerance band, leaving a diagonal strip where the fit is neither clearance nor interference",
+  "channels": [
+    "physical"
+  ],
+  "resolvable": true,
+  "resolvability": "Two parameters and a depth cap of 12, and a bisection that alternates axes because both start equal, so a leaf at the cap is six bisections deep on each axis and 0.4/64 = 0.00625 mm on a side. The declared band is |pin - bore| < 0.0075 mm. Over an axis-aligned leaf the diametral difference pin - bore reaches at most one side, between the two corners on its main diagonal, so a leaf whose main diagonal lies on pin = bore has |interference| <= 0.00625 mm everywhere inside it and sits wholly in a band 0.0075 mm wide on either side of the line: carved share 1.0 against a localisation bar of 0.5. The margin over that wholeness is 0.00125 mm, a fifth of a leaf side, and it is stated because this entry is only just resolvable rather than comfortably so - at a half-width of 0.00625 the band is exactly one leaf thick and no leaf can be wholly inside it. The paired case is `geometry/narrow_oblique`, whose band is 0.004 against leaves 2/64 = 0.03125 wide, eight times as thin relative to a leaf, and which the instrument classes carved-away at every depth the cap permits.",
+  "source": "The interference is the declared difference of the two diameters and the limit is a constant, so the failing set is solved in one step: squared >= 0.00005625 fails exactly where |pin - bore| < 0.0075, a strip between the parallel lines pin = bore - 0.0075 and pin = bore + 0.0075, clipped by the declared square to the square minus two corner triangles of leg 0.3925. The engineering reason a design keeps out of that strip is the transition-fit case in the ISO 286 fit system and the machinery handbook's treatment of it, where a tolerance zone that straddles zero clearance can assemble as a light press or as a loose fit depending on where in the band the two parts land, and the zero-clearance neighbourhood is the one that scores on mating surfaces.",
+  "derivation": "`require squared >= 0.00005625` with `squared = (pin - bore)^2` fails where (pin - bore)^2 < 0.00005625. Taking the square root, |pin - bore| < 0.0075, so the failing set is the oblique strip and the *passing* set is the two corners. Area of the strip inside the 0.4 x 0.4 square is 0.16 - 2 * (0.3925^2 / 2) = 0.16 - 0.154 = 0.0059, a share of 0.037 of the domain; on the 41-point-per-axis lattice the audit scores the same region at 3.1250% of its domain, which is the figure the rung comparison uses and is within a factor of two of `synthetic/narrow_1d`'s 2.0%. Shape differs from that rung rather than size: narrow_1d is an interval at the origin of a one-dimensional space, this is a diagonal strip across a square whose two axes are two parts of one joint. The declared box is the whole domain and the predicate carries the band exactly, so no envelope is being claimed as the region.",
+  "why": "This is the entry the resolution question needs and E1.3b's corpus did not have: a region a permitted leaf *can* enclose, thin enough that the coarse leaves crossing its two edges are likely to be sampled on the quiet side of them. The instrument's rule is that a leaf is trusted when it is sampled, measured and unflagged, whatever its size, and E1.3b measured that no requirement added to those three conditions moved certified-over-true volume. Here the size of the leaf is the whole story: a trusted leaf straddling the band edge certifies the violation it does not contain, and only a rule about *scale* can object. `geometry/narrow_oblique` is the paired case - the same shape of failure at a width no permitted leaf can hold, where demanding resolution cannot help and the honest outcome is that the atlas says so. If this entry shows no certified volume crossing the band under the default rule at any budget, then a thin oblique region is found and resolved reliably enough that the scale of certification was never the fault, and E1.4's primary metric is reported as measuring nothing on it.",
+  "regions": [
+    {
+      "reason": "the diametral interference passes through the transition band where the fit is neither clearance nor interference",
+      "axes": {
+        "pin": [
+          9.8,
+          10.2
+        ],
+        "bore": [
+          9.8,
+          10.2
+        ]
+      },
+      "where": "(pin - bore) * (pin - bore) < 0.00005625"
+    }
+  ],
+  "boundaries": [],
+  "matched_to": "synthetic/narrow_1d",
+  "expect": "an oblique strip along the diagonal of the declared square, one fifth of its width, with both corners passing",
+  "narrow": true,
+  "curved": false
+}

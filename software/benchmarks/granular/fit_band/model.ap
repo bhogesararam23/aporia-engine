@@ -1,0 +1,7 @@
+model fit_band "a locating pin whose diametral interference with the bore passes through the transition band where the fit is neither clearance nor interference" {
+  input pin : mm in [9.8, 10.2]
+  input bore : mm in [9.8, 10.2]
+  let interference = pin - bore
+  let squared = interference * interference
+  require squared >= 0.00005625
+}

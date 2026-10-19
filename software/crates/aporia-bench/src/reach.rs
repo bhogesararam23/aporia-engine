@@ -386,23 +386,75 @@ fn classify(index: usize, region: &Declared, model: &Model, cells: &[Cell]) -> R
             ..empty
         };
     }
-    // Descending envelope share, then enumeration order, so the cap cuts the least able candidates and a
-    // repeated run measures the same ones.
-    candidates.sort_by(|a, b| {
-        b.0.partial_cmp(&a.0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then(a.1.cmp(&b.1))
+    // Rank the candidates by what the carve itself says about them, and only then by the envelope.
+    //
+    // The cap exists to bound the lattice work, and whatever it ranks, it is the ranking that decides
+    // the class. Ranking on the envelope alone tied every leaf of a whole-domain box together, so the
+    // 32 leaves examined were the 32 the tree happened to create first — measured on the first E1.4
+    // entry authored against this classifier, a diagonal band 1.9% of its domain wide was declared
+    // `carved-away` on a best share of 0.150391, which is the share of a cell four bisections from the
+    // root, while leaves at the depth cap sat entirely inside the band. Ranking the ties by depth
+    // instead moved the artefact rather than removing it: `granular/tolerance_stack` lost its class,
+    // because the only leaf that holds half of a half-plane is a coarse one and the finest leaves all
+    // came first.
+    //
+    // What actually predicts that a leaf could be half inside a carve is whether the carve holds
+    // *through* it, and that costs three evaluations of the predicate — the centre and the two ends of
+    // the main diagonal — against the thousand a lattice figure costs. The decisive number is still
+    // `overlap_fraction` on the cell, unchanged; this only decides which 32 cells get asked. It is a
+    // filter and not a proof: a region whose capable leaves all hold their centre outside the carve can
+    // still be under-examined here, and that is recorded in `limitations`, not argued away.
+    let mut ranked: Vec<(u8, u8, u32, f64, usize)> = candidates
+        .iter()
+        .map(|(share, at)| {
+            let cell = &cells[*at];
+            let centre: Vec<f64> = (0..cell.bounds.len())
+                .map(|axis| cell.center(axis))
+                .collect();
+            let corners = [
+                (0..cell.bounds.len())
+                    .map(|axis| cell.bounds[axis][0])
+                    .collect::<Vec<_>>(),
+                (0..cell.bounds.len())
+                    .map(|axis| cell.bounds[axis][1])
+                    .collect::<Vec<_>>(),
+            ];
+            // The centre is the key and the corners only break its tie: as a leaf shrinks its carved
+            // share tends to the indicator of its centre being inside the carve, so "the finest leaves
+            // whose centre the region holds" is the set the localisation bar is decided by. Counting all
+            // three probes as one score does the opposite — a band thinner than any leaf has its centre
+            // inside and both diagonal ends outside, which is the leaf most likely to be 87% inside and
+            // the one a probe count rates last.
+            let centre_holds = u8::from(region.contains(model, &centre));
+            let corners_held = corners.iter().filter(|x| region.contains(model, x)).count() as u32;
+            (centre_holds, cell.depth, corners_held, *share, *at)
+        })
+        // Collecting before sorting is the point: the envelope figure alone no longer decides anything.
+        .collect();
+    // Order: leaves whose centre the carve holds, then the finest of them, then whichever of them the
+    // corners support, then the envelope, then creation order. The second key carries the weight. For a
+    // band thinner than any leaf no leaf can hold its centre and both diagonal ends, so every capable
+    // leaf is rated alike by probes alone — and a leaf whose centre is on the line, whose diagonal
+    // overshoots it by one side, is 87% inside a band 0.64 leaf-sides wide, a fraction that only grows
+    // as the leaf shrinks. Ranking on the probe count alone demoted those leaves below coarse cells that
+    // had merely caught a corner; ranking on the envelope alone tied the whole partition together.
+    ranked.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then(b.1.cmp(&a.1))
+            .then(b.2.cmp(&a.2))
+            .then(b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal))
+            .then(a.4.cmp(&b.4))
     });
     let found = candidates.len();
     let examined = found.min(WITNESS_CAP);
     let mut best_declared = 0.0f64;
     let mut witness: Option<(u8, Vec<[f64; 2]>)> = None;
-    for (share, at) in candidates.into_iter().take(examined) {
+    for (_, _, _, _, at) in ranked.into_iter().take(examined) {
         let cell = &cells[at];
-        // `share` is the envelope figure this candidate was selected on; a box region's carved share is
-        // the same number, so the first candidate is its own witness and costs one evaluation.
+        // The envelope figure this candidate was selected on is recomputed as the carved share here,
+        // because a box region's share is the same number and one evaluation is enough to find that out.
         let declared = if region.predicate.is_none() {
-            share
+            region.envelope_share(model, &cell.bounds)
         } else {
             region.overlap_fraction(model, &cell.bounds, LATTICE_PER_AXIS)
         };

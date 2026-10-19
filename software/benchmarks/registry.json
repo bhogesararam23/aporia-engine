@@ -119,13 +119,14 @@
     },
     {
       "name": "granular",
-      "purpose": "E1.3b's resolvable half: regions declared wide enough that a leaf the atlas is permitted to build can be at least half inside them, so a TRUSTED label over one is a decision the trust rule made rather than a limit of the partition. Each entry states its own resolvability calculation and the instrument checks it.",
+      "purpose": "E1.3b's resolvable half: regions declared wide enough that a leaf the atlas is permitted to build can be at least half inside them, so a TRUSTED label over one is a decision the trust rule made rather than a limit of the partition. Each entry states its own resolvability calculation and the instrument checks it. `fit_band` was added for E1.4: it is the first entry in this corpus authored for the *scale* at which certification is granted rather than for the evidence a leaf holds, and it is registered here rather than in a protocol prose so that the run list the freeze names is the list the loader reads.",
       "entries": [
         "rail_ceiling",
         "diagonal_count",
         "match_return",
         "stroke_reference",
-        "tolerance_stack"
+        "tolerance_stack",
+        "fit_band"
       ]
     }
   ],

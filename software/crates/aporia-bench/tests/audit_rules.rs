@@ -893,8 +893,11 @@ fn a_stray_artefact_beside_an_entry_is_refused_rather_than_ignored() {
 
 #[test]
 fn the_committed_granular_entries_are_the_record_they_claim() {
-    // The five entries E1.3b will measure, through the same rules the fixtures exercise, and with their
-    // own text: each claims resolvability and the instrument agrees on all five.
+    // Every entry the `granular` family holds, through the same rules the fixtures exercise, and with
+    // their own text: each claims resolvability and the instrument agrees. The family was E1.3b's five
+    // and became six when E1.4 authored `granular/fit_band` into it, so this counts the directory rather
+    // than one freeze's list — a seventh entry that failed to claim what the others claim has to show up
+    // here, not be filtered out by a number written before it existed.
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../benchmarks");
     let entries = corpus::load(&root).expect("the committed corpus loads");
     let granular: Vec<corpus::Entry> = entries
@@ -902,7 +905,11 @@ fn the_committed_granular_entries_are_the_record_they_claim() {
         .filter(|e| e.family == "granular")
         .cloned()
         .collect();
-    assert_eq!(granular.len(), 5, "E1.3b authored five resolvable entries");
+    assert_eq!(
+        granular.len(),
+        6,
+        "the granular family is E1.3b's five entries plus E1.4's band"
+    );
     for e in &granular {
         assert_eq!(e.truth.resolvable, Some(true), "{}", e.id());
         assert!(

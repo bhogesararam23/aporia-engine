@@ -398,7 +398,13 @@ fn every_granular_entry_is_enclosed_and_says_so_the_same_way() {
         );
         checked += 1;
     }
-    assert_eq!(checked, 5, "E1.3b's resolvable set is these five entries");
+    // Five entries when E1.3b froze its resolvable set, six since E1.4 authored `granular/fit_band` into
+    // the same family: the count is the family's, not the freeze's, and a sixth entry that satisfies
+    // every claim the five make is the reason the check reads the family rather than a hard-coded list.
+    assert_eq!(
+        checked, 6,
+        "the granular family is E1.3b's five plus E1.4's band"
+    );
 }
 
 #[test]
@@ -585,4 +591,51 @@ fn a_protocol_that_splits_its_corpus_incompletely_is_refused_by_the_reader() {
         let _ = path.parent().map(std::fs::remove_dir);
     }
     assert_eq!(caught, 3, "each incomplete split was caught");
+}
+
+#[test]
+fn a_thin_carve_is_judged_by_the_leaves_that_could_hold_it_not_by_the_first_ones_indexed() {
+    // A capped search ranks, and the ranking is the class. Until the defect this test pins was fixed the
+    // ranking was the region's envelope share alone, and for any entry that declares its box as the whole
+    // domain that ties every leaf in the partition together: the 32 leaves actually asked were the 32 the
+    // tree created first, so a verdict about "could a leaf be half inside" was read off a cell four
+    // bisections from the root. Measured on the first E1.4 entry authored against that classifier — a
+    // diagonal band 0.0075 mm wide, inside leaves 0.00625 mm across, so a leaf at the depth cap sits
+    // wholly inside it — the entry came out `carved-away` with best declared share 0.150391.
+    let band = reach(&one("granular/fit_band"), &policy());
+    assert_eq!(band.class, Class::Enclosed, "{}", band.row());
+    let region = band
+        .regions
+        .first()
+        .expect("the fit band declares one region");
+    assert!(
+        region.best_declared_share >= LOCALISATION_BAR,
+        "the witness has to be a leaf at least half inside the band: {}",
+        region.best_declared_share
+    );
+    assert_eq!(
+        region.witness_depth,
+        Some(12),
+        "the leaf that decides this is at the depth cap, which is the whole point of ranking finest \
+         first; a shallow witness would be the old behaviour wearing a new number"
+    );
+    // The fix must re-file nothing that has already been measured. These are the classes the committed
+    // protocols and rows cite: the two sub-granular edge entries, the carved-away oblique band, and the
+    // three resolvable entries whose witnesses are coarse cells a finest-first ranking could have lost.
+    for (id, class) in [
+        ("geometry/narrow_oblique", Class::CarvedAway),
+        ("edge/overflow_tail", Class::SubGranular),
+        ("edge/pole_at_edge", Class::SubGranular),
+        ("granular/tolerance_stack", Class::Enclosed),
+        ("granular/rail_ceiling", Class::Enclosed),
+        ("geometry/curved_product", Class::Enclosed),
+    ] {
+        let record = reach(&one(id), &policy());
+        assert_eq!(
+            record.class,
+            class,
+            "{id} was re-filed by the ranking fix: {}",
+            record.row()
+        );
+    }
 }
