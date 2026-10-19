@@ -445,3 +445,88 @@ fn a_row_reports_the_volumes_its_own_partition_produced() {
         }
     }
 }
+
+#[test]
+fn a_negative_zero_is_a_signed_absence_and_this_record_says_so_rather_than_hiding_it() {
+    // E1.3b reported that `trusted_over_true` prints as `-0.0` on rows where nothing was certified, and
+    // handled it as a display question: equal to zero in every comparison, and not worth rewriting the
+    // bytes of published rows for. Writing it up as "the sign of a clamp" was half wrong, and the
+    // arithmetic here found the other half: a sum over no cells is itself negative zero on this
+    // toolchain, before any clamp touches it. That is worth pinning, because every volume column in this
+    // report is a sum over the leaves that carry a label, so an arm that labelled nothing produces -0.0
+    // as its *natural* answer -- and a reader who takes `provisional_volume: -0.0` to mean "the state
+    // fired with a negative volume" would be reading a sign that carries no information.
+    let empty: Vec<f64> = Vec::new();
+    let nothing: f64 = empty.iter().copied().sum();
+    assert!(
+        nothing == 0.0 && nothing.is_sign_negative(),
+        "a sum over nothing stopped being negative zero, so the claim below needs restating: bits {:#018x}",
+        nothing.to_bits()
+    );
+    assert_eq!(
+        nothing, 0.0,
+        "and it is still equal to zero, which is what every comparison uses"
+    );
+    assert!(
+        Json::number(nothing).to_compact().contains("-0.0"),
+        "the writer prints it as -0.0; the analysis reads it as zero"
+    );
+
+    let anchor = entry("granular/fit_band");
+    for rule in [
+        Resolution::Current,
+        Resolution::Demand,
+        Resolution::Withhold,
+    ] {
+        let plan = Plan {
+            budgets: vec![320],
+            strategies: vec![Strategy::Adaptive],
+            seeds: vec![1],
+            resolution: rule,
+            ..Plan::default()
+        };
+        let model = anchor.model.as_ref().expect("the band compiles to a model");
+        let campaign = aporia_search::run(model, plan.config(Strategy::Adaptive, 320, 1));
+        let row =
+            aporia_bench::metrics::Outcome::measure(&anchor, &campaign, 0, Strategy::Adaptive, 320);
+        // What the columns may not be: a genuinely negative volume. A signed zero is a representation, a
+        // negative number would be an arithmetic error, and the two are only distinguishable this way.
+        for (name, value) in [
+            ("provisional_volume", row.provisional_volume),
+            ("coarse_certified_volume", row.coarse_certified_volume),
+            ("trusted_over_true_coarse", row.trusted_over_true_coarse),
+            ("trusted_volume", row.trusted_volume),
+            ("unknown_volume", row.unknown_volume),
+            ("suspicious_volume", row.suspicious_volume),
+        ] {
+            assert!(
+                value >= 0.0 || value == 0.0,
+                "{rule:?}: {name} is {value}, which is not a volume anyone could certify"
+            );
+        }
+        // The three columns this axis adds carry the same convention as the ones beside them, and the
+        // same absence: under `Current` no leaf is provisional, so the sum is empty and signed.
+        if rule == Resolution::Current {
+            assert_eq!(row.provisional_volume, 0.0, "{rule:?}");
+            assert!(
+                row.provisional_volume.is_sign_negative(),
+                "arm A's provisional column stopped being an empty sum, so the -0.0 claim needs                  re-checking against the code that changed"
+            );
+        }
+    }
+
+    // And the history is untouched: the committed documents still contain the text they were published
+    // with, which can only be tested against the bytes and not against a parsed number.
+    let rewritten = documents()
+        .into_iter()
+        .filter(|(_, path)| {
+            std::fs::read_to_string(path)
+                .unwrap_or_default()
+                .contains("-0.0")
+        })
+        .count();
+    assert!(
+        rewritten > 0,
+        "E1.3b records that committed documents print `-0.0` in their volume columns; none does, so          either the history was rewritten or this assertion is stale"
+    );
+}

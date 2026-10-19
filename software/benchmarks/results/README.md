@@ -827,8 +827,12 @@ now refuses before it measures (`93ad7c2`), and E1.3b's archives live in `benchm
 ignored, as every run's are, and reproducible from the corpus plus the configuration each manifest
 records. The second is left alone and named: `trusted_over_true` prints as `-0.0` where nothing was
 certified — 160 rows in `only-physical-both-trust-rules`, and 13 rows in E1.x's committed `full` document.
-It is the sign of a clamp rather than a negative volume, equal to zero in every comparison, and changing
-the arithmetic would rewrite the bytes of published rows to change how a zero is displayed.
+It is the sign of an *absence* rather than a negative volume: a sum over no leaves is negative zero on
+this toolchain before any clamp touches it, and `clamp(0.0, 1.0)` leaves it alone because `-0.0 < 0.0` is
+false. This section originally attributed the sign to the clamp, and E1.4's tests found the other half.
+Equal to zero in every comparison, so the arithmetic is unaffected; the bytes of published rows are not
+rewritten to change how a zero is displayed, and `a_negative_zero_is_a_signed_absence_...` pins both the
+sign and that decision.
 
 **What the freeze expected, what was measured, and what could not be measured.** The six readings gathered
 in one place, because a reviewer of this run asked what had actually been settled and the answer was
