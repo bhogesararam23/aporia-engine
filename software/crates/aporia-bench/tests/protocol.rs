@@ -42,6 +42,9 @@ fn unusual() -> Plan {
         differential_every: 11,
         ablate: vec![Channel::Physical, Channel::Behavioral],
         trust: Trust::NonFiniteBlocksTrust,
+        // Provenance is never read out of a plan section, so a round-trip has to start from the empty
+        // one: a plan that claimed a protocol it was not run under is the thing the reader refuses.
+        provenance: Default::default(),
         // Unusual for the same reason as every other field here: a plan section that quietly dropped
         // the scale axis would be read back as the committed semantics, and this fixture would pass.
         // The bar is not a power of two on purpose, so a round-trip through text is exercised.

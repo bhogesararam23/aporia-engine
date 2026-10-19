@@ -18,6 +18,30 @@ use aporia_store::Environment;
 use aporia_store::Json;
 use std::time::Instant;
 
+/// What a run *was*, as distinct from what it measured: the pre-registration it came from, and the
+/// identity its plan and corpus digest to.
+///
+/// This is carried on the plan because an archive has to be recognisable on its own. A directory of
+/// findings that cannot say which measurement it belongs to is why two experiments could write into one
+/// namespace until a pre-run guard was bolted on; the guard can only be exact if the bytes it compares
+/// name the measurement rather than describing the machine. It is deliberately *not* part of the
+/// measurement identity: `plan_json` writes none of these fields, so recording which protocol produced a
+/// run cannot rename the run.
+#[derive(Clone, Debug, Default)]
+pub struct Provenance {
+    /// The frozen file's `id`, when the run came from one.
+    pub protocol: Option<String>,
+    /// Which arm of it. An arm is a measurement, and a directory that cannot say which arm it holds
+    /// cannot refuse a second arm of the same protocol into the same place.
+    pub arm: Option<String>,
+    /// The digest of the protocol file's bytes, so an edit to a freeze shows up in an archive written
+    /// afterwards rather than in a reader's memory of what the file said.
+    pub protocol_digest: Option<String>,
+    /// The identity a results document from this plan and this entry list would carry. Recorded per
+    /// archive because it is the one value that says "these bytes are that measurement".
+    pub measurement_identity: Option<String>,
+}
+
 /// What a run is allowed to cost, and how often it is repeated.
 #[derive(Clone, Debug)]
 pub struct Plan {
@@ -78,6 +102,10 @@ pub struct Plan {
     /// Where per-entry archives go. Left empty, the harness skips archiving: the archives are the
     /// expensive part of a run and their numbers do not change the search.
     pub archive_dir: std::path::PathBuf,
+    /// Which pre-registration and which measurement this plan's archives belong to. Never written into
+    /// the plan section, so it cannot move an identity: it is what a directory is recognised by, not
+    /// what a row means.
+    pub provenance: Provenance,
 }
 
 impl Default for Plan {
@@ -130,6 +158,7 @@ impl Default for Plan {
             resolution: aporia_boundary::Resolution::Current,
             certify_share: aporia_boundary::Policy::default().certify_share,
             archive_dir: std::path::PathBuf::new(),
+            provenance: Provenance::default(),
         }
     }
 }
@@ -345,6 +374,9 @@ impl Plan {
             resolution,
             certify_share,
             archive_dir: std::path::PathBuf::new(),
+            // Provenance is not readable from a plan section and must not be defaulted from one: a
+            // document that claimed a protocol it was never run under would then be believed.
+            provenance: Provenance::default(),
         })
     }
 }
@@ -1155,6 +1187,29 @@ pub fn archive_and_replay(
         .notes
         .push(("seed".to_string(), seed.to_string()));
     environment.notes.push(("entry".to_string(), entry.id()));
+    // Which measurement these bytes belong to, stated in the archive itself. The protocol fields are
+    // written only when the run came from a frozen file; the identity is written whenever the caller
+    // knew it, because the guard that keeps one experiment from replacing another is exact only when it
+    // has something exact to compare. An archive written by a caller that did not know its identity is
+    // what the guard's "predates" refusal reads, and it is named rather than guessed at.
+    if let Some(identity) = plan.provenance.measurement_identity.as_deref() {
+        environment
+            .notes
+            .push(("measurement_identity".to_string(), identity.to_string()));
+    }
+    if let Some(protocol) = plan.provenance.protocol.as_deref() {
+        environment
+            .notes
+            .push(("protocol".to_string(), protocol.to_string()));
+    }
+    if let Some(arm) = plan.provenance.arm.as_deref() {
+        environment.notes.push(("arm".to_string(), arm.to_string()));
+    }
+    if let Some(digest) = plan.provenance.protocol_digest.as_deref() {
+        environment
+            .notes
+            .push(("protocol_digest".to_string(), digest.to_string()));
+    }
     let run = aporia_store::Run {
         model,
         model_text: &entry.source,
@@ -1309,10 +1364,7 @@ pub fn results_json(
     };
     Json::object(vec![
         ("schema", Json::text(RESULTS_SCHEMA)),
-        (
-            "identity",
-            Json::text(identity_of(RESULTS_SCHEMA, &plan_value, &entries_value)),
-        ),
+        ("identity", Json::text(run_identity(plan, entries))),
         (
             "protocol",
             frozen.map_or(Json::Null, |frozen| {
@@ -1511,6 +1563,17 @@ pub fn plan_json(plan: &Plan) -> Json {
 /// and with the digest of the file it was read from — because measuring against an edited
 /// `truth.json` is a different measurement. Before the digest, editing a region's numbers left the
 /// identity untouched, so the corrected run could overwrite the published one's name.
+/// The identity a results document carries for this plan and this entry list: the digest of the two
+/// sections that decide what was measured.
+///
+/// One definition, because three things have to agree on it — the document's `identity` field, the
+/// filename the writer refuses to overwrite, and the manifest each archive records so that a directory
+/// can be recognised without its document. A second spelling is where those three would drift.
+#[must_use]
+pub fn run_identity(plan: &Plan, entries: &[Entry]) -> String {
+    identity_of(RESULTS_SCHEMA, &plan_json(plan), &entries_json(entries))
+}
+
 fn entries_json(entries: &[Entry]) -> Json {
     Json::Arr(
         entries

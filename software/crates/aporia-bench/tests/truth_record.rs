@@ -293,7 +293,7 @@ fn the_three_schemas_are_the_whole_vocabulary_and_each_reads_as_itself() {
         );
     }
     assert_eq!(
-        recorded, 5,
-        "E1.3b's resolvable set is the only /3 half of the corpus"
+        recorded, 6,
+        "the /3 half of the corpus is E1.3b's five resolvable entries and E1.4's band; a seventh would          mean an entry claimed the record without this test knowing it"
     );
 }

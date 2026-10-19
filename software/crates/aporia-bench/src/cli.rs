@@ -406,7 +406,7 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
     // command line that could have drifted from it. Every flag that shapes what is measured is
     // therefore refused beside `--plan`; `--out` and `--archive`, which only say where bytes land,
     // are not.
-    let (selected, plan, frozen) = if let Some(path) = plan_path {
+    let (selected, mut plan, frozen) = if let Some(path) = plan_path {
         let frozen_run = frozen_run(&path, arm_name, archive_dir, flags, &entries)?;
         println!(
             "protocol {} arm {} — {} entries, {} arm(s) frozen, budgets {:?}, seeds {:?}",
@@ -478,6 +478,16 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
         }
         return Ok(1);
     }
+
+    // Before the guard can be exact, the plan has to know which measurement it is. The identity digests
+    // the plan section and the entry list and nothing else, so stating it here cannot change what is
+    // measured -- it only says, in the bytes each archive writes, which measurement those bytes are.
+    plan.provenance = harness::Provenance {
+        protocol: frozen.as_ref().map(|f| f.id.clone()),
+        arm: frozen.as_ref().map(|f| f.arm.clone()),
+        protocol_digest: frozen.as_ref().and_then(|f| f.protocol_digest.clone()),
+        measurement_identity: Some(harness::run_identity(&plan, &selected)),
+    };
 
     // An archive is the bytes a reported number is later opened from, and `archive_name` does not name
     // the experiment, so a run whose archives would sit on another measurement's is refused here — before
@@ -824,10 +834,18 @@ fn shared_differences(
 /// because the replacement archive is self-consistent — it digests its own artefacts and replays its own
 /// records. So the runner looks before it measures.
 ///
-/// A manifest records the configuration that produced it, which makes the check exact rather than
-/// heuristic: the same configuration is a rerun of the measurement that directory already holds, and
-/// [`harness::sweep`] already says so in a warning while writing the same bytes again; a different one is
-/// another experiment's evidence, and that is resolved with `--archive`, not by whoever ran last.
+/// Two comparisons are made, in order of exactness. First the identity: an archive written by this build
+/// records the measurement identity of the run that made it, so a directory can be recognised for what it
+/// is, the same measurement is a rerun (which [`harness::sweep`] already warns about while writing the
+/// same bytes again), and a different one is refused. An archive that predates that record cannot be
+/// shown to belong to this measurement, and is refused with its own name in the message rather than
+/// replaced on an assumption. Then the configuration, which still catches a rate, a mask or a scale rule
+/// that a *different* identity would not have had to be recorded to differ.
+///
+/// The namespace itself is not re-derived from the experiment, and that is a deliberate half-measure:
+/// moving where committed archives live would break the readers that open a published number's archive
+/// today, so separation is enforced at the door instead of encoded in the path. What the door now checks
+/// is the whole identity of a measurement, which is the thing the path could not express.
 pub fn archive_namespace_guard(
     plan: &harness::Plan,
     entries: &[corpus::Entry],
@@ -854,6 +872,39 @@ pub fn archive_namespace_guard(
                 .map_err(|e| format!("{}: {e}", manifest.display()))?;
             let written = aporia_store::Json::parse(&text)
                 .map_err(|e| format!("{} is not JSON: {e}", manifest.display()))?;
+            // The exact test first: does the directory say which measurement it holds? A manifest from
+            // this build records the identity of the run that wrote it, so a comparison is a fact rather
+            // than an inference, and two runs whose arms share an entry, a strategy, a seed, a mask, a
+            // trust rule and a scale rule still cannot be mistaken for each other if their plans digest
+            // differently. An archive that predates that record cannot be shown to belong to this
+            // measurement, and replacing evidence on that assumption is the failure mode the guard exists
+            // for -- so it is refused by name, with the reason, rather than read charitably.
+            let written_identity = written
+                .get("environment")
+                .and_then(|e| e.get("notes"))
+                .and_then(|n| n.get("measurement_identity"))
+                .and_then(aporia_store::Json::as_str);
+            match (
+                written_identity,
+                plan.provenance.measurement_identity.as_deref(),
+            ) {
+                (None, _) => {
+                    return Err(format!(
+                        "{} holds an archive that records no measurement identity: it predates the point                          at which an archive could name the measurement it belongs to, so nothing here                          can prove this run would reproduce it rather than replace it. Pass --archive DIR                          to give this experiment its own namespace.",
+                        dir.display()
+                    ));
+                }
+                (Some(w), Some(p)) if w != p => {
+                    return Err(format!(
+                        "{} belongs to measurement {w}, and this run is measurement {p}. The directory                          name is not the whole identity -- it does not carry the experiment or the corpus                          -- so the bytes a published number is opened from would be replaced by a run                          that means something else. Pass --archive DIR.",
+                        dir.display()
+                    ));
+                }
+                // Same identity, or a run whose caller knows no identity (an ad-hoc `run` without a plan
+                // and without a document to compare against): fall through to the configuration compare,
+                // which still catches a rate or a mask that differs.
+                (Some(_), Some(_)) | (Some(_), None) => {}
+            }
             let Some(config) = written.get("config") else {
                 return Err(format!(
                     "{} holds a manifest that records no configuration, so this run cannot tell whether \
