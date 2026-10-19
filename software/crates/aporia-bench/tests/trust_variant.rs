@@ -24,7 +24,8 @@ use aporia_bench::cli;
 use aporia_bench::corpus;
 use aporia_bench::e2::{Arm, compare};
 use aporia_bench::harness::{
-    Plan, Protocol, RESULTS_SCHEMA, archive_name, identity_of, plan_json, results_json, sweep,
+    Plan, Protocol, RESULTS_SCHEMA, archive_name, identity_of, plan_json, results_json,
+    run_identity, sweep,
 };
 use aporia_boundary::Trust;
 use aporia_evidence::Channel;
@@ -873,23 +874,47 @@ fn a_run_refuses_to_archive_over_another_experiments_measurement() {
         Json::object(vec![("config", written)]).to_compact(),
     )
     .expect("the manifest is written");
+    // The archive E1.x left behind records its configuration and not which measurement it belongs to,
+    // because it was written before an archive could say that. The guard now stops on that fact first,
+    // and it is the stricter reading: a matching configuration is no proof of a matching measurement,
+    // since the identity also digests the entry list and the protocol-visible plan. `archive_identity`
+    // holds the finer cases -- same identity, different recorded threshold; two identities; a rerun that
+    // is allowed -- so this test is left as the record of the collision that prompted the guard.
     let error = cli::archive_namespace_guard(&plan, &selected)
-        .expect_err("a differently-configured archive in this run's path must stop it");
+        .expect_err("an archive that cannot say what it measures must not be replaced silently");
     assert!(
-        error.contains(&name) && error.contains("config.budget"),
-        "the refusal must name the directory and the field that differs: {error}"
+        error.contains(&name) && error.contains("no measurement identity"),
+        "the refusal must name the directory and say why an unrecognised archive is not an empty one:          {error}"
     );
     assert!(
         error.contains("--archive"),
         "and say how to resolve it, rather than leaving the operator to guess: {error}"
     );
 
-    // The same configuration, written by the same plan a minute earlier, is a rerun and not a collision.
+    // The same measurement, now able to prove it: the identity this run would publish is recorded in the
+    // manifest beside a configuration that matches, and the run is a rerun rather than a replacement.
+    let identity = run_identity(&plan, &selected);
+    // The runner fills this in before it measures anything; a test that calls the guard directly has to
+    // do the same, or it is asking the guard to compare against a run that knows no identity either.
+    plan.provenance.measurement_identity = Some(identity.clone());
+    let named = |which: &str| {
+        Json::object(vec![(
+            "notes",
+            Json::object(vec![(
+                "measurement_identity",
+                Json::text(which.to_string()),
+            )]),
+        )])
+    };
     std::fs::write(
         &manifest,
-        Json::object(vec![("config", mine.clone())]).to_compact(),
+        Json::object(vec![
+            ("config", mine.clone()),
+            ("environment", named(&identity)),
+        ])
+        .to_compact(),
     )
-    .expect("the manifest is rewritten");
+    .expect("the manifest is rewritten with its measurement named");
     cli::archive_namespace_guard(&plan, &selected)
         .expect("a rerun of the same measurement is allowed");
 
@@ -898,15 +923,39 @@ fn a_run_refuses_to_archive_over_another_experiments_measurement() {
     // has to apply here too, or the guard would refuse to re-run the very archives it protects.
     let older = without_atlas_fields(
         &mine,
-        &["trust", "min_channels_required", "blocks_non_finite"],
+        &[
+            "trust",
+            "min_channels_required",
+            "blocks_non_finite",
+            "resolution",
+            "certify_share",
+        ],
     );
     std::fs::write(
         &manifest,
-        Json::object(vec![("config", older)]).to_compact(),
+        Json::object(vec![("config", older), ("environment", named(&identity))]).to_compact(),
     )
     .expect("the older manifest is written");
     cli::archive_namespace_guard(&plan, &selected)
         .expect("a manifest that states less is not one that states something else");
+
+    // The refusal that could not exist before: an archive that names a measurement, and names another
+    // one. Same directory, same configuration, different plan.
+    std::fs::write(
+        &manifest,
+        Json::object(vec![
+            ("config", mine),
+            ("environment", named("0123456789abcdef0123456789abcdef")),
+        ])
+        .to_compact(),
+    )
+    .expect("a foreign measurement's archive is planted");
+    let error = cli::archive_namespace_guard(&plan, &selected)
+        .expect_err("an archive that names a different measurement must stop this run");
+    assert!(
+        error.contains(&identity) && error.contains("0123456789abcdef0123456789abcdef"),
+        "the refusal names both measurements, not just the collision: {error}"
+    );
     std::fs::remove_dir_all(&dir).ok();
 }
 
