@@ -37,6 +37,11 @@ pub struct Provenance {
     /// The digest of the protocol file's bytes, so an edit to a freeze shows up in an archive written
     /// afterwards rather than in a reader's memory of what the file said.
     pub protocol_digest: Option<String>,
+    /// Whether this document was produced by `--pilot` — the freeze's own reduced scope rather than the
+    /// experiment. Written only when true, so a full run's bytes are unchanged by the existence of the
+    /// option: a pilot document is a document about the plumbing, and the field exists for the reader
+    /// who would otherwise mistake one for the measurement.
+    pub pilot: bool,
     /// The identity a results document from this plan and this entry list would carry. Recorded per
     /// archive because it is the one value that says "these bytes are that measurement".
     pub measurement_identity: Option<String>,
@@ -460,6 +465,23 @@ pub struct ProtocolArm {
     pub resolution: aporia_boundary::Resolution,
 }
 
+/// The scope the infrastructure pilot may run, as the freeze that owns it wrote it.
+///
+/// Every field is a *subset* check against the frozen plan and the frozen entry lists, which is what
+/// makes `--pilot` safe next to a protocol that refuses every other flag shaping a measurement: a pilot
+/// can be smaller than its experiment in exactly the four dimensions the experiment already declared,
+/// and in nothing else. `checks` names what the pilot establishes — determinism, namespace separation,
+/// equal charged cost, replay — so that a run which measured something else cannot be presented as the
+/// pilot this file asked for.
+#[derive(Clone, Debug)]
+pub struct Pilot {
+    pub arms: Vec<String>,
+    pub entries: Vec<String>,
+    pub budgets: Vec<u64>,
+    pub seeds: Vec<u64>,
+    pub checks: Vec<String>,
+}
+
 /// Who produced a measurement, when it came from a frozen protocol file rather than from a command
 /// line. Recorded in the results document and deliberately *not* in the measurement identity: the
 /// identity is the plan and the corpus, and two protocol files that state the same plan measure the
@@ -476,6 +498,10 @@ pub struct Frozen {
     /// deliberately does not hash, so without a digest a metric edited after the run would be
     /// indistinguishable from a metric that was frozen.
     pub protocol_digest: Option<String>,
+    /// Whether the run was the freeze's own pilot rather than the experiment. `--pilot` sets it; a
+    /// protocol's `arm()` never does, so a document can only claim to be a pilot if the command that
+    /// wrote it asked for the reduced scope by name.
+    pub pilot: bool,
 }
 
 /// An experiment specified in full before its corpus or its arms existed, as
@@ -492,6 +518,11 @@ pub struct Frozen {
 /// its decision rule — and ignores the prose that explains them.
 #[derive(Clone, Debug)]
 pub struct Protocol {
+    /// Which schema this file declared, kept because what a file is *obliged* to state is a property of
+    /// its version and a reader — or a test — has to be able to ask which obligations this one carries.
+    /// It is not in the measurement identity: two protocol files that state the same plan measure the
+    /// same experiment whatever they call themselves.
+    pub schema: String,
     pub id: String,
     pub question: String,
     pub plan: Plan,
@@ -520,6 +551,9 @@ pub struct Protocol {
     /// Checked against the corpus as well as against the run list: an entry in this set must carry
     /// `control: true` and no declared region, or it is not a control in the sense the metric means.
     pub control: Vec<String>,
+    /// The reduced scope the infrastructure pilot is permitted to run, `Some` only under
+    /// [`Protocol::SCHEMA_V4`]. See [`Pilot`].
+    pub pilot: Option<Pilot>,
     /// The first 16 hex digits of the SHA-256 of the file's bytes, set by `load` and absent for a
     /// protocol built by `from_json`, which has no file. It travels into every results document that
     /// arm writes, so an edit to a frozen pre-registration is visible as a different digest rather
@@ -549,8 +583,24 @@ impl Protocol {
     /// refused, for the same reason an arm that did not say which channels it was blind to was refused.
     pub const SCHEMA_V3: &'static str = "aporia.protocol/3";
 
+    /// A protocol that freezes its own pilot: the reduced scope the infrastructure check is permitted
+    /// to run, written into the pre-registration rather than left to a command line.
+    ///
+    /// `/3` learned this the expensive way. Its stopping rule said the pilot was "one entry, two seeds
+    /// and the two smallest budgets", and its runner refuses every flag that shapes what is measured
+    /// beside `--plan` — so the pilot had no way to be smaller than the experiment, ran the full plan,
+    /// and the deviation was recorded in the analysis as a defect of the freeze rather than of the run.
+    /// A `/4` file states the scope, and `--pilot` reads it from the file: the only freedom a pilot
+    /// gets is to be smaller, and it is bounded by what this schema has already frozen.
+    pub const SCHEMA_V4: &'static str = "aporia.protocol/4";
+
     /// The schemas this reader accepts, in the order a refusal names them.
-    pub const SCHEMAS: [&'static str; 3] = [Self::SCHEMA, Self::SCHEMA_V2, Self::SCHEMA_V3];
+    pub const SCHEMAS: [&'static str; 4] = [
+        Self::SCHEMA,
+        Self::SCHEMA_V2,
+        Self::SCHEMA_V3,
+        Self::SCHEMA_V4,
+    ];
 
     /// Read a protocol from a file, naming the path in every refusal.
     pub fn load(path: &std::path::Path) -> Result<Self, String> {
@@ -595,8 +645,36 @@ impl Protocol {
                 arm: arm.name.clone(),
                 question: self.question.clone(),
                 protocol_digest: self.digest.clone(),
+                pilot: false,
             },
         ))
+    }
+
+    /// The same arm at the scope this file froze for its pilot.
+    ///
+    /// A method on the protocol rather than arithmetic in the CLI, because "smaller, and only in the
+    /// four dimensions the freeze already declared" is part of what the pre-registration means and has
+    /// to be checkable without running something. Returns the reduced plan and the entry list to run,
+    /// with [`Frozen::pilot`] set so the document says what it is.
+    pub fn pilot(&self, arm_name: &str) -> Result<(Plan, Vec<String>, Frozen), String> {
+        let pilot = self.pilot.as_ref().ok_or_else(|| {
+            format!(
+                "protocol {:?} freezes no pilot scope, so there is nothing for --pilot to run",
+                self.id
+            )
+        })?;
+        let (mut plan, mut frozen) = self.arm(arm_name)?;
+        if !pilot.arms.iter().any(|name| name == arm_name) {
+            return Err(format!(
+                "protocol {:?} does not include arm {arm_name:?} in its pilot, which names {}",
+                self.id,
+                pilot.arms.join(", ")
+            ));
+        }
+        plan.budgets.clone_from(&pilot.budgets);
+        plan.seeds.clone_from(&pilot.seeds);
+        frozen.pilot = true;
+        Ok((plan, pilot.entries.clone(), frozen))
     }
 
     #[expect(
@@ -619,9 +697,13 @@ impl Protocol {
         }
         let v2 = schema == Self::SCHEMA_V2;
         let v3 = schema == Self::SCHEMA_V3;
-        // The two schemas whose arms each state their own trust rule. `/3` inherits the obligation
-        // rather than relaxing it: a file that adds an axis is not allowed to forget one.
-        let rules_per_arm = v2 || v3;
+        let v4 = schema == Self::SCHEMA_V4;
+        // The two schemas whose arms each state their own trust rule. `/3` and `/4` inherit the
+        // obligation rather than relaxing it: a file that adds an axis is not allowed to forget one.
+        let rules_per_arm = v2 || v3 || v4;
+        // The scale axis and the control set are obliged of every schema from `/3` up, so `/4` reads
+        // them through the same checks rather than through a second copy that could drift.
+        let scale_rules = v3 || v4;
         let text = |key: &str| -> Result<String, String> {
             value
                 .get(key)
@@ -645,14 +727,14 @@ impl Protocol {
                 Self::SCHEMA_V2
             ));
         }
-        if v3 && plan_value.get("resolution").is_some() {
+        if scale_rules && plan_value.get("resolution").is_some() {
             return Err(format!(
                 "protocol: a {} plan section does not carry resolution — each arm states its own \
                  scale rule, beside its mask and its trust rule",
                 Self::SCHEMA_V3
             ));
         }
-        if v3 && plan_value.get("certify_share").is_none() {
+        if scale_rules && plan_value.get("certify_share").is_none() {
             // The bar is the single number the scale rules act on, and every arm shares it on purpose:
             // an experiment whose arms each chose a resolution would be several experiments. So the
             // plan states it once, and a file that left it to this reader's default is refused rather
@@ -741,7 +823,7 @@ impl Protocol {
             // read two ways by two builds, which is the reason these refusals are per schema rather
             // than per field.
             let resolution = match item.get("resolution") {
-                Some(_) if !v3 => {
+                Some(_) if !scale_rules => {
                     return Err(format!(
                         "protocol: arm {name:?} states a resolution rule, and {schema} arms state a \
                          mask{} only. Promote the file to {} in the commit that means to change what \
@@ -762,7 +844,7 @@ impl Protocol {
                         )
                     })?
                 }
-                None if v3 => {
+                None if scale_rules => {
                     return Err(format!(
                         "protocol: arm {name:?} states no resolution rule, and a {} arm is its mask, \
                          its trust rule and its scale rule together",
@@ -829,7 +911,7 @@ impl Protocol {
             let sub_granular = string_list("sub_granular")?;
             // The control set is obliged of a `/3` file and absent under `/2`, whose committed freeze
             // could not acquire one without an edit after its own run.
-            let control = if v3 {
+            let control = if scale_rules {
                 string_list("control")?
             } else {
                 Vec::new()
@@ -841,7 +923,7 @@ impl Protocol {
                         .to_string(),
                 );
             }
-            if control.is_empty() && v3 {
+            if control.is_empty() && scale_rules {
                 return Err(format!(
                     "protocol: a {} file whose entries.control names no entry has no rows on which \
                      false suspicion or unnecessary uncertainty could be measured. E1.3b froze a \
@@ -914,7 +996,7 @@ impl Protocol {
         // how rows aggregate into an arm figure and that comparisons are paired — because a quantity
         // like this one can be driven to zero by an arm that certifies nothing, and only a stated
         // denominator and aggregation tell a reader which of the two happened.
-        let required: &[&str] = if v3 {
+        let required: &[&str] = if scale_rules {
             &[
                 "name",
                 "definition",
@@ -937,8 +1019,109 @@ impl Protocol {
         if rule.is_empty() {
             return Err("protocol: primary_metric.decision_rule states no outcome".to_string());
         }
+        // The pilot is either the frozen scope `--pilot` reads, or nothing. A `/3` file that grew one
+        // would be a freeze edited after its own pilot ran, which is the class of change the digest is
+        // here to make visible rather than silent, so the key is refused rather than ignored.
+        let arm_names: Vec<String> = arms.iter().map(|arm| arm.name.clone()).collect();
+        let pilot = match value.get("pilot") {
+            None if v4 => {
+                return Err(format!(
+                    "protocol: a {schema} file states no pilot section, so the infrastructure check \
+                     that must precede this experiment has no frozen scope to run inside and would \
+                     have to be given one on a command line — which is how {}'s pilot came to run the \
+                     full plan while its own stopping rule said it should not",
+                    Self::SCHEMA_V3
+                ));
+            }
+            None => None,
+            Some(_) if !v4 => {
+                return Err(format!(
+                    "protocol: a `pilot` section belongs to {}, and {schema} files do not have one. \
+                     Adding a scope to a freeze that already ran would be editing the pre-registration",
+                    Self::SCHEMA_V4
+                ));
+            }
+            Some(item) => {
+                let list = |key: &str| -> Result<Vec<String>, String> {
+                    let items = item.get(key).and_then(Json::as_array).ok_or_else(|| {
+                        format!("protocol: pilot.{key} is missing or is not a list")
+                    })?;
+                    let mut out = Vec::new();
+                    for entry in items {
+                        let name = entry
+                            .as_str()
+                            .ok_or_else(|| format!("protocol: pilot.{key} holds a non-string"))?
+                            .to_string();
+                        if out.contains(&name) {
+                            return Err(format!("protocol: pilot.{key} names {name:?} twice"));
+                        }
+                        out.push(name);
+                    }
+                    if out.is_empty() {
+                        return Err(format!(
+                            "protocol: pilot.{key} is empty, so the pilot would run nothing and \
+                             prove nothing about the run it precedes"
+                        ));
+                    }
+                    Ok(out)
+                };
+                let numbers = |key: &str, frozen: &[u64]| -> Result<Vec<u64>, String> {
+                    let items = item.get(key).and_then(Json::as_array).ok_or_else(|| {
+                        format!("protocol: pilot.{key} is missing or is not a list")
+                    })?;
+                    let mut out = Vec::new();
+                    for entry in items {
+                        let at = entry
+                            .as_u64()
+                            .ok_or_else(|| format!("protocol: pilot.{key} holds a non-number"))?;
+                        if !frozen.contains(&at) {
+                            return Err(format!(
+                                "protocol: pilot.{key} names {at}, which this file's plan does not \
+                                 measure — a pilot may be smaller than its experiment and nothing else"
+                            ));
+                        }
+                        if out.contains(&at) {
+                            return Err(format!(
+                                "protocol: pilot.{key} names {at} twice, so the number of rows the \
+                                 pilot charges itself would depend on how the list was typed"
+                            ));
+                        }
+                        out.push(at);
+                    }
+                    if out.is_empty() {
+                        return Err(format!("protocol: pilot.{key} is empty"));
+                    }
+                    Ok(out)
+                };
+                let arms = list("arms")?;
+                for name in &arms {
+                    if !arm_names.contains(name) {
+                        return Err(format!(
+                            "protocol: pilot arms names {name:?}, which is not one of this file's arms"
+                        ));
+                    }
+                }
+                let entries = list("entries")?;
+                for name in &entries {
+                    if !names.contains(name) {
+                        return Err(format!(
+                            "protocol: pilot entries names {name:?}, which is not in entries.run"
+                        ));
+                    }
+                }
+                let checks = list("checks")?;
+                Some(Pilot {
+                    arms,
+                    entries,
+                    budgets: numbers("budgets", &plan.budgets)?,
+                    seeds: numbers("seeds", &plan.seeds)?,
+                    checks,
+                })
+            }
+        };
         Ok(Self {
             id: text("id")?,
+            schema: schema.to_string(),
             question: text("question")?,
             plan,
             arms,
@@ -946,6 +1129,7 @@ impl Protocol {
             resolvable,
             sub_granular,
             control,
+            pilot,
             digest: None,
         })
     }
@@ -1210,6 +1394,13 @@ pub fn archive_and_replay(
             .notes
             .push(("protocol_digest".to_string(), digest.to_string()));
     }
+    if plan.provenance.pilot {
+        // An archive of a pilot is evidence about the plumbing, and the note is what says so in the
+        // bytes rather than only in the directory somebody chose to pass.
+        environment
+            .notes
+            .push(("pilot".to_string(), "true".to_string()));
+    }
     let run = aporia_store::Run {
         model,
         model_text: &entry.source,
@@ -1362,7 +1553,7 @@ pub fn results_json(
              channels localises at the same charged cost"
         }
     };
-    Json::object(vec![
+    let mut fields = vec![
         ("schema", Json::text(RESULTS_SCHEMA)),
         ("identity", Json::text(run_identity(plan, entries))),
         (
@@ -1447,7 +1638,14 @@ pub fn results_json(
                     .collect::<Vec<_>>(),
             )),
         ),
-    ])
+    ];
+    // Written only for a pilot run, so the bytes of every full measurement are exactly what they were
+    // before the option existed — and a reader who opens a document about the plumbing can tell that
+    // from a document about the experiment without knowing how it was invoked.
+    if frozen.is_some_and(|frozen| frozen.pilot) {
+        fields.push(("pilot", Json::Bool(true)));
+    }
+    Json::object(fields)
 }
 
 /// What the run was asked to do, as the document records it. Its own function because the identity of

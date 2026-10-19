@@ -119,6 +119,7 @@ fn a_directory_that_belongs_to_another_measurement_is_refused_by_both_identities
         protocol: Some("e1-4-resolution-demand".to_string()),
         arm: Some("A-current".to_string()),
         protocol_digest: Some("0123456789abcdef".to_string()),
+        pilot: false,
         measurement_identity: Some(run_identity(&ours, &entries)),
     };
     let ours_identity = run_identity(&ours, &entries);

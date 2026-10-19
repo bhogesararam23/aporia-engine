@@ -76,6 +76,9 @@ pub fn usage(program: &str) -> String {
      \x20     [--plan protocols/<id>.json --arm <name>]  run a frozen experiment definition;\n\
      \x20        with --plan every flag that shapes what is measured is refused, because an\n\
      \x20        override of a pre-registration is what a pre-registration forbids\n\
+     \x20     [--pilot]  with --plan, run the reduced scope that file freezes: the pilot is\n\
+     \x20        part of the pre-registration, so its size is read from the file and not\n\
+     \x20        from a command line, and a file that froze none is refused\n\
      \x20     [--archive DIR] [--differential-every N] [--numerical-every N]\n\
      \x20     [--ablate channel,..]  drop a channel's READINGS, not its evaluations:\n\
      \x20        every arm still runs the same points at the same cost, so the arms are\n\
@@ -397,6 +400,10 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
     let numerical_every = rate("--numerical-every", defaults.numerical_every)?;
     let ablated = args.list("--ablate")?;
     let ablate = parse_channels(&ablated)?;
+    // Not an override: `--pilot` selects the reduced scope *the frozen file itself* declares, and a
+    // protocol that froze none is refused. The alternative was a pilot planned on a command line,
+    // which is what left E1.4 running the full ladder while its stopping rule described a smaller run.
+    let pilot = args.flag("--pilot");
     args.reject_unknown()?;
     let entries = load_corpus()?;
 
@@ -407,25 +414,19 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
     // therefore refused beside `--plan`; `--out` and `--archive`, which only say where bytes land,
     // are not.
     let (selected, mut plan, frozen) = if let Some(path) = plan_path {
-        let frozen_run = frozen_run(&path, arm_name, archive_dir, flags, &entries)?;
-        println!(
-            "protocol {} arm {} — {} entries, {} arm(s) frozen, budgets {:?}, seeds {:?}",
-            frozen_run.frozen.id,
-            frozen_run.frozen.arm,
-            frozen_run.entries.len(),
-            frozen_run.arms,
-            frozen_run.plan.budgets,
-            frozen_run.plan.seeds
-        );
-        println!("{}", announce_axes(&frozen_run.plan));
-        // The protocol's rows, and what the instrument noticed about them on the way in.
-        for note in &frozen_run.notes {
-            println!("  note: {note}");
-        }
+        let frozen_run = frozen_run(&path, arm_name, archive_dir, flags, &entries, pilot)?;
+        announce_frozen(&frozen_run);
         (frozen_run.entries, frozen_run.plan, Some(frozen_run.frozen))
     } else {
         if arm_name.is_some() {
             return Err("--arm selects an arm of a --plan, and no --plan was given".to_string());
+        }
+        if pilot {
+            return Err(
+                "--pilot runs the reduced scope a frozen protocol declares, and an ad-hoc plan has no \
+                 frozen scope. Give --plan protocols/<id>.json."
+                    .to_string(),
+            );
         }
         let defaults = harness::Plan::default();
         (
@@ -486,6 +487,9 @@ pub fn run_run(program: &str, flags: &[String]) -> Result<i32, String> {
         protocol: frozen.as_ref().map(|f| f.id.clone()),
         arm: frozen.as_ref().map(|f| f.arm.clone()),
         protocol_digest: frozen.as_ref().and_then(|f| f.protocol_digest.clone()),
+        // Carried into every archive so a pilot's bytes say in their own manifest that they are not
+        // the experiment's, beside the identity that already differs from it.
+        pilot: frozen.as_ref().is_some_and(|f| f.pilot),
         measurement_identity: Some(harness::run_identity(&plan, &selected)),
     };
 
@@ -598,12 +602,35 @@ struct FrozenRun {
 /// An entry the protocol names and the corpus lacks is an error rather than a smaller run: a
 /// measurement taken over nine of seventeen entries is a different experiment, and the file that
 /// froze it says seventeen.
+/// Say what a frozen run decided to measure, before it measures it — including whether it is the
+/// pilot the freeze scoped rather than the experiment.
+fn announce_frozen(run: &FrozenRun) {
+    println!(
+        "protocol {} arm {} — {} entries, {} arm(s) frozen, budgets {:?}, seeds {:?}",
+        run.frozen.id,
+        run.frozen.arm,
+        run.entries.len(),
+        run.arms,
+        run.plan.budgets,
+        run.plan.seeds
+    );
+    if run.frozen.pilot {
+        println!("  PILOT RUN: the reduced scope this protocol froze, not the experiment");
+    }
+    println!("{}", announce_axes(&run.plan));
+    // The protocol's rows, and what the instrument noticed about them on the way in.
+    for note in &run.notes {
+        println!("  note: {note}");
+    }
+}
+
 fn frozen_run(
     path: &str,
     arm: Option<String>,
     archive_dir: PathBuf,
     flags: &[String],
     entries: &[corpus::Entry],
+    pilot: bool,
 ) -> Result<FrozenRun, String> {
     if let Some(flag) = FROZEN_OVERRIDES
         .iter()
@@ -620,8 +647,17 @@ fn frozen_run(
     // which measurement was wanted, and defaulting to the full instrument would let a run claim to
     // be an ablation arm it was not. `Protocol::arm` names the arms that do exist when the one
     // asked for is not among them.
-    let (mut plan, frozen) = match arm {
-        Some(text) => protocol.arm(&text)?,
+    let (mut plan, frozen, scope) = match arm {
+        Some(text) => {
+            if pilot {
+                let (plan, scope, frozen) = protocol.pilot(&text)?;
+                (plan, frozen, scope)
+            } else {
+                let (plan, frozen) = protocol.arm(&text)?;
+                let scope = protocol.entries.clone();
+                (plan, frozen, scope)
+            }
+        }
         None => {
             return Err(format!(
                 "--plan needs --arm, because a protocol with more than one arm does not say which \
@@ -632,8 +668,7 @@ fn frozen_run(
         }
     };
     plan.archive_dir = archive_dir;
-    let missing: Vec<&String> = protocol
-        .entries
+    let missing: Vec<&String> = scope
         .iter()
         .filter(|name| !entries.iter().any(|e| e.id() == **name))
         .collect();
@@ -650,7 +685,7 @@ fn frozen_run(
     }
     let selected: Vec<_> = entries
         .iter()
-        .filter(|e| protocol.entries.iter().any(|name| *name == e.id()))
+        .filter(|e| scope.iter().any(|name| *name == e.id()))
         .cloned()
         .collect();
     let notes = reachability_gate(&protocol, &selected, &plan)?;
