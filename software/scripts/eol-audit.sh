@@ -26,7 +26,13 @@
 #
 #   scripts/eol-audit.sh          # exit 1 if any evidence byte differs or the index is stale
 set -u
-cd "$(dirname "$0")/.." || exit 1
+# From the repository root, and that is not a style choice. The pathspecs below are root-relative, so
+# running this from `software/` -- where every other script in this directory puts its working tree --
+# makes `git ls-files -- software/benchmarks` match nothing: check 1 silently enumerated zero paths, and
+# check 2 compared root-relative `git status` names against cwd-relative `git diff` names and called
+# every modified file a stale index. A gate whose pathspec matches nothing passes for the wrong reason,
+# which is the failure this script exists to catch in other people's tooling.
+cd "$(dirname "$0")/../.." || exit 1
 
 # Tracked paths whose exact bytes are load-bearing.
 byte_contracts() {
@@ -78,7 +84,7 @@ if [ -n "$drift_paths" ]; then
     echo "line endings in the working tree that do not match the stored blob's:"
     git ls-files --eol | awk '$2 ~ /^w\/(crlf|mixed)$/ {print "    " $2 "  " $NF "  (blob " $1 ")"}'
     drift_src=$(echo "$drift_paths" | grep -c 'crates/\|Cargo.toml' || true)
-    if echo "$drift_paths" | grep -qE '^(benchmarks|examples)/|/fixtures/'; then
+    if echo "$drift_paths" | grep -qE '^software/(benchmarks|examples)/|/fixtures/'; then
         echo "    drift on an evidence or fixture path: refused by check 1 above"
         fail=1
     fi
