@@ -33,6 +33,11 @@
 # produce are committed, under benchmarks/results/.
 /software/benchmarks/archives/
 
+# Python bytecode caches. The analysis helpers import each other (`e14_pilot.py` reuses
+# `e14_repro_gate.py`), and CPython writes a `__pycache__` beside the source for every such import.
+# It is a cache of bytes that are already in the repository, so it never becomes project content.
+/**/__pycache__/
+
 # Editor / OS
 /.idea/
 /.vscode/
