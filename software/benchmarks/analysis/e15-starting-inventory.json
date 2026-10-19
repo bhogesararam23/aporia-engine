@@ -1,0 +1,462 @@
+{
+ "commands": {
+  "byte_contracts": "scripts/eol-audit.sh",
+  "clippy": "scripts/clippy.sh",
+  "corpus_audit": "cargo run --release -p aporia-bench -- audit",
+  "history_builds": "scripts/verify-commits.sh <range>",
+  "reachability": "cargo run --release -p aporia-bench -- reach",
+  "reproduction_gate": "scripts/e14_repro_gate.py",
+  "targeted_tests": "scripts/t.sh -p aporia-bench --test <name>",
+  "workspace_tests": "scripts/test.sh"
+ },
+ "corpus": {
+  "controls": [
+   "aerospace/projectile_clean",
+   "control/symplectic_spring",
+   "discrete/clean_lattice",
+   "electromagnetics/coupled_coils",
+   "geometry/curved_clean"
+  ],
+  "entries": 41,
+  "entries_with_more_than_one_region": [
+   {
+    "entry": "discrete/lattice_two",
+    "regions": 2
+   },
+   {
+    "entry": "discrete/mixed_magnitude",
+    "regions": 2
+   },
+   {
+    "entry": "discrete/scheme_branch",
+    "regions": 3
+   },
+   {
+    "entry": "ode/euler_decay_2d",
+    "regions": 24
+   }
+  ],
+  "families": [
+   {
+    "entries": 4,
+    "name": "analytic"
+   },
+   {
+    "entries": 2,
+    "name": "ode"
+   },
+   {
+    "entries": 2,
+    "name": "control"
+   },
+   {
+    "entries": 1,
+    "name": "linear_algebra"
+   },
+   {
+    "entries": 3,
+    "name": "aerospace"
+   },
+   {
+    "entries": 2,
+    "name": "electromagnetics"
+   },
+   {
+    "entries": 1,
+    "name": "mutants"
+   },
+   {
+    "entries": 5,
+    "name": "geometry"
+   },
+   {
+    "entries": 7,
+    "name": "synthetic"
+   },
+   {
+    "entries": 4,
+    "name": "discrete"
+   },
+   {
+    "entries": 2,
+    "name": "edge"
+   },
+   {
+    "entries": 2,
+    "name": "domain"
+   },
+   {
+    "entries": 6,
+    "name": "granular"
+   }
+  ],
+  "mechanisms_distinct": true,
+  "resolvable": [
+   "granular/diagonal_count",
+   "granular/fit_band",
+   "granular/match_return",
+   "granular/rail_ceiling",
+   "granular/stroke_reference",
+   "granular/tolerance_stack"
+  ],
+  "truth_schemas": {
+   "aporia.truth/1": 22,
+   "aporia.truth/2": 13,
+   "aporia.truth/3": 6
+  }
+ },
+ "e14_committed_decision_fired": null,
+ "e14_recomputed": {
+  "ceilings": {
+   "capture_floor": 0.5,
+   "certification_floor_of_control": 0.25,
+   "coarse_certified_ratio_for_improvement": 0.5,
+   "cost_ceiling": 0.5,
+   "unknown_absolute": 0.1
+  },
+  "control_entry": "control/symplectic_spring",
+  "informativeness_pair": {
+   "capture": 0.6748320601092131,
+   "cost": 0.9510112359550562,
+   "enrichment_of_withheld_volume": 0.7408296793481328,
+   "withheld_share_of_certification": 0.9109139103376744
+  },
+  "outcome_1_condition_met": false,
+  "outcome_2_arms_reporting_near_zero_certification": [
+   "C-withhold"
+  ],
+  "outcome_3_arms": [],
+  "outcome_5_h_rename_refuses_h_withhold": false,
+  "outcome_6_condition_met": false,
+  "paired_against_reference": {
+   "B-demand": {
+    "coarse_certified_ratio": 0.0,
+    "coarse_certified_volume_change": -0.5403125,
+    "control_certification_ratio": 0.4321488764044946,
+    "detection_lowered_on_any_entry": false,
+    "leaf_cells_change": 85.69999999999999,
+    "localisation_change": 0,
+    "localisation_lowered_on_any_entry": false,
+    "localisation_raised_on_any_entry": false,
+    "localised_regions_change": 0,
+    "provisional_volume_change": 0.0,
+    "trusted_over_true_change": -0.0001171088218688921,
+    "trusted_volume_change": -0.28877685546875004,
+    "unknown_volume_change": 0.28879882812500013
+   },
+   "C-withhold": {
+    "coarse_certified_ratio": 0.0,
+    "coarse_certified_volume_change": -0.5403125,
+    "control_certification_ratio": 0.0489887640449438,
+    "detection_lowered_on_any_entry": false,
+    "leaf_cells_change": 0.0,
+    "localisation_change": 0,
+    "localisation_lowered_on_any_entry": false,
+    "localisation_raised_on_any_entry": false,
+    "localised_regions_change": 0,
+    "provisional_volume_change": 0.5403125,
+    "trusted_over_true_change": -0.00011520385742187333,
+    "trusted_volume_change": -0.5403125,
+    "unknown_volume_change": 0.0
+   },
+   "D-demand-and-withhold": {
+    "coarse_certified_ratio": 0.0,
+    "coarse_certified_volume_change": -0.5403125,
+    "control_certification_ratio": 0.4321488764044946,
+    "detection_lowered_on_any_entry": false,
+    "leaf_cells_change": 85.69999999999999,
+    "localisation_change": 0,
+    "localisation_lowered_on_any_entry": false,
+    "localisation_raised_on_any_entry": false,
+    "localised_regions_change": 0,
+    "provisional_volume_change": 0.0,
+    "trusted_over_true_change": -0.0001171088218688921,
+    "trusted_volume_change": -0.28877685546875004,
+    "unknown_volume_change": 0.28879882812500013
+   }
+  },
+  "per_arm": {
+   "A-current": {
+    "coarse_certified_volume": 0.5403125,
+    "control_coarse_certified_volume": 0.8265625000000003,
+    "control_provisional_volume": 0.0,
+    "control_suspicious_volume": 0.037499999999999964,
+    "control_trusted_volume": 0.8691406250000003,
+    "control_unknown_volume": 0.11054687500000002,
+    "detected_regions_sum": 80,
+    "evaluations": 1200.0,
+    "evaluations_sum": 120000,
+    "identity": "bf3964c8d2d9",
+    "instruction_steps": 190320.0,
+    "instruction_steps_sum": 19032000,
+    "leaf_cells": 244.49,
+    "localised_regions_sum": 60,
+    "over_claim_rows": 40,
+    "provisional_volume": 0.0,
+    "rows": 100,
+    "rows_certifying_nothing": 1,
+    "suspicious_volume": 0.14216308593749996,
+    "trusted_over_true": 0.0001707148551940894,
+    "trusted_over_true_coarse": 0.00011520385742187336,
+    "trusted_volume": 0.5931542968749999,
+    "unknown_volume": 0.2646826171875002
+   },
+   "B-demand": {
+    "coarse_certified_volume": 0.0,
+    "control_coarse_certified_volume": 0.0,
+    "control_provisional_volume": 0.0,
+    "control_suspicious_volume": 0.01762695312499999,
+    "control_trusted_volume": 0.37559814453125034,
+    "control_unknown_volume": 0.6085449218750004,
+    "detected_regions_sum": 80,
+    "evaluations": 1200.0,
+    "evaluations_sum": 120000,
+    "identity": "9a242fe5a8aa",
+    "instruction_steps": 190320.0,
+    "instruction_steps_sum": 19032000,
+    "leaf_cells": 330.19,
+    "localised_regions_sum": 60,
+    "over_claim_rows": 28,
+    "provisional_volume": 0.0,
+    "rows": 100,
+    "rows_certifying_nothing": 0,
+    "suspicious_volume": 0.14214111328124995,
+    "trusted_over_true": 5.3606033325197306e-05,
+    "trusted_over_true_coarse": 0.0,
+    "trusted_volume": 0.30437744140624984,
+    "unknown_volume": 0.5534814453125003
+   },
+   "C-withhold": {
+    "coarse_certified_volume": 0.0,
+    "control_coarse_certified_volume": 0.0,
+    "control_provisional_volume": 0.8265625000000003,
+    "control_suspicious_volume": 0.037499999999999964,
+    "control_trusted_volume": 0.042578125,
+    "control_unknown_volume": 0.11054687500000002,
+    "detected_regions_sum": 80,
+    "evaluations": 1200.0,
+    "evaluations_sum": 120000,
+    "identity": "2b75924a550c",
+    "instruction_steps": 190320.0,
+    "instruction_steps_sum": 19032000,
+    "leaf_cells": 244.49,
+    "localised_regions_sum": 60,
+    "over_claim_rows": 37,
+    "provisional_volume": 0.5403125,
+    "rows": 100,
+    "rows_certifying_nothing": 10,
+    "suspicious_volume": 0.14216308593749996,
+    "trusted_over_true": 5.551099777221607e-05,
+    "trusted_over_true_coarse": 0.0,
+    "trusted_volume": 0.052841796874999944,
+    "unknown_volume": 0.2646826171875002
+   },
+   "D-demand-and-withhold": {
+    "coarse_certified_volume": 0.0,
+    "control_coarse_certified_volume": 0.0,
+    "control_provisional_volume": 0.0,
+    "control_suspicious_volume": 0.01762695312499999,
+    "control_trusted_volume": 0.37559814453125034,
+    "control_unknown_volume": 0.6085449218750004,
+    "detected_regions_sum": 80,
+    "evaluations": 1200.0,
+    "evaluations_sum": 120000,
+    "identity": "5b437246799a",
+    "instruction_steps": 190320.0,
+    "instruction_steps_sum": 19032000,
+    "leaf_cells": 330.19,
+    "localised_regions_sum": 60,
+    "over_claim_rows": 28,
+    "provisional_volume": 0.0,
+    "rows": 100,
+    "rows_certifying_nothing": 0,
+    "suspicious_volume": 0.14214111328124995,
+    "trusted_over_true": 5.3606033325197306e-05,
+    "trusted_over_true_coarse": 0.0,
+    "trusted_volume": 0.30437744140624984,
+    "unknown_volume": 0.5534814453125003
+   }
+  },
+  "per_budget": {
+   "1280": {
+    "demand_unknown_volume": 0.4755664062500006,
+    "reference_coarse_certified_volume": 0.5959375000000001,
+    "reference_unknown_volume": 0.19521484375000017
+   },
+   "2560": {
+    "demand_unknown_volume": 0.20678710937500036,
+    "reference_coarse_certified_volume": 0.575625,
+    "reference_unknown_volume": 0.16890625000000026
+   },
+   "320": {
+    "demand_unknown_volume": 0.8098828125000003,
+    "reference_coarse_certified_volume": 0.40374999999999966,
+    "reference_unknown_volume": 0.4435156250000003
+   },
+   "640": {
+    "demand_unknown_volume": 0.7216894531250003,
+    "reference_coarse_certified_volume": 0.5859375000000001,
+    "reference_unknown_volume": 0.25109375000000006
+   }
+  },
+  "primary_metric_nonzero_on_reference_rows": true,
+  "protocol_digest": "3eb45a9ca9005e2d",
+  "protocol_id": "e1-4-resolution-demand"
+ },
+ "gaps_a_reader_can_check_in_this_inventory": [
+  "No per-label declared-region overlap exists: `row_fields_available` carries `trusted_over_true` and no `unknown_over_true`, `suspicious_over_true` or `provisional_over_true`, which is why E1.4's own artifact records H-WITHHOLD's first falsifier as not computable from any published column.",
+  "The one region-overlap quantity that does exist folds declared regions by maximum, not by union, and four committed entries declare more than one region - `ode/euler_decay_2d` declares twenty-four - so the gap is measured on real corpus shapes rather than hypothetical ones.",
+  "E1.4's UNKNOWN ceiling is an absolute area (0.10) chosen against a partition it could not scale: the recomputed increase it breached is 0.288798828125 on every arm that moved the partition, and an arm that never touched the partition (C-withhold) shows the ceiling is silent on relabelling, where the change is 0.0.",
+  "The E1.4 freeze states its pilot scope in prose (one entry, two seeds, two budgets) and provides no reduced plan, so the pilot ran the full frozen plan; see the committed `recorded_defects` list in `analysis/e1-4-resolution-demand.json`.",
+  "E1.4's corpus had no entry that is both resolvable and over-claiming in coarse leaves: the reference arm's whole certified over-claim is 0.000171 of its domain and 40 of 100 rows over-claim at all, which is why the resolution question was answered by the bar's arithmetic rather than by a case built to discriminate."
+ ],
+ "per_label_region_overlap": {
+  "absent": [
+   "unknown_over_true",
+   "suspicious_over_true",
+   "provisional_over_true"
+  ],
+  "consequence": "an entry whose regions tile a cell side by side reports the largest tile, so a certified cell covering two declared boxes is scored as covering one of them",
+  "geometry_of_the_present_quantity": "the maximum overlap over the declared regions, not the overlap of their union: `Truth::overlap_fraction` folds regions with `best = best.max(...)`",
+  "present": [
+   "trusted_over_true",
+   "trusted_over_true_coarse"
+  ]
+ },
+ "produced_by": "scripts/e15_inventory.py",
+ "protocols": [
+  {
+   "arms": [
+    "full-current-trust",
+    "full-min-channels-2",
+    "full-nonfinite-blocks-trust",
+    "full-both-trust-rules",
+    "no-physical-current-trust",
+    "no-physical-both-trust-rules",
+    "only-physical-current-trust",
+    "only-physical-both-trust-rules"
+   ],
+   "digest": "ea5b9d7140131dc9",
+   "frozen": "2026-10-09",
+   "id": "e1-3b-trust-resolution",
+   "schema": "aporia.protocol/2"
+  },
+  {
+   "arms": [
+    "A-current",
+    "B-demand",
+    "C-withhold",
+    "D-demand-and-withhold"
+   ],
+   "digest": "3eb45a9ca9005e2d",
+   "frozen": "2026-10-19",
+   "id": "e1-4-resolution-demand",
+   "schema": "aporia.protocol/3"
+  },
+  {
+   "arms": [
+    "full",
+    "no-behavioral",
+    "no-numerical",
+    "no-differential",
+    "no-sensitivity",
+    "no-physical",
+    "only-behavioral",
+    "only-physical",
+    "only-numerical",
+    "only-differential",
+    "only-sensitivity"
+   ],
+   "digest": "5199a5cfdfc7c479",
+   "frozen": "2026-10-08",
+   "id": "e1-geometry",
+   "schema": "aporia.protocol/1"
+  }
+ ],
+ "purpose": "What E1.5 starts from: the corpus, protocols, records and row fields as they stand, and E1.4's headline recomputed from committed rows by arithmetic written independently of scripts/e14_analysis.py.",
+ "recomputation_disagreements": [],
+ "records": {
+  "analysis_artifacts": [
+   "e1-3b-pilot.json",
+   "e1-3b-reproduction-gate.json",
+   "e1-3b-trust-resolution.json",
+   "e1-4-pilot.json",
+   "e1-4-reproduction-gate.json",
+   "e1-4-resolution-demand.json",
+   "e1-geometry-postmortem.json",
+   "e1-geometry-row-trace.json",
+   "e15-starting-inventory.json"
+  ],
+  "archive_directories": 414,
+  "e14_arm_identities": {
+   "A-current": "bf3964c8d2d9",
+   "B-demand": "9a242fe5a8aa",
+   "C-withhold": "2b75924a550c",
+   "D-demand-and-withhold": "5b437246799a"
+  },
+  "result_documents": 49
+ },
+ "repository": {
+  "branch": "main",
+  "crates": [
+   "aporia-adapter",
+   "aporia-bench",
+   "aporia-boundary",
+   "aporia-cli",
+   "aporia-dsl",
+   "aporia-evidence",
+   "aporia-ir",
+   "aporia-minimize",
+   "aporia-numerics",
+   "aporia-properties",
+   "aporia-runtime",
+   "aporia-search",
+   "aporia-store"
+  ],
+  "head": "4403b8a9677b9df50f9250092602e2a5acd4dc81",
+  "remote_main": "4403b8a9677b9df50f9250092602e2a5acd4dc81",
+  "test_files": 37,
+  "tracked_paths_under_docs": 0,
+  "working_tree_entries_dirty": 0
+ },
+ "row_fields_available": [
+  "arity",
+  "boundaries",
+  "budget",
+  "census",
+  "coarse_certified_share",
+  "coarse_certified_volume",
+  "control",
+  "counterexamples",
+  "declared_regions",
+  "detected_regions",
+  "duplicate_discovery_rate",
+  "entry",
+  "evaluations",
+  "false_positive_fraction",
+  "family",
+  "fault",
+  "findings",
+  "first_true_failure",
+  "instruction_steps",
+  "lattice_sensitive",
+  "leaf_cells",
+  "localised_regions",
+  "non_finite_readings",
+  "provisional_volume",
+  "replayed",
+  "seed",
+  "strategy",
+  "suspicious_volume",
+  "trusted_over_true",
+  "trusted_over_true_coarse",
+  "trusted_volume",
+  "unknown_volume",
+  "unplaced",
+  "wall_ms"
+ ],
+ "schema": "aporia.inventory/1",
+ "traceability_gaps_found_by_the_recomputation": [
+  "`trusted_over_true_coarse` is a committed row column and `capture` is computed from it, but no per-arm summary in the committed artifact publishes it, so a reader cannot check `capture` against published means without doing this recomputation. Recorded as a reportable gap rather than a wrong number: every row value and every deciding comparison did reproduce."
+ ]
+}
