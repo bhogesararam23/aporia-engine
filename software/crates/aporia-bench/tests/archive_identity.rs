@@ -143,8 +143,7 @@ fn a_directory_that_belongs_to_another_measurement_is_refused_by_both_identities
     );
     let at = plant(&dir, &foreign, Some(&foreign_identity));
     let error = aporia_bench::cli::archive_namespace_guard(&ours, &entries)
-        .err()
-        .expect("arm A may be handed a directory arm C already fills");
+        .expect_err("arm A may be handed a directory arm C already fills");
     for want in [
         ours_identity.as_str(),
         foreign_identity.as_str(),
@@ -169,8 +168,7 @@ fn a_directory_that_belongs_to_another_measurement_is_refused_by_both_identities
     );
     let at = plant(&dir, &inert, Some(&ours_identity));
     let error = aporia_bench::cli::archive_namespace_guard(&ours, &entries)
-        .err()
-        .expect("a differently configured archive was accepted as this measurement's");
+        .expect_err("a differently configured archive was accepted as this measurement's");
     assert!(
         error.contains("configured differently"),
         "the second check is the configuration, and it should say so: {error}"
@@ -198,8 +196,7 @@ fn an_archive_that_cannot_say_what_it_measures_is_not_replaced_on_an_assumption(
         ..aporia_bench::harness::Provenance::default()
     };
     let error = aporia_bench::cli::archive_namespace_guard(&ours, &entries)
-        .err()
-        .expect("a manifest that records no identity must not be silently overwritten");
+        .expect_err("a manifest that records no identity must not be silently overwritten");
     assert!(
         error.contains("no measurement identity") && error.contains("predates"),
         "the refusal has to say why an unrecognised archive is not the same as an empty directory: \

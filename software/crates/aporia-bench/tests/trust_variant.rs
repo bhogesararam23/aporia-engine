@@ -939,23 +939,10 @@ fn a_run_refuses_to_archive_over_another_experiments_measurement() {
     cli::archive_namespace_guard(&plan, &selected)
         .expect("a manifest that states less is not one that states something else");
 
-    // The refusal that could not exist before: an archive that names a measurement, and names another
-    // one. Same directory, same configuration, different plan.
-    std::fs::write(
-        &manifest,
-        Json::object(vec![
-            ("config", mine),
-            ("environment", named("0123456789abcdef0123456789abcdef")),
-        ])
-        .to_compact(),
-    )
-    .expect("a foreign measurement's archive is planted");
-    let error = cli::archive_namespace_guard(&plan, &selected)
-        .expect_err("an archive that names a different measurement must stop this run");
-    assert!(
-        error.contains(&identity) && error.contains("0123456789abcdef0123456789abcdef"),
-        "the refusal names both measurements, not just the collision: {error}"
-    );
+    // A refusal that could not exist before the identity was recorded -- an archive that names a
+    // measurement, and names another one -- is exercised in `archive_identity`, where the plan is built
+    // with its provenance filled in the way the runner fills it. What this test owns is the case that
+    // made the guard necessary: an archive that cannot say what it measures.
     std::fs::remove_dir_all(&dir).ok();
 }
 

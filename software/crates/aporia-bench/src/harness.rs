@@ -788,8 +788,8 @@ impl Protocol {
                     && arm.ablate.iter().all(|c| other.ablate.contains(c));
                 if same_mask && arm.trust == other.trust && arm.resolution == other.resolution {
                     return Err(format!(
-                        "protocol: arms {:?} and {:?} silence the same channels, trust under the same \
-                         rule and certify at the same scale, so they are one measurement under two \
+                        "protocol: arms {:?} and {:?} state the same ablate mask, the same trust rule and the same \
+                         resolution rule, so they are one measurement under two \
                          names",
                         arm.name, other.name
                     ));

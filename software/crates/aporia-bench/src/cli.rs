@@ -896,14 +896,14 @@ pub fn archive_namespace_guard(
                 }
                 (Some(w), Some(p)) if w != p => {
                     return Err(format!(
-                        "{} belongs to measurement {w}, and this run is measurement {p}. The directory                          name is not the whole identity -- it does not carry the experiment or the corpus                          -- so the bytes a published number is opened from would be replaced by a run                          that means something else. Pass --archive DIR.",
+                        "{} belongs to measurement {w}, and this run is measurement {p}. A directory                          name carries the entry, the strategy, the seed and the axes an arm states, not                          the experiment, so this is where two protocols that share those five are told                          apart. Pass --archive DIR.",
                         dir.display()
                     ));
                 }
-                // Same identity, or a run whose caller knows no identity (an ad-hoc `run` without a plan
-                // and without a document to compare against): fall through to the configuration compare,
-                // which still catches a rate or a mask that differs.
-                (Some(_), Some(_)) | (Some(_), None) => {}
+                // Same identity (a rerun of the measurement the directory already holds), or a caller
+                // that recorded none: the configuration compare below still stands, and it is the check
+                // that catches a threshold an identity would not have had to be recorded to differ over.
+                _ => {}
             }
             let Some(config) = written.get("config") else {
                 return Err(format!(

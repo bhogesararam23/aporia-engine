@@ -39,12 +39,7 @@ fn documents() -> Vec<(Json, std::path::PathBuf)> {
     };
     for file in entries.flatten() {
         let path = file.path();
-        if path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e != "json")
-            .unwrap_or(true)
-        {
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;
         }
         let name = path

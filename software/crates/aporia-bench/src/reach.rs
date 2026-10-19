@@ -335,6 +335,49 @@ pub fn reach(entry: &Entry, policy: &Policy) -> Reach {
     }
 }
 
+/// Order the candidate leaves by how well they could hold the carve: centre held, then finest, then
+/// corner support, then envelope, then creation order. Three predicate evaluations per candidate against
+/// the thousand a lattice figure costs, and the decisive share is still measured on the cell itself --
+/// this only chooses which cells get asked. The two orderings it replaces each mis-ranked a real case: the
+/// envelope alone tied a whole-domain box together, and the probe count alone demoted the finest leaves
+/// inside a band thinner than a leaf.
+#[must_use]
+fn rank_candidates(
+    model: &Model,
+    region: &Declared,
+    cells: &[Cell],
+    candidates: &[(f64, usize)],
+) -> Vec<(u8, u8, u32, f64, usize)> {
+    let mut ranked: Vec<(u8, u8, u32, f64, usize)> = candidates
+        .iter()
+        .map(|(share, at)| {
+            let cell = &cells[*at];
+            let centre: Vec<f64> = (0..cell.bounds.len())
+                .map(|axis| cell.center(axis))
+                .collect();
+            let corners = [
+                (0..cell.bounds.len())
+                    .map(|axis| cell.bounds[axis][0])
+                    .collect::<Vec<_>>(),
+                (0..cell.bounds.len())
+                    .map(|axis| cell.bounds[axis][1])
+                    .collect::<Vec<_>>(),
+            ];
+            let centre_holds = u8::from(region.contains(model, &centre));
+            let corners_held = corners.iter().filter(|x| region.contains(model, x)).count() as u32;
+            (centre_holds, cell.depth, corners_held, *share, *at)
+        })
+        .collect();
+    ranked.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then(b.1.cmp(&a.1))
+            .then(b.2.cmp(&a.2))
+            .then(b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal))
+            .then(a.4.cmp(&b.4))
+    });
+    ranked
+}
+
 /// One region against the whole permitted partition.
 fn classify(index: usize, region: &Declared, model: &Model, cells: &[Cell]) -> RegionReach {
     let mut best_envelope = 0.0f64;
@@ -404,47 +447,7 @@ fn classify(index: usize, region: &Declared, model: &Model, cells: &[Cell]) -> R
     // `overlap_fraction` on the cell, unchanged; this only decides which 32 cells get asked. It is a
     // filter and not a proof: a region whose capable leaves all hold their centre outside the carve can
     // still be under-examined here, and that is recorded in `limitations`, not argued away.
-    let mut ranked: Vec<(u8, u8, u32, f64, usize)> = candidates
-        .iter()
-        .map(|(share, at)| {
-            let cell = &cells[*at];
-            let centre: Vec<f64> = (0..cell.bounds.len())
-                .map(|axis| cell.center(axis))
-                .collect();
-            let corners = [
-                (0..cell.bounds.len())
-                    .map(|axis| cell.bounds[axis][0])
-                    .collect::<Vec<_>>(),
-                (0..cell.bounds.len())
-                    .map(|axis| cell.bounds[axis][1])
-                    .collect::<Vec<_>>(),
-            ];
-            // The centre is the key and the corners only break its tie: as a leaf shrinks its carved
-            // share tends to the indicator of its centre being inside the carve, so "the finest leaves
-            // whose centre the region holds" is the set the localisation bar is decided by. Counting all
-            // three probes as one score does the opposite — a band thinner than any leaf has its centre
-            // inside and both diagonal ends outside, which is the leaf most likely to be 87% inside and
-            // the one a probe count rates last.
-            let centre_holds = u8::from(region.contains(model, &centre));
-            let corners_held = corners.iter().filter(|x| region.contains(model, x)).count() as u32;
-            (centre_holds, cell.depth, corners_held, *share, *at)
-        })
-        // Collecting before sorting is the point: the envelope figure alone no longer decides anything.
-        .collect();
-    // Order: leaves whose centre the carve holds, then the finest of them, then whichever of them the
-    // corners support, then the envelope, then creation order. The second key carries the weight. For a
-    // band thinner than any leaf no leaf can hold its centre and both diagonal ends, so every capable
-    // leaf is rated alike by probes alone — and a leaf whose centre is on the line, whose diagonal
-    // overshoots it by one side, is 87% inside a band 0.64 leaf-sides wide, a fraction that only grows
-    // as the leaf shrinks. Ranking on the probe count alone demoted those leaves below coarse cells that
-    // had merely caught a corner; ranking on the envelope alone tied the whole partition together.
-    ranked.sort_by(|a, b| {
-        b.0.cmp(&a.0)
-            .then(b.1.cmp(&a.1))
-            .then(b.2.cmp(&a.2))
-            .then(b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal))
-            .then(a.4.cmp(&b.4))
-    });
+    let ranked = rank_candidates(model, region, cells, &candidates);
     let found = candidates.len();
     let examined = found.min(WITNESS_CAP);
     let mut best_declared = 0.0f64;
