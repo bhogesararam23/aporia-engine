@@ -1,0 +1,307 @@
+{
+ "checks": {
+  "arm_definitions": [],
+  "charged_cost": [],
+  "ladder": [],
+  "one_experiment": [],
+  "pilot_leak": [],
+  "published_documents": [],
+  "region_columns": [],
+  "replay_and_integrity": []
+ },
+ "commit": "e9c3f20",
+ "generated_by": "scripts/e15_verify_run.py",
+ "problems": [],
+ "protocol": {
+  "digest": "4bfa6855279d165f",
+  "file": "benchmarks/protocols/e1-5-spatial-uncertainty-cost.json",
+  "id": "e1-5-spatial-uncertainty-cost"
+ },
+ "purpose": "Verify the frozen run's bytes against the freeze before the analysis reads any of them: one experiment, four arms, whole ladder, equal charged cost, replayed and digest-clean archives, and rows that can carry the metric counted apart from rows that cannot.",
+ "schema": "aporia.run-verification/1",
+ "summary": {
+  "applicable_metric_rows": {
+   "A-current": 100,
+   "B-size": 100,
+   "C-density": 100,
+   "D-density-and-demand": 100
+  },
+  "archived_campaigns": 24,
+  "archives": [
+   {
+    "arm": "A-current",
+    "artefacts": 17,
+    "directory": "control-symplectic_spring-adaptive-seed1",
+    "entry": "control/symplectic_spring",
+    "integrity": "clean",
+    "measurement_identity": "70c361de4f69",
+    "seed": "1"
+   },
+   {
+    "arm": "B-size",
+    "artefacts": 22,
+    "directory": "control-symplectic_spring-adaptive-seed1-res-demand-and-withhold",
+    "entry": "control/symplectic_spring",
+    "integrity": "clean",
+    "measurement_identity": "d90d9fa0a9fb",
+    "seed": "1"
+   },
+   {
+    "arm": "D-density-and-demand",
+    "artefacts": 21,
+    "directory": "control-symplectic_spring-adaptive-seed1-res-demand-and-withhold-certify-density",
+    "entry": "control/symplectic_spring",
+    "integrity": "clean",
+    "measurement_identity": "7a1c11fbd1bf",
+    "seed": "1"
+   },
+   {
+    "arm": "C-density",
+    "artefacts": 17,
+    "directory": "control-symplectic_spring-adaptive-seed1-res-withhold-certify-density",
+    "entry": "control/symplectic_spring",
+    "integrity": "clean",
+    "measurement_identity": "c43da22fe65c",
+    "seed": "1"
+   },
+   {
+    "arm": "A-current",
+    "artefacts": 159,
+    "directory": "granular-mixed_cell-adaptive-seed1",
+    "entry": "granular/mixed_cell",
+    "integrity": "clean",
+    "measurement_identity": "70c361de4f69",
+    "seed": "1"
+   },
+   {
+    "arm": "B-size",
+    "artefacts": 148,
+    "directory": "granular-mixed_cell-adaptive-seed1-res-demand-and-withhold",
+    "entry": "granular/mixed_cell",
+    "integrity": "clean",
+    "measurement_identity": "d90d9fa0a9fb",
+    "seed": "1"
+   },
+   {
+    "arm": "D-density-and-demand",
+    "artefacts": 148,
+    "directory": "granular-mixed_cell-adaptive-seed1-res-demand-and-withhold-certify-density",
+    "entry": "granular/mixed_cell",
+    "integrity": "clean",
+    "measurement_identity": "7a1c11fbd1bf",
+    "seed": "1"
+   },
+   {
+    "arm": "C-density",
+    "artefacts": 159,
+    "directory": "granular-mixed_cell-adaptive-seed1-res-withhold-certify-density",
+    "entry": "granular/mixed_cell",
+    "integrity": "clean",
+    "measurement_identity": "c43da22fe65c",
+    "seed": "1"
+   },
+   {
+    "arm": "A-current",
+    "artefacts": 51,
+    "directory": "granular-quiet_band-adaptive-seed1",
+    "entry": "granular/quiet_band",
+    "integrity": "clean",
+    "measurement_identity": "70c361de4f69",
+    "seed": "1"
+   },
+   {
+    "arm": "B-size",
+    "artefacts": 52,
+    "directory": "granular-quiet_band-adaptive-seed1-res-demand-and-withhold",
+    "entry": "granular/quiet_band",
+    "integrity": "clean",
+    "measurement_identity": "d90d9fa0a9fb",
+    "seed": "1"
+   },
+   {
+    "arm": "D-density-and-demand",
+    "artefacts": 52,
+    "directory": "granular-quiet_band-adaptive-seed1-res-demand-and-withhold-certify-density",
+    "entry": "granular/quiet_band",
+    "integrity": "clean",
+    "measurement_identity": "7a1c11fbd1bf",
+    "seed": "1"
+   },
+   {
+    "arm": "C-density",
+    "artefacts": 51,
+    "directory": "granular-quiet_band-adaptive-seed1-res-withhold-certify-density",
+    "entry": "granular/quiet_band",
+    "integrity": "clean",
+    "measurement_identity": "c43da22fe65c",
+    "seed": "1"
+   },
+   {
+    "arm": "A-current",
+    "artefacts": 38,
+    "directory": "granular-semantic_step-adaptive-seed1",
+    "entry": "granular/semantic_step",
+    "integrity": "clean",
+    "measurement_identity": "70c361de4f69",
+    "seed": "1"
+   },
+   {
+    "arm": "B-size",
+    "artefacts": 38,
+    "directory": "granular-semantic_step-adaptive-seed1-res-demand-and-withhold",
+    "entry": "granular/semantic_step",
+    "integrity": "clean",
+    "measurement_identity": "d90d9fa0a9fb",
+    "seed": "1"
+   },
+   {
+    "arm": "D-density-and-demand",
+    "artefacts": 38,
+    "directory": "granular-semantic_step-adaptive-seed1-res-demand-and-withhold-certify-density",
+    "entry": "granular/semantic_step",
+    "integrity": "clean",
+    "measurement_identity": "7a1c11fbd1bf",
+    "seed": "1"
+   },
+   {
+    "arm": "C-density",
+    "artefacts": 38,
+    "directory": "granular-semantic_step-adaptive-seed1-res-withhold-certify-density",
+    "entry": "granular/semantic_step",
+    "integrity": "clean",
+    "measurement_identity": "c43da22fe65c",
+    "seed": "1"
+   },
+   {
+    "arm": "A-current",
+    "artefacts": 20,
+    "directory": "granular-thin_reach-adaptive-seed1",
+    "entry": "granular/thin_reach",
+    "integrity": "clean",
+    "measurement_identity": "70c361de4f69",
+    "seed": "1"
+   },
+   {
+    "arm": "B-size",
+    "artefacts": 15,
+    "directory": "granular-thin_reach-adaptive-seed1-res-demand-and-withhold",
+    "entry": "granular/thin_reach",
+    "integrity": "clean",
+    "measurement_identity": "d90d9fa0a9fb",
+    "seed": "1"
+   },
+   {
+    "arm": "D-density-and-demand",
+    "artefacts": 15,
+    "directory": "granular-thin_reach-adaptive-seed1-res-demand-and-withhold-certify-density",
+    "entry": "granular/thin_reach",
+    "integrity": "clean",
+    "measurement_identity": "7a1c11fbd1bf",
+    "seed": "1"
+   },
+   {
+    "arm": "C-density",
+    "artefacts": 20,
+    "directory": "granular-thin_reach-adaptive-seed1-res-withhold-certify-density",
+    "entry": "granular/thin_reach",
+    "integrity": "clean",
+    "measurement_identity": "c43da22fe65c",
+    "seed": "1"
+   },
+   {
+    "arm": "A-current",
+    "artefacts": 180,
+    "directory": "granular-tolerance_stack-adaptive-seed1",
+    "entry": "granular/tolerance_stack",
+    "integrity": "clean",
+    "measurement_identity": "70c361de4f69",
+    "seed": "1"
+   },
+   {
+    "arm": "B-size",
+    "artefacts": 180,
+    "directory": "granular-tolerance_stack-adaptive-seed1-res-demand-and-withhold",
+    "entry": "granular/tolerance_stack",
+    "integrity": "clean",
+    "measurement_identity": "d90d9fa0a9fb",
+    "seed": "1"
+   },
+   {
+    "arm": "D-density-and-demand",
+    "artefacts": 180,
+    "directory": "granular-tolerance_stack-adaptive-seed1-res-demand-and-withhold-certify-density",
+    "entry": "granular/tolerance_stack",
+    "integrity": "clean",
+    "measurement_identity": "7a1c11fbd1bf",
+    "seed": "1"
+   },
+   {
+    "arm": "C-density",
+    "artefacts": 180,
+    "directory": "granular-tolerance_stack-adaptive-seed1-res-withhold-certify-density",
+    "entry": "granular/tolerance_stack",
+    "integrity": "clean",
+    "measurement_identity": "c43da22fe65c",
+    "seed": "1"
+   }
+  ],
+  "arms": {
+   "A-current": {
+    "charged_evaluations": 144000,
+    "file": "results-70c361de4f69.json",
+    "identity": "70c361de4f69",
+    "instruction_steps": 19416000,
+    "leaf_cells": 31277,
+    "region_overlap_refusals": 0,
+    "replayed_records": 13224,
+    "replayed_sweeps": 6,
+    "rows": 120,
+    "sweeps": 30,
+    "total_records": 13224
+   },
+   "B-size": {
+    "charged_evaluations": 144000,
+    "file": "results-d90d9fa0a9fb.json",
+    "identity": "d90d9fa0a9fb",
+    "instruction_steps": 19416000,
+    "leaf_cells": 42698,
+    "region_overlap_refusals": 0,
+    "replayed_records": 13224,
+    "replayed_sweeps": 6,
+    "rows": 120,
+    "sweeps": 30,
+    "total_records": 13224
+   },
+   "C-density": {
+    "charged_evaluations": 144000,
+    "file": "results-c43da22fe65c.json",
+    "identity": "c43da22fe65c",
+    "instruction_steps": 19416000,
+    "leaf_cells": 31277,
+    "region_overlap_refusals": 0,
+    "replayed_records": 13224,
+    "replayed_sweeps": 6,
+    "rows": 120,
+    "sweeps": 30,
+    "total_records": 13224
+   },
+   "D-density-and-demand": {
+    "charged_evaluations": 144000,
+    "file": "results-7a1c11fbd1bf.json",
+    "identity": "7a1c11fbd1bf",
+    "instruction_steps": 19416000,
+    "leaf_cells": 42596,
+    "region_overlap_refusals": 0,
+    "replayed_records": 13224,
+    "replayed_sweeps": 6,
+    "rows": 120,
+    "sweeps": 30,
+    "total_records": 13224
+   }
+  },
+  "column_inconsistencies": 0,
+  "rows_per_arm": 120,
+  "unequal_cost_cells": 0
+ },
+ "verdict": "PASSED"
+}
