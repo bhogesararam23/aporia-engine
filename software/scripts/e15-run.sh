@@ -20,6 +20,7 @@ set -eu
 cd "$(dirname "$0")/.." || exit 1
 source scripts/dev-env.sh || exit 1
 BIN=".scratch/e1x-bin/aporia-bench.exe"
+LOCK=".scratch/e15-run.lock"
 PLAN="benchmarks/protocols/e1-5-spatial-uncertainty-cost.json"
 ARMS="A-current B-size C-density D-density-and-demand"
 [ -x "$BIN" ] || { echo "no permitted binary at $BIN: run scripts/r.sh" >&2; exit 2; }
@@ -27,6 +28,19 @@ ARMS="A-current B-size C-density D-density-and-demand"
 # What the binary was built from, and whether anything that could change a measurement has moved since.
 BUILT_FROM="$(git log -1 --format=%h -- crates/ software/Cargo.lock software/crates 2>/dev/null || echo unknown)"
 DIRTY="$(git status --porcelain -- crates/ | wc -l)"
+# One writer per archive namespace. This script was run twice over its own output in this phase: a second
+# invocation started while the first was still writing, and the runner told it it was replacing archives.
+# The guard inside the runner is what makes that visible rather than silent, and the message is what makes
+# it recoverable, but a measurement whose bytes were written by two processes at once is not a thing worth
+# arguing about afterwards — so a second run refuses to start. The lock is the writer's pid, and a lock left
+# by a killed process is stale and ignored, which is why it is checked with `kill -0` rather than trusted.
+if [ -e "$LOCK" ] && kill -0 "$(cat "$LOCK")" 2>/dev/null; then
+  echo "another E1.5 run holds $LOCK (pid $(cat "$LOCK")); refusing to write beside it" >&2
+  exit 3
+fi
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
 echo "binary  sha256 $(sha256sum "$BIN" | cut -d' ' -f1)"
 echo "crates  last committed at $BUILT_FROM, $DIRTY path(s) differ from HEAD"
 echo "plan    $PLAN sha256 $(sha256sum "$PLAN" | cut -d' ' -f1)"
