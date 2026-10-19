@@ -869,11 +869,8 @@ fn a_run_refuses_to_archive_over_another_experiments_measurement() {
     // E1.x's archive of the same entry, seed, strategy, mask and rule: one configuration, whose largest
     // budget is the ladder it ran, which is not this run's.
     let written = with_field(&mine, "budget", &Json::count(1280));
-    std::fs::write(
-        &manifest,
-        Json::object(vec![("config", written)]).to_compact(),
-    )
-    .expect("the manifest is written");
+    std::fs::write(&manifest, manifest_with(&written, Vec::new()))
+        .expect("the manifest is written");
     // The archive E1.x left behind records its configuration and not which measurement it belongs to,
     // because it was written before an archive could say that. The guard now stops on that fact first,
     // and it is the stricter reading: a matching configuration is no proof of a matching measurement,
@@ -884,7 +881,7 @@ fn a_run_refuses_to_archive_over_another_experiments_measurement() {
         .expect_err("an archive that cannot say what it measures must not be replaced silently");
     assert!(
         error.contains(&name) && error.contains("no measurement identity"),
-        "the refusal must name the directory and say why an unrecognised archive is not an empty one:          {error}"
+        "the refusal must name the directory and say why an unrecognised archive is not an empty one: \n         {error}"
     );
     assert!(
         error.contains("--archive"),
@@ -897,22 +894,12 @@ fn a_run_refuses_to_archive_over_another_experiments_measurement() {
     // The runner fills this in before it measures anything; a test that calls the guard directly has to
     // do the same, or it is asking the guard to compare against a run that knows no identity either.
     plan.provenance.measurement_identity = Some(identity.clone());
-    let named = |which: &str| {
-        Json::object(vec![(
-            "notes",
-            Json::object(vec![(
-                "measurement_identity",
-                Json::text(which.to_string()),
-            )]),
-        )])
-    };
     std::fs::write(
         &manifest,
-        Json::object(vec![
-            ("config", mine.clone()),
-            ("environment", named(&identity)),
-        ])
-        .to_compact(),
+        manifest_with(
+            &mine,
+            vec![("measurement_identity".to_string(), identity.clone())],
+        ),
     )
     .expect("the manifest is rewritten with its measurement named");
     cli::archive_namespace_guard(&plan, &selected)
@@ -933,7 +920,10 @@ fn a_run_refuses_to_archive_over_another_experiments_measurement() {
     );
     std::fs::write(
         &manifest,
-        Json::object(vec![("config", older), ("environment", named(&identity))]).to_compact(),
+        manifest_with(
+            &older,
+            vec![("measurement_identity".to_string(), identity.clone())],
+        ),
     )
     .expect("the older manifest is written");
     cli::archive_namespace_guard(&plan, &selected)
@@ -944,6 +934,46 @@ fn a_run_refuses_to_archive_over_another_experiments_measurement() {
     // with its provenance filled in the way the runner fills it. What this test owns is the case that
     // made the guard necessary: an archive that cannot say what it measures.
     std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A manifest in the shape the writer writes: the fields `Manifest::from_json` requires, the
+/// configuration this case is about, and the notes it should carry. The archive guard reads manifests
+/// through that reader rather than digging for keys, so a fixture that invented a smaller shape would
+/// be testing the refusal for being unreadable instead of the thing it means to test — and every
+/// committed archive does state all of these fields.
+fn manifest_with(config: &Json, notes: Vec<(String, String)>) -> String {
+    aporia_store::Manifest {
+        schema: aporia_store::manifest::SCHEMA.to_string(),
+        tool_version: "0.1.0".to_string(),
+        created_unix_ms: 0,
+        model_name: "pole_at_edge".to_string(),
+        model_sha256: "aa".repeat(32),
+        air_sha256: "bb".repeat(32),
+        config: config.clone(),
+        counts: aporia_store::Counts {
+            evaluations: 1_280,
+            instruction_steps: 7_680,
+            params: 1,
+            outputs: 1,
+            constraints: 1,
+            relations: 0,
+            cells: 6,
+            samples: 1_280,
+            findings: 1,
+        },
+        exec_fp: "f64".to_string(),
+        exec_max_steps: 100_000,
+        environment: aporia_store::Environment {
+            notes,
+            ..aporia_store::Environment::current()
+        },
+        calibration: Vec::new(),
+        correlation: Vec::new(),
+        correlation_samples: 0,
+        files: vec![("model.ap".to_string(), "cc".repeat(32))],
+    }
+    .to_json()
+    .to_compact()
 }
 
 /// One field of the recorded atlas block dropped, which is what an older manifest looks like.

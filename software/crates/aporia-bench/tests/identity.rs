@@ -472,3 +472,67 @@ fn a_field_that_changed_what_it_means_is_a_different_measurement() {
         "a published file must still be nameable from what it records"
     );
 }
+
+#[test]
+fn the_criterion_a_leaf_is_certified_at_is_part_of_the_identity_only_where_it_acts() {
+    // E1.5's arms differ by one field: whether a quiet leaf's adequacy is judged on its size or on the
+    // evidence packed inside it. Where a resolution rule reads that criterion, two plans disagreeing
+    // about it are answers to different questions and must not share a document; where no rule reads
+    // it, they are the same measurement, and a name that bit there would make the runner refuse a
+    // rerun that is a rerun. Both directions are pinned because the second is the one a conservative
+    // implementation gets wrong by accident.
+    let entries = vec![entry(
+        "analytic",
+        "sqrt_domain",
+        "sqrt of a negative input",
+        1,
+    )];
+    let base = named(&document(&plan(&[40], &["adaptive"], &[1]), &entries));
+
+    let mut inert = plan(&[40], &["adaptive"], &[1]);
+    inert.certify = aporia_boundary::Certify::Density;
+    inert.certify_density = 4_096.0;
+    assert_eq!(
+        base,
+        named(&document(&inert, &entries)),
+        "under `Resolution::Current` no label is withheld on any criterion, so a plan that changed          only the criterion and its bar is the measurement the default plan is"
+    );
+
+    let mut size = plan(&[40], &["adaptive"], &[1]);
+    size.resolution = aporia_boundary::Resolution::Withhold;
+    size.certify = aporia_boundary::Certify::Size;
+    let mut density = plan(&[40], &["adaptive"], &[1]);
+    density.resolution = aporia_boundary::Resolution::Withhold;
+    density.certify = aporia_boundary::Certify::Density;
+    assert_ne!(
+        named(&document(&size, &entries)),
+        named(&document(&density, &entries)),
+        "withholding on evidence density is not the same measurement as withholding on scale"
+    );
+
+    let mut moved_share = size.clone();
+    moved_share.certify_share = 0.007_812_5;
+    assert_ne!(
+        named(&document(&size, &entries)),
+        named(&document(&moved_share, &entries)),
+        "the bar the size criterion reads is part of the measurement it defines"
+    );
+
+    let mut moved_density = density.clone();
+    moved_density.certify_density = 2_048.0;
+    assert_ne!(
+        named(&document(&density, &entries)),
+        named(&document(&moved_density, &entries)),
+        "the bar the density criterion reads is part of the measurement it defines"
+    );
+
+    // `Demand` reads the criterion too — it is the rule that decides which coarse leaf to bisect —
+    // so an arm that only demands resolution still carries its adequacy criterion in its name.
+    let mut demand_only = plan(&[40], &["adaptive"], &[1]);
+    demand_only.resolution = aporia_boundary::Resolution::Demand;
+    assert_ne!(
+        base,
+        named(&document(&demand_only, &entries)),
+        "a demanding arm that never states which scale it demands at is not one measurement"
+    );
+}

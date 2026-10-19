@@ -55,23 +55,41 @@ fn plant(dir: &std::path::Path, plan: &Plan, identity: Option<&str>) -> std::pat
     if let Some(identity) = identity {
         notes.push(("measurement_identity".to_string(), identity.to_string()));
     }
-    let manifest = Json::object(vec![
-        ("schema", Json::text("aporia.manifest/1")),
-        ("config", plan.config(strategy, budget, seed).json()),
-        (
-            "environment",
-            Json::object(vec![(
-                "notes",
-                Json::object(
-                    notes
-                        .iter()
-                        .map(|(k, v)| (k.as_str(), Json::text(v.clone())))
-                        .collect(),
-                ),
-            )]),
-        ),
-    ]);
-    std::fs::write(at.join("manifest.json"), manifest.to_compact()).expect("write a manifest");
+    // A manifest built by the type that writes them, rather than a shape somebody guessed at: the guard
+    // now reads archives through `Manifest::from_json`, so a fixture that is not a manifest would test
+    // the refusal for being unreadable instead of the refusal for belonging to another measurement.
+    let manifest = aporia_store::Manifest {
+        schema: aporia_store::manifest::SCHEMA.to_string(),
+        tool_version: "0.1.0".to_string(),
+        created_unix_ms: 0,
+        model_name: e.name.clone(),
+        model_sha256: "aa".repeat(32),
+        air_sha256: "bb".repeat(32),
+        config: plan.config(strategy, budget, seed).json(),
+        counts: aporia_store::Counts {
+            evaluations: budget,
+            instruction_steps: budget * 6,
+            params: e.model.as_ref().expect("the entry compiles").params.len() as u64,
+            outputs: 1,
+            constraints: 1,
+            relations: 0,
+            cells: 6,
+            samples: budget,
+            findings: 1,
+        },
+        exec_fp: "f64".to_string(),
+        exec_max_steps: 100_000,
+        environment: aporia_store::Environment {
+            notes,
+            ..aporia_store::Environment::current()
+        },
+        calibration: Vec::new(),
+        correlation: Vec::new(),
+        correlation_samples: 0,
+        files: vec![("model.ap".to_string(), "cc".repeat(32))],
+    };
+    std::fs::write(at.join("manifest.json"), manifest.to_json().to_compact())
+        .expect("write a manifest");
     at
 }
 
@@ -269,5 +287,97 @@ fn a_scale_rule_the_plan_does_not_name_cannot_share_an_archive_namespace() {
         names[0], "granular-fit_band-adaptive-seed1",
         "the committed naming is unchanged for the default rule: {}",
         names[0]
+    );
+}
+
+#[test]
+fn an_archive_that_is_not_a_manifest_is_refused_rather_than_walked_past() {
+    // The guard reads an archive through the type that owns its shape, which splits the two ways a
+    // directory can fail to be evidence. A manifest this tool cannot read is not an empty directory:
+    // treating it as one would let a run overwrite bytes nobody checked, and the whole reason the
+    // identity exists is that a replacement archive is self-consistent enough to pass every later
+    // check. Nothing about a committed archive's bytes moved — all 412 of them read under
+    // `aporia.experiment/1`, which is the schema this refuses to guess past.
+    let dir =
+        std::env::temp_dir().join(format!("aporia-archive-unreadable-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let e = entry("granular/fit_band");
+    let entries = [e.clone()];
+
+    let planted = plan_with(&dir, Resolution::Current);
+    let identity = run_identity(&planted, &entries);
+    let at = plant(&dir, &planted, Some(&identity));
+    let written = std::fs::read_to_string(at.join("manifest.json")).expect("the planted manifest");
+    std::fs::write(
+        at.join("manifest.json"),
+        written.replace("aporia.experiment/1", "aporia.experiment/2"),
+    )
+    .expect("a manifest from a schema this reader does not know");
+
+    let mut ours = plan_with(&dir, Resolution::Current);
+    ours.provenance = aporia_bench::harness::Provenance {
+        measurement_identity: Some(identity),
+        ..aporia_bench::harness::Provenance::default()
+    };
+    let error = aporia_bench::cli::archive_namespace_guard(&ours, &entries)
+        .expect_err("an unreadable archive must not be treated as an absent one");
+    assert!(
+        error.contains("not a readable manifest"),
+        "the refusal has to name the archive as unreadable rather than report a measurement it never \
+         stated: {error}"
+    );
+    std::fs::remove_dir_all(&at).ok();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn every_committed_archive_reads_and_none_of_them_names_its_measurement_yet() {
+    // The compatibility claim, checked against the corpus rather than asserted in prose. Every published
+    // number is opened from one of these directories, and the guard now reads them through
+    // `Manifest::from_json`, so a drifted schema or a missing required field would stop E1.5 before it
+    // ran — and would have been the moment a run overwrote bytes nobody checked.
+    //
+    // What the count of *absent* identities says is the more interesting half: not one archive in the
+    // published corpus carries a measurement identity, including E1.4's, because they were written before
+    // an archive could name its measurement. That is precisely the case the guard refuses by name rather
+    // than reading charitably, so the refusal path is exercised on real bytes and not only on a fixture.
+    // Re-running a historical arm to fill the note in would replace published evidence with
+    // self-consistent bytes of a later build, which is the thing the immutability rule forbids; if the
+    // second assertion below ever stops holding, that is what happened.
+    let root = corpus_root().join("archives");
+    let mut dirs: Vec<_> = std::fs::read_dir(&root)
+        .expect("the committed archives are here")
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.join("manifest.json").exists())
+        .collect();
+    dirs.sort();
+    let mut read = 0usize;
+    let mut named = 0usize;
+    for dir in dirs {
+        let path = dir.join("manifest.json");
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let value = Json::parse(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let manifest = aporia_store::Manifest::from_json(&value)
+            .unwrap_or_else(|e| panic!("{} reads as no manifest: {e}", path.display()));
+        if let Some(identity) = manifest.measurement_identity() {
+            assert_eq!(
+                identity.len(),
+                12,
+                "{} stated a strange identity",
+                path.display()
+            );
+            named += 1;
+        }
+        read += 1;
+    }
+    assert!(
+        read > 400,
+        "the published archives are here, and {read} read"
+    );
+    assert_eq!(
+        named, 0,
+        "{named} published archive(s) now name a measurement: either a historical arm was re-run for          its notes, which replaces bytes a reader already opened, or this experiment's own archives          have been committed and the assertion belongs to them rather than here"
     );
 }

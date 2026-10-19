@@ -909,6 +909,11 @@ pub fn archive_namespace_guard(
                 .map_err(|e| format!("{}: {e}", manifest.display()))?;
             let written = aporia_store::Json::parse(&text)
                 .map_err(|e| format!("{} is not JSON: {e}", manifest.display()))?;
+            // Read it as a manifest rather than as a bag of keys, twice over: the identity comes from
+            // the type that owns the note list, and an archive that is not an archive under this
+            // tool's schema is refused here instead of being skipped as though it held nothing.
+            let record = aporia_store::Manifest::from_json(&written)
+                .map_err(|e| format!("{} is not a readable manifest: {e}", manifest.display()))?;
             // The exact test first: does the directory say which measurement it holds? A manifest from
             // this build records the identity of the run that wrote it, so a comparison is a fact rather
             // than an inference, and two runs whose arms share an entry, a strategy, a seed, a mask, a
@@ -916,11 +921,7 @@ pub fn archive_namespace_guard(
             // differently. An archive that predates that record cannot be shown to belong to this
             // measurement, and replacing evidence on that assumption is the failure mode the guard exists
             // for -- so it is refused by name, with the reason, rather than read charitably.
-            let written_identity = written
-                .get("environment")
-                .and_then(|e| e.get("notes"))
-                .and_then(|n| n.get("measurement_identity"))
-                .and_then(aporia_store::Json::as_str);
+            let written_identity = record.measurement_identity();
             match (
                 written_identity,
                 plan.provenance.measurement_identity.as_deref(),

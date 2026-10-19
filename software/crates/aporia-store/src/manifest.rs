@@ -114,6 +114,21 @@ impl Environment {
         }
     }
 
+    /// One note by name.
+    ///
+    /// Notes are an open vocabulary on purpose — a run records what it can say about itself — but two
+    /// of them are load-bearing: `measurement_identity` says which measurement these bytes belong to,
+    /// and the guard that keeps one experiment from replacing another reads it. A key that a reader is
+    /// obliged to find therefore gets one lookup, in the type that owns the list, rather than a path
+    /// through `environment.notes` written again at every door.
+    #[must_use]
+    pub fn note(&self, key: &str) -> Option<&str> {
+        self.notes
+            .iter()
+            .find(|(name, _)| name == key)
+            .map(|(_, value)| value.as_str())
+    }
+
     /// Ask the compiler which toolchain this is, and record it.
     ///
     /// `APORIA_TOOLCHAIN` wins, because the `rustc` on PATH is not necessarily the one that built the
@@ -321,6 +336,16 @@ pub struct Manifest {
 }
 
 impl Manifest {
+    /// Which measurement these bytes belong to, as the archive itself states it.
+    ///
+    /// `None` is a fact about the archive, not a default: a manifest written before an archive could
+    /// name its measurement cannot be shown to belong to the run now asking, and the door that keeps
+    /// one experiment from replacing another refuses it by name rather than guessing.
+    #[must_use]
+    pub fn measurement_identity(&self) -> Option<&str> {
+        self.environment.note("measurement_identity")
+    }
+
     #[must_use]
     pub fn to_json(&self) -> Json {
         Json::object(vec![
