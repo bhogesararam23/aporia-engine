@@ -161,7 +161,7 @@ fn the_freeze_reads_under_the_schema_it_declares_and_names_its_own_bytes() {
     // never notice the file having changed under them. The pinned value has moved once, when the corpus
     // this file named contradicted three of its sentences; `amended_before_running` is the record of
     // that, every change was prose, and the assertions below hold the bars and the arm set still.
-    assert_eq!(digest, "293706f7b7706ffc", "the freeze's bytes changed");
+    assert_eq!(digest, "4bfa6855279d165f", "the freeze's bytes changed");
     assert_eq!(protocol.arms.len(), 4);
     assert_eq!(protocol.plan.certify_density, 1_024.0);
     assert_eq!(protocol.plan.certify_share, 0.003_906_25);
@@ -500,5 +500,155 @@ fn the_freeze_names_its_own_bytes_and_the_corpus_answers_every_entry_it_named() 
         vec!["granular/tolerance_stack".to_string()],
         "the freeze's exactness clause names the carved entries in `entries.run`, so the list is a \
          claim a test can check"
+    );
+}
+
+/// Recompute the primary metric from the artifact's own rows: every row's recorded share must be the
+/// quotient of the two columns the frozen definition divides, and the mean of those quotients is what
+/// the summary and the amendment both quote. Returns the mean and how many rows carry it.
+fn shares_of(rows: &[Json], smallest: u64) -> (f64, usize) {
+    let mut sum = 0.0f64;
+    let mut nonzero = 0usize;
+    for row in rows {
+        let number = |key: &str| {
+            row.get(key)
+                .and_then(Json::as_f64)
+                .unwrap_or_else(|| panic!("a row states no {key}"))
+        };
+        let (numerator, denominator, refusals) = (
+            number("trusted_over_true_union"),
+            number("declared_union_volume"),
+            row.get("region_overlap_refusals")
+                .and_then(Json::as_u64)
+                .expect("a row states its refusals"),
+        );
+        assert_eq!(
+            refusals, 0,
+            "a deciding row came back refused, so the metric's own `not_measurable` branch would be              averaging a set this artifact does not have"
+        );
+        assert!(
+            denominator > 0.0,
+            "the deciding entry declares no region, which its record contradicts"
+        );
+        let share = numerator / denominator;
+        assert!(
+            (share - number("share")).abs() <= 1e-12,
+            "a row's recorded share is not the quotient of the two columns the frozen metric divides"
+        );
+        sum += share;
+        if share > 0.0 {
+            nonzero += 1;
+            assert_eq!(
+                row.get("budget").and_then(Json::as_u64),
+                Some(smallest),
+                "the amendment says every nonzero row sits at the smallest frozen budget, so a row                  that is nonzero anywhere else means the sentence and the measurement disagree"
+            );
+        }
+    }
+    (sum / rows.len() as f64, nonzero)
+}
+
+/// The pre-run check the freeze's amendment quotes, read back from the committed artifact.
+///
+/// A sentence in a pre-registration that says "and this was measured" is worth nothing unless the
+/// measurement can be opened again. So the artifact is checked against the freeze rather than
+/// beside it: the digest it cites is the freeze's current bytes, the plan it measured under is the
+/// plan this file still carries, every row's share is recomputed from the two columns the frozen
+/// metric divides, and the mean the prose quotes is the mean the rows produce.
+#[test]
+fn the_prerun_check_the_freeze_quotes_is_the_one_the_artifact_carries() {
+    let path = corpus_root()
+        .join("analysis")
+        .join("e1-5-deciding-entry-prerun.json");
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let artifact = Json::parse(&text).expect("the pre-run artifact is JSON");
+    let protocol = protocol();
+    let digest = protocol.digest.clone().expect("a loaded file has a digest");
+
+    let cited = artifact
+        .get("protocol")
+        .and_then(|p| p.get("digest"))
+        .and_then(Json::as_str)
+        .expect("the artifact cites the freeze by digest");
+    assert_eq!(
+        cited, digest,
+        "the artifact cites {cited} while the tree holds {digest}: either the check is stale or the \
+         freeze moved after the measurement it quotes"
+    );
+
+    // The measurement was made under the frozen plan, not under a plan chosen for it.
+    let plan = artifact.get("plan").expect("the artifact records its plan");
+    assert_eq!(
+        plan.get("grid_per_axis").and_then(Json::as_u64),
+        Some(protocol.plan.grid as u64)
+    );
+    assert_eq!(
+        plan.get("certify_share").and_then(Json::as_f64),
+        Some(protocol.plan.certify_share)
+    );
+    assert_eq!(
+        plan.get("certify_density").and_then(Json::as_f64),
+        Some(protocol.plan.certify_density)
+    );
+    let budgets: Vec<u64> = plan
+        .get("budgets")
+        .and_then(Json::as_array)
+        .expect("budgets")
+        .iter()
+        .map(|b| b.as_u64().expect("a budget is a number"))
+        .collect();
+    assert_eq!(budgets, protocol.plan.budgets);
+
+    let rows = artifact.get("rows").and_then(Json::as_array).expect("rows");
+    assert_eq!(
+        rows.len(),
+        protocol.plan.budgets.len() * protocol.plan.seeds.len(),
+        "the artifact carries one row per (budget, seed) of the frozen plan"
+    );
+    let smallest = *protocol
+        .plan
+        .budgets
+        .iter()
+        .min()
+        .expect("a plan has budgets");
+    let (mean, nonzero) = shares_of(rows, smallest);
+    let stated = artifact
+        .get("prediction")
+        .and_then(|p| p.get("measured_mean"))
+        .and_then(Json::as_f64)
+        .expect("the artifact states the mean it measured");
+    assert!(
+        (mean - stated).abs() <= 1e-12,
+        "the artifact's summary is {stated} and its rows say {mean}"
+    );
+    assert_eq!(
+        artifact
+            .get("prediction")
+            .and_then(|p| p.get("holds"))
+            .and_then(Json::as_bool),
+        Some(mean >= 0.05),
+        "the entry's design claim is checked against the 0.05 the freeze wrote, not against a number \
+         this test brought with it"
+    );
+    assert_eq!(
+        artifact
+            .get("summary")
+            .and_then(|s| s.get("rows_with_nonzero_share"))
+            .and_then(Json::as_u64),
+        Some(nonzero as u64),
+        "the tally of rows carrying the whole effect is stated twice and disagrees"
+    );
+
+    // And the amendment's sentence quotes that number rather than a rounded memory of it.
+    let amendment = raw()
+        .get("amended_before_running")
+        .and_then(Json::as_str)
+        .expect("the freeze records its amendments")
+        .to_string();
+    let quoted = format!("{mean}");
+    assert!(
+        amendment.contains(&quoted),
+        "the freeze quotes a mean the rows do not produce: it says {quoted} where the artifact's \
+         rows say {mean}"
     );
 }
