@@ -143,6 +143,27 @@ every labelled region, a minimised case re-executed at its own witnesses, and ho
   condition was frozen precisely so that this would be a finding
   rather than a wording choice, so it stays recorded as a failed condition, and the labelling rule is
   left for a new pre-registration (E1.3b) to change rather than being adjusted now.
+- **Two pre-registrations have since tried to change what `TRUSTED` means, and neither produced a safer
+  instrument.** E1.3b (protocol digest `ea5b9d7140131dc9`, eight arms) asked whether requiring more
+  evidence before a leaf may be trusted reduces over-claim. On the full instrument the two-channel rule
+  made it *larger* — 9 rows became 11 — the non-finite rule never had a reading to act on
+  (`non_finite_readings` is 0 on all 1280 rows), and the only arm that reached zero over-claim reached it
+  by certifying nothing at all, with mean UNKNOWN +0.5221 per row against a frozen 0.05 ceiling. E1.4
+  (digest `3eb45a9ca9005e2d`, four arms) asked the same question about *scale*: a 2⁻⁸ share-of-domain bar
+  before certification, plus a fourth label for a leaf that is quiet but too coarse to certify. It removed
+  coarse certification entirely (mean `coarse_certified_volume` 0.54031 → 0), lowered measured over-claim
+  (0.000171 → 0.000054) and moved localisation nowhere (60 of 100 rows in every arm, including the
+  reference) — but at +0.2888 absolute UNKNOWN against a +0.10 ceiling, so its own pre-registered
+  hypothesis is recorded as falsified and no arm is reported as an improvement. The reading that carries
+  the information is a ratio the ceiling cannot express: the leaves the bar refuses cover 91.1% of what the
+  instrument certifies while holding 67.5% of the over-claim, so scale is where the *certification* is, not
+  where the *error* is; the over-claim is diffuse, which makes E1.3b's account of it — a leaf trusted
+  because the sampled points missed the region — the likelier mechanism. `TRUSTED` therefore still means
+  *quiet under the channels this run was allowed to consult, at whatever scale its leaves happened to
+  reach*; that has now been measured twice, from two directions, and tightened neither way. What remains
+  unmeasured is recorded rather than papered over: the test that would separate the fourth label from
+  UNKNOWN needs declared-region overlap per label, and no published column carries it
+  (`benchmarks/analysis/e1-4-resolution-demand.json`, `recorded_defects`).
 - **The atlas cannot enclose a region narrower than its leaf, and the arithmetic is now measured rather
   than asserted.** `Policy::default` caps refinement at depth 12, splitting the longest normalised axis
   each time. On the one-dimensional edge domains that puts the floor of a leaf at 4/2¹² ≈ 9.8·10⁻⁴ of
