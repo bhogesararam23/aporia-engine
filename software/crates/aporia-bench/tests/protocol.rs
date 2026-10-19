@@ -1478,14 +1478,17 @@ fn the_e1_4_freeze_names_its_entry_sets_and_its_decision_rule() {
         supersedes.contains("E1.3b is measured"),
         "and E1.3b's decision is cited as a measurement, not as a defect to repair"
     );
+}
 
+#[test]
+fn the_e1_4_freeze_cannot_be_edited_after_its_arms_cite_it() {
     // The status text and the tree have to agree, and the way they agree is not what this assertion first
     // said. The status is a statement made at the freeze, and the digest every arm cites is a digest of
     // these bytes, so re-editing the prose to describe the run would break every document that cites the
     // freeze -- which is why E1.3b's status still says NOT RUN while eight documents measure under its
     // digest. What a reader can check, and what is stronger than a prose update, is that the freeze could
     // not have been touched after the fact: the file on disk still digests to what its published arms say.
-    let status = field("status").as_str().unwrap_or_default().to_string();
+    let status = e14_field("status").as_str().unwrap_or_default().to_string();
     let measured = documents_citing("e1-4-resolution-demand");
     if measured.is_empty() {
         assert!(

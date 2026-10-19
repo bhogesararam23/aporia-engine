@@ -40,9 +40,11 @@ fn documents() -> Vec<(String, Json)> {
         .flatten()
         .map(|e| e.path())
         .filter(|p| {
-            p.file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n.starts_with("results-") && n.ends_with(".json"))
+            p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                n.starts_with("results-")
+                    && p.extension()
+                        .is_some_and(|e| e.eq_ignore_ascii_case("json"))
+            })
         })
         .map(|p| (p.display().to_string(), p))
         .collect();
@@ -83,7 +85,7 @@ fn rows(doc: &Json) -> Vec<Json> {
                     sweep
                         .get("outcomes")
                         .and_then(Json::as_array)
-                        .map(|rows| rows.to_vec())
+                        .map(<[Json]>::to_vec)
                         .unwrap_or_default()
                 })
                 .collect()
@@ -105,6 +107,57 @@ fn mean(values: &[f64]) -> f64 {
     } else {
         values.iter().sum::<f64>() / values.len() as f64
     }
+}
+
+/// One published arm, found by the arm name its own document declares.
+fn arm_named(documents: &[(String, Json)], wanted: &str) -> Json {
+    documents
+        .iter()
+        .find(|(name, _)| name == wanted)
+        .map_or_else(
+            || panic!("no committed {wanted} document"),
+            |(_, doc)| doc.clone(),
+        )
+}
+
+fn in_set(row: &Json, set: &[&str]) -> bool {
+    set.contains(&row.get("entry").and_then(Json::as_str).unwrap_or_default())
+}
+
+fn over_rows(doc: &Json, set: &[&str]) -> usize {
+    rows(doc)
+        .iter()
+        .filter(|row| in_set(row, set) && number(row, "trusted_over_true") > 0.0)
+        .count()
+}
+
+fn volume_mean(doc: &Json, set: &[&str], key: &str) -> f64 {
+    mean(
+        &rows(doc)
+            .iter()
+            .filter(|row| in_set(row, set))
+            .map(|row| number(row, key))
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn localised(doc: &Json, set: &[&str]) -> u64 {
+    rows(doc)
+        .iter()
+        .filter(|row| in_set(row, set))
+        .map(|row| count(row, "localised_regions"))
+        .sum()
+}
+
+/// The silence arm's UNKNOWN rise, computed the way the freeze computes every arm's: against the same
+/// ablation mask under the rule already in force. Pairing it with `full-current-trust` instead compares
+/// two point-placement policies as well as two rules, and gives 0.453017 where the record publishes
+/// 0.522065 — which is not a rounding difference, it is a different experiment.
+fn silence_rise(documents: &[(String, Json)]) -> f64 {
+    let silence = arm_named(documents, "only-physical-both-trust-rules");
+    let reference = arm_named(documents, "only-physical-current-trust");
+    volume_mean(&silence, &RESOLVABLE, "unknown_volume")
+        - volume_mean(&reference, &RESOLVABLE, "unknown_volume")
 }
 
 #[test]
@@ -157,53 +210,11 @@ fn eight_arms_eight_entries_twenty_rows_each_and_their_sets_are_the_freezes() {
 #[test]
 fn the_reading_that_decided_e1_3b_still_reads_the_same_way() {
     let documents = documents();
-    let arm = |wanted: &str| -> Json {
-        documents
-            .iter()
-            .find(|(name, _)| name == wanted)
-            .map(|(_, doc)| doc.clone())
-            .unwrap_or_else(|| panic!("no committed {wanted} document"))
-    };
-    let in_set = |row: &Json, set: &[&str]| -> bool {
-        set.contains(&row.get("entry").and_then(Json::as_str).unwrap_or_default())
-    };
-
-    let current = arm("full-current-trust");
-    let min_two = arm("full-min-channels-2");
-    let non_finite = arm("full-nonfinite-blocks-trust");
-    let silence = arm("only-physical-both-trust-rules");
-
-    let over_rows = |doc: &Json, set: &[&str]| -> usize {
-        rows(doc)
-            .iter()
-            .filter(|row| in_set(row, set) && number(row, "trusted_over_true") > 0.0)
-            .count()
-    };
-    let unknown_mean = |doc: &Json, set: &[&str]| -> f64 {
-        mean(
-            &rows(doc)
-                .iter()
-                .filter(|row| in_set(row, set))
-                .map(|row| number(row, "unknown_volume"))
-                .collect::<Vec<_>>(),
-        )
-    };
-    let trusted_mean = |doc: &Json, set: &[&str]| -> f64 {
-        mean(
-            &rows(doc)
-                .iter()
-                .filter(|row| in_set(row, set))
-                .map(|row| number(row, "trusted_volume"))
-                .collect::<Vec<_>>(),
-        )
-    };
-    let localised = |doc: &Json, set: &[&str]| -> u64 {
-        rows(doc)
-            .iter()
-            .filter(|row| in_set(row, set))
-            .map(|row| count(row, "localised_regions"))
-            .sum()
-    };
+    let current = arm_named(&documents, "full-current-trust");
+    let min_two = arm_named(&documents, "full-min-channels-2");
+    let non_finite = arm_named(&documents, "full-nonfinite-blocks-trust");
+    let silence = arm_named(&documents, "only-physical-both-trust-rules");
+    let silence_reference = arm_named(&documents, "only-physical-current-trust");
 
     // The resolvable set: nine rows of a hundred certified volume inside a declared region under the
     // rule already in force, and requiring a second applied channel made that *worse*, not better.
@@ -215,7 +226,8 @@ fn the_reading_that_decided_e1_3b_still_reads_the_same_way() {
     assert_eq!(over_rows(&min_two, &RESOLVABLE), 11);
     assert_eq!(over_rows(&non_finite, &RESOLVABLE), 9);
     assert!(
-        unknown_mean(&min_two, &RESOLVABLE) > unknown_mean(&current, &RESOLVABLE),
+        volume_mean(&min_two, &RESOLVABLE, "unknown_volume")
+            > volume_mean(&current, &RESOLVABLE, "unknown_volume"),
         "the tighter rule stopped trading UNKNOWN area for nothing"
     );
     assert_eq!(
@@ -229,16 +241,16 @@ fn the_reading_that_decided_e1_3b_still_reads_the_same_way() {
     assert_eq!(over_rows(&current, &SUB_GRANULAR), 18);
     assert_eq!(over_rows(&silence, &SUB_GRANULAR), 0);
 
-    // Rule 3's arithmetic: the only arm at zero over-claim reaches it by certifying nothing, and its
-    // UNKNOWN rise is measured the way the freeze measures every arm -- against the same ablation mask
-    // under the rule already in force, not against a different mask. Pairing the silence arm with
-    // `full-current-trust` instead compares two point-placement policies and one trust rule at once,
-    // and gives 0.453 where the published record says 0.522.
-    let silence_reference = arm("only-physical-current-trust");
+    // Rule 3's arithmetic: the only arm at zero over-claim reaches it by certifying nothing, and the rise
+    // it pays is measured against its own mask, as every arm in that freeze is.
     assert_eq!(over_rows(&silence, &RESOLVABLE), 0);
     assert_eq!(over_rows(&silence_reference, &RESOLVABLE), 9);
-    assert_eq!(trusted_mean(&silence, &RESOLVABLE), 0.0);
-    let rise = unknown_mean(&silence, &RESOLVABLE) - unknown_mean(&silence_reference, &RESOLVABLE);
+    assert_eq!(
+        volume_mean(&silence, &RESOLVABLE, "trusted_volume"),
+        0.0,
+        "the arm that ended the over-claim certified something again"
+    );
+    let rise = silence_rise(&documents);
     assert!(
         rise > 0.05,
         "the silence arm's UNKNOWN rise over its own mask is {rise}, and rule 3 fired on it exceeding \
@@ -252,8 +264,14 @@ fn the_reading_that_decided_e1_3b_still_reads_the_same_way() {
         localised(&silence, &RESOLVABLE),
         localised(&current, &RESOLVABLE)
     );
+}
 
-    // And the analysis artefact agrees with the documents it claims to summarise.
+#[test]
+fn the_e1_3b_artefact_still_summarises_the_documents_it_was_written_from() {
+    // The analysis artefact is the thing later freezes cite, so it is checked against the bytes it
+    // claims to describe rather than against this file's prose about it.
+    let documents = documents();
+    let rise = silence_rise(&documents);
     let path = corpus_root()
         .join("analysis")
         .join("e1-3b-trust-resolution.json");
