@@ -16,4 +16,6 @@
 
 mod atlas;
 
-pub use atlas::{Atlas, Band, Cell, Coverage, FACE_EPS, Label, Point, Policy, Resolution, Trust};
+pub use atlas::{
+    Atlas, Band, Cell, Certify, Coverage, FACE_EPS, Label, Point, Policy, Resolution, Trust,
+};

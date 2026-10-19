@@ -52,6 +52,11 @@ fn unusual() -> Plan {
         // The bar is not a power of two on purpose, so a round-trip through text is exercised.
         resolution: aporia_boundary::Resolution::Demand,
         certify_share: 0.05,
+        // The fourth axis, non-default for the same reason every other field here is: a plan section
+        // that lost the criterion would be read back as the scale rule every committed row was
+        // labelled with, and this fixture would pass while saying nothing about the one that round-trips.
+        certify: aporia_boundary::Certify::Density,
+        certify_density: 7.5,
         archive_dir: PathBuf::from("where-bytes-land-is-not-part-of-a-measurement"),
     }
 }
@@ -100,6 +105,19 @@ fn a_plan_reads_back_the_bytes_that_name_it() {
         back.trust, plan.trust,
         "a plan section that lost its trust rule would be read as the current one"
     );
+    // The two scale axes, asserted together because the second is only read when the first is on: a
+    // round trip that carried the rule and dropped the criterion it acts with would re-label a
+    // density experiment as E1.4's size experiment, and every published row would agree with it.
+    assert_eq!(
+        back.resolution, plan.resolution,
+        "a plan section that lost its scale rule would be read as the committed semantics"
+    );
+    assert_eq!(back.certify_share, plan.certify_share);
+    assert_eq!(
+        back.certify, plan.certify,
+        "a plan section that lost its adequacy criterion would be read as the scale rule"
+    );
+    assert_eq!(back.certify_density, plan.certify_density);
     assert!(
         back.archive_dir.as_os_str().is_empty(),
         "where a run writes is not part of what it measures, so it is not in the document"

@@ -104,6 +104,20 @@ pub struct Plan {
     /// that hold themselves to different resolutions are not the same experiment, and a bar that
     /// travelled nowhere could be moved after the run without any document noticing.
     pub certify_share: f64,
+    /// Which quantity [`Plan::resolution`] measures a leaf's adequacy against: its scale or the density
+    /// of evidence inside it. See [`aporia_boundary::Certify`].
+    ///
+    /// The same obligation as the two axes above it, and for the same reason: it changes what a row
+    /// claims, so it is recorded in the configuration, in the identity whenever it is not the default,
+    /// and in the archive directory. `Certify::Size` is the reading every committed row was labelled
+    /// with, and an E1.5 arm that withholds on density is a different measurement from an E1.4 arm that
+    /// withheld on size even when the two agree leaf for leaf.
+    pub certify: aporia_boundary::Certify,
+    /// The evaluations per domain-volume a leaf must hold to be certified under [`Plan::certify`] =
+    /// [`aporia_boundary::Certify::Density`]. Part of the identity whenever the plan is not the
+    /// committed one, exactly as [`Plan::certify_share`] is: a bar that travelled nowhere could be
+    /// moved after the run without any document noticing.
+    pub certify_density: f64,
     /// Where per-entry archives go. Left empty, the harness skips archiving: the archives are the
     /// expensive part of a run and their numbers do not change the search.
     pub archive_dir: std::path::PathBuf,
@@ -162,6 +176,8 @@ impl Default for Plan {
             // inert here: the bar is read only by a rule that is switched off.
             resolution: aporia_boundary::Resolution::Current,
             certify_share: aporia_boundary::Policy::default().certify_share,
+            certify: aporia_boundary::Certify::Size,
+            certify_density: aporia_boundary::Policy::default().certify_density,
             archive_dir: std::path::PathBuf::new(),
             provenance: Provenance::default(),
         }
@@ -187,6 +203,8 @@ impl Plan {
         // writes the bytes that named a committed measurement.
         policy.resolution = self.resolution;
         policy.certify_share = self.certify_share;
+        policy.certify = self.certify;
+        policy.certify_density = self.certify_density;
         Config {
             budget,
             strategy,
@@ -251,6 +269,8 @@ impl Plan {
             "trust",
             "resolution",
             "certify_share",
+            "certify",
+            "certify_density",
         ];
         for (name, _) in fields {
             if !known.contains(&name.as_str()) {
@@ -362,6 +382,37 @@ impl Plan {
                     "plan: certify_share needs a fraction of the root cell, in (0, 1]".to_string()
                 })?,
         };
+        // The criterion the scale rule measures adequacy against. Absent means `Size`, which is the
+        // reading every committed row was labelled with, and an unknown name is a refusal rather than
+        // a fallback for the reason given above.
+        let certify = match at("certify") {
+            Err(_) => aporia_boundary::Certify::Size,
+            Ok(value) => {
+                let text = value
+                    .as_str()
+                    .ok_or_else(|| "plan: certify needs a criterion name".to_string())?;
+                aporia_boundary::Certify::parse(text).ok_or_else(|| {
+                    format!(
+                        "plan: unknown certify criterion {text:?}; this tool knows {}",
+                        aporia_boundary::Certify::names().join(", ")
+                    )
+                })?
+            }
+        };
+        // Read even when the criterion above is the inert one, for the same reason the share is: a
+        // plan that records the bar it was measured against cannot be re-read afterwards as a
+        // different experiment.
+        let certify_density = match at("certify_density") {
+            Err(_) => aporia_boundary::Policy::default().certify_density,
+            Ok(value) => value
+                .as_f64()
+                .filter(|density| *density > 0.0 && density.is_finite())
+                .ok_or_else(|| {
+                    "plan: certify_density needs evaluations per domain volume, a finite number \
+                     above zero"
+                        .to_string()
+                })?,
+        };
         Ok(Self {
             budgets,
             strategies,
@@ -378,6 +429,8 @@ impl Plan {
             trust,
             resolution,
             certify_share,
+            certify,
+            certify_density,
             archive_dir: std::path::PathBuf::new(),
             // Provenance is not readable from a plan section and must not be defaulted from one: a
             // document that claimed a protocol it was never run under would then be believed.
@@ -463,6 +516,13 @@ pub struct ProtocolArm {
     /// `Current` under both earlier schemas, which is what makes those files keep meaning what they
     /// said.
     pub resolution: aporia_boundary::Resolution,
+    /// Which quantity this arm's scale rule measures adequacy against, carried per arm under
+    /// [`Protocol::SCHEMA_V4`] for the same reason the two axes above it are.
+    ///
+    /// [`aporia_boundary::Certify::Size`] under every earlier schema, which is what makes those files
+    /// keep meaning what they said: E1.4's four arms withheld and demanded on *scale*, and no later
+    /// reader can re-label those bytes as a density experiment.
+    pub certify: aporia_boundary::Certify,
 }
 
 /// The scope the infrastructure pilot may run, as the freeze that owns it wrote it.
@@ -638,6 +698,10 @@ impl Protocol {
         // The third, and the one E1.4 varies: the bar itself stays the plan's, so four arms certify
         // against one scale and a difference between them cannot be a difference in what "coarse" means.
         plan.resolution = arm.resolution;
+        // The fourth axis an arm may move, with both bars still the plan's: the arms hold themselves to
+        // one scale and one density, so a difference between them cannot be a difference in what the
+        // bar was.
+        plan.certify = arm.certify;
         Ok((
             plan,
             Frozen {
@@ -732,6 +796,18 @@ impl Protocol {
                 "protocol: a {} plan section does not carry resolution — each arm states its own \
                  scale rule, beside its mask and its trust rule",
                 Self::SCHEMA_V3
+            ));
+        }
+        if v4 && plan_value.get("certify").is_some() {
+            return Err(format!(
+                "protocol: a {} plan section does not carry certify — each arm states its own                  adequacy criterion, beside its mask, its trust rule and its scale rule",
+                Self::SCHEMA_V4
+            ));
+        }
+        if v4 && plan_value.get("certify_density").is_none() {
+            return Err(format!(
+                "protocol: a {} plan must state certify_density, because the density its arms hold                  themselves to is one number for the whole experiment, and a bar that travelled                  nowhere could be moved after the run without any document noticing",
+                Self::SCHEMA_V4
             ));
         }
         if scale_rules && plan_value.get("certify_share").is_none() {
@@ -853,11 +929,41 @@ impl Protocol {
                 }
                 None => aporia_boundary::Resolution::Current,
             };
+            // The criterion axis: obliged of a `/4` arm and refused on an earlier one, exactly as the
+            // scale rule above it is, because an arm that did not say what it measured adequacy
+            // against would be a different experiment wearing the same name.
+            let certify = match item.get("certify") {
+                Some(_) if !v4 => {
+                    return Err(format!(
+                        "protocol: arm {name:?} states a certify criterion, and {schema} arms state a                          mask, a trust rule and a scale rule. Promote the file to {} in the commit                          that means to change what it measures.",
+                        Self::SCHEMA_V4
+                    ));
+                }
+                Some(value) => {
+                    let text = value.as_str().ok_or_else(|| {
+                        format!("protocol: arm {name:?} has a certify criterion that is not a name")
+                    })?;
+                    aporia_boundary::Certify::parse(text).ok_or_else(|| {
+                        format!(
+                            "protocol: arm {name:?} names the unknown certify criterion {text:?};                              this tool knows {}",
+                            aporia_boundary::Certify::names().join(", ")
+                        )
+                    })?
+                }
+                None if v4 => {
+                    return Err(format!(
+                        "protocol: arm {name:?} states no certify criterion, and a {} arm is its                          mask, its trust rule, its scale rule and its adequacy criterion together",
+                        Self::SCHEMA_V4
+                    ));
+                }
+                None => aporia_boundary::Certify::Size,
+            };
             arms.push(ProtocolArm {
                 name,
                 ablate,
                 trust,
                 resolution,
+                certify,
             });
         }
         // Two arms the instrument cannot tell apart are one measurement under two names, and a
@@ -868,7 +974,11 @@ impl Protocol {
             for other in arms.iter().skip(at + 1) {
                 let same_mask = arm.ablate.len() == other.ablate.len()
                     && arm.ablate.iter().all(|c| other.ablate.contains(c));
-                if same_mask && arm.trust == other.trust && arm.resolution == other.resolution {
+                if same_mask
+                    && arm.trust == other.trust
+                    && arm.resolution == other.resolution
+                    && arm.certify == other.certify
+                {
                     return Err(format!(
                         "protocol: arms {:?} and {:?} state the same ablate mask, the same trust rule and the same \
                          resolution rule, so they are one measurement under two \
@@ -1291,13 +1401,23 @@ pub fn archive_name(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -
     // archives that are not the same measurement, and an archive is the bytes a reported number is
     // later opened from. A bar that differs between two arms of the same name is caught beside this, in
     // the manifest's recorded configuration, which the pre-run namespace guard compares.
+    // The criterion enters the directory name beside the rule that reads it, so an arm that withheld
+    // on evidence density cannot land in the directory of the arm that withheld on scale even when the
+    // two partitions happen to agree.
+    let certify = if plan.certify == aporia_boundary::Certify::Size
+        || plan.resolution == aporia_boundary::Resolution::Current
+    {
+        String::new()
+    } else {
+        format!("-certify-{}", plan.certify.name())
+    };
     let resolution = if plan.resolution == aporia_boundary::Resolution::Current {
         String::new()
     } else {
         format!("-res-{}", plan.resolution.name())
     };
     format!(
-        "{}-{}-{}-seed{seed}{arm}{trust}{resolution}",
+        "{}-{}-{}-seed{seed}{arm}{trust}{resolution}{certify}",
         entry.family,
         entry.name,
         strategy.name()
@@ -1753,6 +1873,22 @@ pub fn plan_json(plan: &Plan) -> Json {
                 Json::number(plan.certify_share),
             ),
         );
+        // The criterion and its bar travel with the rule that reads them, for the same reason the
+        // share does. Under `Resolution::Current` nothing is written for them, because a criterion
+        // that acts on no label is not a different measurement: two plans that differ only there must
+        // digest alike, or the runner would refuse the second as a duplicate of a measurement that is
+        // in fact identical to it.
+        fields.insert(
+            at + 2,
+            ("certify".to_string(), Json::text(plan.certify.name())),
+        );
+        fields.insert(
+            at + 3,
+            (
+                "certify_density".to_string(),
+                Json::number(plan.certify_density),
+            ),
+        );
     }
     Json::Obj(fields)
 }
@@ -1943,14 +2079,22 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
     let _ = writeln!(
         out,
         "cells {} ({} leaves), suspicious {:.4} of the domain, trusted {:.4}, unknown {:.4}, \
-         provisional {:.4}, trusted-but-coarser {:.4}",
+         provisional {:.4}, trusted-but-coarser {:.4}, trusted-but-thinly-measured {:.4}",
         coverage.cells,
         campaign.atlas.leaf_ids().len(),
         coverage.suspicious,
         coverage.trusted,
         coverage.unknown,
         coverage.provisional,
-        coarse_certified
+        coarse_certified,
+        campaign
+            .atlas
+            .leaf_ids()
+            .iter()
+            .filter_map(|id| campaign.atlas.cell(*id))
+            .filter(|c| c.label == aporia_boundary::Label::Trusted && policy.thinly_measured(c))
+            .map(|c| c.relative_size(campaign.atlas.root()))
+            .sum::<f64>()
     );
     let _ = writeln!(
         out,

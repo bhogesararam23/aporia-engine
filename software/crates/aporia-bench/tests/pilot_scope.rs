@@ -17,22 +17,98 @@ fn environment() -> Environment {
     environment
 }
 
-/// The E1.4 freeze promoted in memory: schema changed and a `pilot` section added, so every other
-/// obligation `/3` already imposes — per-arm scale rules, the registered control, the metric's
-/// denominator and aggregation — is present in the input and a refusal can only be about the pilot.
-fn promoted(text: &str) -> Result<Protocol, String> {
-    let text = text.replace(Protocol::SCHEMA_V3, Protocol::SCHEMA_V4);
-    Protocol::from_json(&Json::parse(&text).expect("the promoted file is still JSON"))
-}
-
-fn e14_with_pilot(pilot: &str) -> String {
+/// The committed E1.4 freeze, read as JSON.
+fn e14() -> Json {
     let text = std::fs::read_to_string(
         corpus_root()
             .join("protocols")
             .join("e1-4-resolution-demand.json"),
     )
     .expect("the E1.4 freeze is committed");
-    text.replacen('{', &format!("{{ \"pilot\": {pilot},"), 1)
+    Json::parse(&text).expect("the freeze is JSON")
+}
+
+fn put(value: &Json, key: &str, field: Json) -> Json {
+    let Json::Obj(fields) = value else {
+        panic!("the fixture is an object");
+    };
+    let mut out = fields.clone();
+    out.push((key.to_string(), field));
+    Json::Obj(out)
+}
+
+/// Replace one field's value, leaving the rest of the object and its order alone.
+fn with_value(value: &Json, key: &str, text: &str) -> Json {
+    let Json::Obj(fields) = value else {
+        panic!("the fixture is an object");
+    };
+    Json::Obj(
+        fields
+            .iter()
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    if k == key {
+                        Json::text(text)
+                    } else {
+                        v.clone()
+                    },
+                )
+            })
+            .collect(),
+    )
+}
+
+/// The `/3` bytes carried into whichever schema and obligations the test wants: the schema renamed, the
+/// plan and arms given whatever the new schema obliges, and the pilot section added or left out.
+///
+/// Promoting an E1.4 file is a bundle of edits rather than one, and the bundle is the point: a file
+/// cannot gain `pilot` alone and keep the obligations of the schema it was written under, so the
+/// fixture has to promote all of it to be a fair test of any one piece.
+fn shaped(pilot: Option<&str>, schema: &str) -> Result<Protocol, String> {
+    let value = with_value(&e14(), "schema", schema);
+    let with_pilot = match pilot {
+        None => value,
+        Some(text) => put(
+            &value,
+            "pilot",
+            Json::parse(text).expect("the pilot fixture is JSON"),
+        ),
+    };
+    if schema == Protocol::SCHEMA_V3 {
+        return Protocol::from_json(&with_pilot);
+    }
+    let Json::Obj(fields) = &with_pilot else {
+        panic!("the fixture is an object");
+    };
+    let fields = fields
+        .iter()
+        .map(|(key, value)| match key.as_str() {
+            "plan" => (
+                key.clone(),
+                put(value, "certify_density", Json::number(1_024.0)),
+            ),
+            "arms" => {
+                let Json::Arr(arms) = value else {
+                    panic!("arms is a list");
+                };
+                (
+                    key.clone(),
+                    Json::Arr(
+                        arms.iter()
+                            .map(|arm| put(arm, "certify", Json::text("size")))
+                            .collect(),
+                    ),
+                )
+            }
+            other => (other.to_string(), value.clone()),
+        })
+        .collect();
+    Protocol::from_json(&Json::Obj(fields))
+}
+
+fn promoted(pilot: &str) -> Result<Protocol, String> {
+    shaped(Some(pilot), Protocol::SCHEMA_V4)
 }
 
 const A_PILOT: &str = r#"{"arms": ["A-current", "C-withhold"], "entries": ["control/symplectic_spring"], "budgets": [320, 640], "seeds": [1, 2], "checks": ["determinism", "namespace separation", "equal charged cost", "replay"]}"#;
@@ -47,7 +123,7 @@ fn control_entry() -> aporia_bench::corpus::Entry {
 
 #[test]
 fn a_frozen_pilot_narrows_the_plan_in_the_four_dimensions_and_in_no_other() {
-    let protocol = promoted(&e14_with_pilot(A_PILOT)).expect("a /4 file with a pilot reads");
+    let protocol = promoted(A_PILOT).expect("a /4 file with a pilot reads");
     assert_eq!(protocol.schema, Protocol::SCHEMA_V4);
     let (plan, entries, frozen) = protocol
         .pilot("A-current")
@@ -122,7 +198,7 @@ fn a_pilot_that_is_not_smaller_than_its_experiment_is_refused_by_name() {
         ),
     ];
     for (why, pilot) in cases {
-        let error = promoted(&e14_with_pilot(pilot))
+        let error = promoted(pilot)
             .err()
             .unwrap_or_else(|| panic!("a pilot with {why} read successfully"));
         assert!(
@@ -136,11 +212,10 @@ fn a_pilot_that_is_not_smaller_than_its_experiment_is_refused_by_name() {
 fn a_freeze_cannot_acquire_a_pilot_after_its_own_run() {
     // `/3` has no pilot, so a file that keeps the `/3` name and grows the section has been edited after
     // the fact. The digest would change, which is the point — and the reader refuses it first.
-    // `e14_with_pilot` produces exactly that document: the committed `/3` bytes with a section added.
-    let error = Protocol::from_json(
-        &Json::parse(&e14_with_pilot(A_PILOT)).expect("the demoted file is still JSON"),
-    )
-    .expect_err("a /3 file that grew a pilot section is refused");
+    // `shaped` with the `/3` name produces exactly that document: the committed bytes, same schema,
+    // with a section added that only `/4` is allowed to carry.
+    let error = shaped(Some(A_PILOT), Protocol::SCHEMA_V3)
+        .expect_err("a /3 file that grew a pilot section is refused");
     assert!(
         error.contains(Protocol::SCHEMA_V4) && error.contains("editing the pre-registration"),
         "the refusal has to say which schema owns the section and why it cannot appear here: {error}"
@@ -148,13 +223,7 @@ fn a_freeze_cannot_acquire_a_pilot_after_its_own_run() {
 
     // The other direction: `/4` without the section is refused, because a `/4` file that could be
     // written without one is a `/3` file with a new name and no new obligation.
-    let text = std::fs::read_to_string(
-        corpus_root()
-            .join("protocols")
-            .join("e1-4-resolution-demand.json"),
-    )
-    .expect("the E1.4 freeze is committed");
-    let error = promoted(&text).expect_err("a /4 file with no pilot is refused");
+    let error = shaped(None, Protocol::SCHEMA_V4).expect_err("a /4 file with no pilot is refused");
     assert!(
         error.contains("states no pilot section") && error.contains("full plan"),
         "the refusal has to name the defect this schema exists to close: {error}"
@@ -200,7 +269,7 @@ fn only_a_pilot_run_marks_its_document() {
 
 #[test]
 fn asking_for_an_arm_the_pilot_excluded_is_refused_rather_than_run_anyway() {
-    let protocol = promoted(&e14_with_pilot(A_PILOT)).expect("the file reads");
+    let protocol = promoted(A_PILOT).expect("the file reads");
     let error = protocol
         .pilot("B-demand")
         .expect_err("B-demand is not in the frozen pilot scope");

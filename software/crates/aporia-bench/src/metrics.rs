@@ -347,6 +347,13 @@ pub struct Outcome {
     /// absence and not a perfect score — an arm that trusts nothing must not read as an arm that
     /// certifies cleanly.
     pub coarse_certified_share: Option<f64>,
+    /// Fraction of the domain that is labelled TRUSTED while holding fewer evaluations per
+    /// domain-volume than the run's own density bar demands. The density criterion's reading of the same
+    /// fact `coarse_certified_volume` states on scale, computed from the recorded policy whether or not
+    /// the arm ran under it: E1.5 compares an arm that withholds on scale against one that withholds on
+    /// evidence, and a reader needs to see both quantities on every row to tell which of the two an
+    /// arm's fall actually came from.
+    pub thin_certified_volume: f64,
     /// The part of `trusted_over_true` that sits in leaves coarser than the certification bar. E1.4's
     /// `capture` is this over `trusted_over_true` on the same arm: under a rule that withholds
     /// certification the two partitions are identical by construction, so this is exactly the volume
@@ -490,6 +497,11 @@ impl Outcome {
             .filter(|c| c.label == Label::Trusted && policy.coarse(c))
             .map(volume_of)
             .sum();
+        let thin_certified_volume: f64 = leaves
+            .iter()
+            .filter(|c| c.label == Label::Trusted && policy.thinly_measured(c))
+            .map(volume_of)
+            .sum();
 
         // The same partition read against the union of the declared regions instead of against its best
         // single region: one pass over the leaves, each leaf contributing its overlap to exactly one of
@@ -575,6 +587,7 @@ impl Outcome {
                 .clamp(0.0, 1.0),
             provisional_volume,
             coarse_certified_volume,
+            thin_certified_volume,
             // A ratio with a stated empty case: `None` when nothing was certified, so an arm that
             // trusts nothing cannot be read as an arm that certifies cleanly.
             coarse_certified_share: (trusted_volume > 0.0)
@@ -642,6 +655,12 @@ impl Outcome {
             (
                 "coarse_certified_share",
                 self.coarse_certified_share.map_or(Json::Null, Json::number),
+            ),
+            // The density criterion's reading of the same certification, recorded whatever the arm ran
+            // under so that a fall in certified volume can be attributed to one axis or the other.
+            (
+                "thin_certified_volume",
+                Json::number(self.thin_certified_volume),
             ),
             (
                 "trusted_over_true_coarse",

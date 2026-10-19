@@ -242,6 +242,12 @@ impl Config {
                     // an older manifest's silence as exactly that default.
                     ("resolution", Json::text(self.policy.resolution.name())),
                     ("certify_share", Json::number(self.policy.certify_share)),
+                    // Which quantity the scale rule measures adequacy against, and the density it
+                    // demands when the answer is "evidence". Recorded unconditionally for the same
+                    // reason the two lines above are: an archive should not make a reader infer that
+                    // an absent field meant the semantics that existed first.
+                    ("certify", Json::text(self.policy.certify.name())),
+                    ("certify_density", Json::number(self.policy.certify_density)),
                 ]),
             ),
         ])

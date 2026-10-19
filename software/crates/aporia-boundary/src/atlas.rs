@@ -441,6 +441,60 @@ impl Resolution {
     }
 }
 
+/// What the instrument measures a leaf's *adequacy* against, when a [`Resolution`] demands one.
+///
+/// The two candidates are the two things a quiet coarse leaf can be quiet for, and E1.5's whole design
+/// turns on them coming apart. [`Resolution`] asks a question about geometry — how big is the cell you
+/// are signing off — and this axis asks a question about evidence — how many of the run's evaluations
+/// actually landed inside it. A leaf bisected to the frozen bar and holding exactly the sample floor
+/// passes both rules; a leaf that holds forty evaluations in half the domain passes the size rule and
+/// fails nothing, while a leaf that holds four in a quarter of it fails the density rule and looks
+/// resolved by size. Which of the two the instrument should condition certification on is a measurement,
+/// not a preference, and an arm exists for each.
+///
+/// [`Certify::Size`] is the default and the committed reading: it is exactly the predicate every
+/// published row was labelled with, and a new variant must leave its answers where they are.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Certify {
+    /// A leaf is uncertifiable while it is coarser than [`Policy::certify_share`] of its root — the
+    /// reading [`Policy::coarse`] implements and every committed measurement used.
+    Size,
+    /// A leaf is uncertifiable while its evaluations-per-domain-volume is below
+    /// [`Policy::certify_density`]: the space was measured, but not densely enough to say anything
+    /// about a region of the size this instrument claims at.
+    Density,
+}
+
+impl Certify {
+    /// Every variant, with the committed reading first for the reason [`Resolution::ALL`] gives.
+    pub const ALL: [Certify; 2] = [Certify::Size, Certify::Density];
+
+    /// The names a plan, a protocol file and an archive use for a variant. One name each, in both
+    /// directions.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Size => "size",
+            Self::Density => "density",
+        }
+    }
+
+    #[must_use]
+    pub fn names() -> [&'static str; 2] {
+        [Self::Size.name(), Self::Density.name()]
+    }
+
+    /// Parse a variant name; an unknown name is `None` and every caller refuses it.
+    #[must_use]
+    pub fn parse(text: &str) -> Option<Self> {
+        Some(match text {
+            "size" => Self::Size,
+            "density" => Self::Density,
+            _ => return None,
+        })
+    }
+}
+
 /// The thresholds that decide a label, and nothing else. Held apart from the partition so an
 /// experiment can record exactly what it meant by "suspicious".
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -500,6 +554,22 @@ pub struct Policy {
     /// Which requirement, if any, this policy places on a leaf's *scale* before it certifies it, and
     /// what it does when the scale is not there. See [`Resolution`].
     pub resolution: Resolution,
+    /// What a leaf's adequacy is measured against when [`Policy::resolution`] is not
+    /// [`Resolution::Current`]: its geometric scale or its evidence density. See [`Certify`].
+    ///
+    /// [`Certify::Size`] reproduces the committed predicate exactly, so this field is inert at its
+    /// default and a run that does not name it is the run every published row came from.
+    pub certify: Certify,
+    /// The evaluations per domain-volume a leaf must hold before this policy will certify it, read only
+    /// under [`Certify::Density`].
+    ///
+    /// Its default is not a second tuned constant: it is what the size bar and the sample floor jointly
+    /// imply, [`Policy::min_samples`] evaluations inside a leaf of [`Policy::certify_share`] of the
+    /// domain — `4 / 2⁻⁸ = 1024`. The two rules therefore disagree only where the arithmetic says they
+    /// must, on a leaf that is coarse and densely measured or fine and thinly measured, and a
+    /// difference between an arm under one and an arm under the other is a difference about which of
+    /// the two quantities certification was resting on.
+    pub certify_density: f64,
 }
 
 impl Default for Policy {
@@ -518,6 +588,11 @@ impl Default for Policy {
             // hand and switched on measures something a reader can name.
             certify_share: 0.003_906_25,
             resolution: Resolution::Current,
+            certify: Certify::Size,
+            // min_samples over certify_share: four evaluations inside a leaf of 2⁻⁸ of the domain is
+            // one per 2⁻¹⁰ of it. Derived from the two constants above rather than chosen beside them,
+            // so the two criteria start at the same operating point.
+            certify_density: 1_024.0,
         }
     }
 }
@@ -556,6 +631,39 @@ impl Policy {
     #[must_use]
     pub fn coarse(&self, cell: &Cell) -> bool {
         0.5f64.powi(i32::from(cell.depth)) > self.certify_share
+    }
+
+    /// Whether the leaf holds fewer evaluations per domain-volume than [`Policy::certify_density`]
+    /// demands — the density predicate on its own, so a report can state what a density rule would
+    /// have withheld from an arm that was not running one.
+    ///
+    /// `2^-depth` is the leaf's volume for this arithmetic by the same argument [`Policy::coarse`]
+    /// gives, and the quotient is finite because a depth is a bounded integer and a leaf of depth 0 has
+    /// the volume of its own root.
+    #[must_use]
+    pub fn thinly_measured(&self, cell: &Cell) -> bool {
+        let volume = 0.5f64.powi(i32::from(cell.depth));
+        f64::from(cell.samples) / volume < self.certify_density
+    }
+
+    /// Whether this policy will certify the leaf at all, under whichever criterion [`Policy::certify`]
+    /// names. `true` means it will not: the leaf is short of the scale the policy claims at, or short
+    /// of the evidence its claim would need.
+    ///
+    /// Under [`Certify::Size`] this is exactly [`Policy::coarse`], which is what makes the density axis
+    /// an addition rather than a revision: every committed label, every `coarse_certified_volume` and
+    /// every reproduction of a published row goes through this function and gets the answer it got
+    /// before.
+    ///
+    /// A leaf with no samples is uncertifiable under the density rule by construction — zero
+    /// evaluations of any volume is zero — and cannot be under the size rule, because [`Policy::classify`]
+    /// sends an under-sampled leaf to `UNKNOWN` long before a scale question is asked.
+    #[must_use]
+    pub fn unsupported(&self, cell: &Cell) -> bool {
+        match self.certify {
+            Certify::Size => self.coarse(cell),
+            Certify::Density => self.thinly_measured(cell),
+        }
     }
 
     /// Whether a leaf's label is a claim of quietness rather than of trouble or of no evidence: the
@@ -613,12 +721,13 @@ impl Policy {
         if cell.measured.count_ones() < self.min_channels_required() {
             return Label::Unknown;
         }
-        if self.resolution.withholds() && self.coarse(cell) {
+        if self.resolution.withholds() && self.unsupported(cell) {
             // Everything above says this leaf is sampled, measured and quiet, and this line asks the one
-            // question [`Trust`] never asks: at what scale. Reaching it is a fact about the cell's
-            // geometry, so unlike the two committed rules this one fires wherever the partition is
-            // coarser than the bar — which is why it is priced on a clean entry as well as on a
-            // violated one, and why a reader gets to see the price.
+            // question [`Trust`] never asks: was it measured at the scale this policy claims at, which
+            // [`Policy::certify`] decides between a leaf's size and its sample density. Reaching it is a
+            // fact about the cell rather than about any declared region, so unlike the two committed
+            // rules this one fires wherever the partition is short of the bar — which is why it is priced
+            // on a clean entry as well as on a violated one, and why a reader gets to see the price.
             //
             // It says nothing about whether a violation is inside. The instrument is still truth-blind
             // here, and the claim withheld is certification, not knowledge: `PROVISIONAL` is the atlas
@@ -868,7 +977,7 @@ impl Atlas {
                         || cell.mean_risk() > self.policy.refine_below
                         || (self.policy.resolution.demands()
                             && self.policy.quiet(cell)
-                            && self.policy.coarse(cell))
+                            && self.policy.unsupported(cell))
                         || self.has_disagreeing_neighbour(id));
                 cell.depth < self.policy.max_depth && worth_splitting
             };
@@ -2622,5 +2731,245 @@ mod tests {
             assert_eq!(a.bounds, b.bounds);
         }
         assert_eq!(moved_bar.coverage().provisional, 0.0);
+    }
+
+    /// A leaf of the given depth holding the given number of samples, with no evidence in it.
+    fn leaf(depth: u8, samples: u32) -> Cell {
+        let mut cell = Cell {
+            bounds: vec![[0.0, 1.0], [0.0, 1.0]],
+            id: 1,
+            depth,
+            samples,
+            risk_sum: 0.0,
+            risk_max: 0.0,
+            label: Label::Unknown,
+            channels: 0,
+            facts: 0,
+            measured: 0b11111,
+            points: (0..samples)
+                .map(|at| Point {
+                    observation: u64::from(at),
+                    x: vec![0.5, 0.5],
+                    risk: 0.0,
+                    channels: 0,
+                    fact: false,
+                    measured: 0b11111,
+                })
+                .collect(),
+        };
+        cell.recompute();
+        cell.label = Label::Unknown;
+        cell
+    }
+
+    #[test]
+    fn the_size_criterion_is_the_committed_predicate_under_every_depth_and_sample_count() {
+        // The whole claim that `Certify::Size` is inert, checked against `coarse` rather than asserted
+        // beside it: if these two ever disagree, every published `coarse_certified_volume` and every
+        // committed label is describing a rule the instrument no longer runs.
+        let policy = Policy {
+            resolution: Resolution::Withhold,
+            ..Policy::default()
+        };
+        for depth in 0..=12u8 {
+            for samples in [0u32, 1, 4, 16, 64, 1_024] {
+                let cell = leaf(depth, samples);
+                assert_eq!(
+                    policy.unsupported(&cell),
+                    policy.coarse(&cell),
+                    "size criterion disagreed with the committed predicate at depth {depth} with \
+                     {samples} samples"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_density_criterion_acts_where_evidence_and_scale_disagree() {
+        // The default bar is `min_samples / certify_share` = 4 / 2⁻⁸ = 1024 evaluations per domain, so
+        // a leaf at the bar holding exactly the floor passes both rules. Away from that corner the two
+        // criteria separate, and each separation is the hypothesis one arm exists to test.
+        let density = Policy {
+            resolution: Resolution::Withhold,
+            certify: Certify::Density,
+            ..Policy::default()
+        };
+        assert_eq!(density.certify_density, 1_024.0);
+        // Coarse and thinly measured: uncertifiable either way.
+        assert!(density.unsupported(&leaf(4, 4)));
+        assert!(density.coarse(&leaf(4, 4)));
+        // On the bar with the floor of samples: both satisfied, which is the operating point the
+        // default derives from, and the reason a difference between the arms is not a difference in
+        // strictness.
+        assert!(!density.unsupported(&leaf(8, 4)));
+        assert!(!density.coarse(&leaf(8, 4)));
+        // Coarse but densely measured: the size rule withholds and the density rule does not. This is
+        // the space a resolution demand would go and look at for no reason — the leaf already holds as
+        // much evidence per unit of domain as the bar asks for.
+        assert!(density.coarse(&leaf(4, 64)));
+        assert!(!density.unsupported(&leaf(4, 64)));
+        // And the arithmetic that follows from stating the bar as `min_samples / certify_share`: the
+        // density rule withholds a leaf at depth d only below 2^(10-d) samples, so it never withholds
+        // anything the size rule would certify. It is a relaxation of the same claim, not a rival one,
+        // and an experiment that compares them has to say which of the two it is asking about.
+        assert!(!density.unsupported(&leaf(10, 4)));
+        assert!(!density.unsupported(&leaf(12, 4)));
+        assert!(!density.coarse(&leaf(12, 4)));
+        // Given the sample floor — which `classify` applies before any scale question — the density
+        // rule only ever withholds space the size rule withholds too. Four samples at depth d is
+        // 4·2^d evaluations per domain, which reaches the 1024 bar at d = 8, the depth the size bar
+        // sits at. Below the floor a leaf is UNKNOWN either way, so the sweep is restricted to the
+        // sample counts a certification could actually be made on.
+        for depth in 0..=12u8 {
+            for samples in [4u32, 16, 64, 256, 1_024, 4_096] {
+                let cell = leaf(depth, samples);
+                if density.unsupported(&cell) {
+                    assert!(
+                        density.coarse(&cell),
+                        "density withheld a leaf at depth {depth} with {samples} samples that the \
+                         size rule would have certified, which contradicts the bar's derivation"
+                    );
+                }
+            }
+        }
+        // A leaf with no samples fails the density rule by arithmetic, and is unreachable as a
+        // certification either way because `classify` sends it to UNKNOWN on the sample floor first.
+        assert!(density.unsupported(&leaf(10, 0)));
+        assert_eq!(
+            density.classify(&leaf(10, 0)),
+            Label::Unknown,
+            "the sample floor decides before any scale question is asked"
+        );
+    }
+
+    #[test]
+    fn the_two_criteria_disagree_in_the_label_and_nowhere_else() {
+        // Where the rules part: a coarse leaf that is well enough measured. Under the size rule it is
+        // PROVISIONAL, under the density rule it is TRUSTED, and under `Current` both are TRUSTED — so
+        // an arm that moved from one criterion to the other changed a claim and nothing else.
+        let cell = leaf(4, 256);
+        let size = Policy {
+            resolution: Resolution::Withhold,
+            certify: Certify::Size,
+            ..Policy::default()
+        };
+        let density = Policy {
+            resolution: Resolution::Withhold,
+            certify: Certify::Density,
+            ..Policy::default()
+        };
+        let inert = Policy::default();
+        assert_eq!(size.classify(&cell), Label::Provisional);
+        assert_eq!(density.classify(&cell), Label::Trusted);
+        assert_eq!(inert.classify(&cell), Label::Trusted);
+        // PROVISIONAL shares TRUSTED's adjacency, which is what keeps the partition — and therefore
+        // where the sampler went — identical between the two arms.
+        assert_eq!(
+            Label::Provisional.adjacency(),
+            Label::Trusted.adjacency(),
+            "a withheld claim must not read as disagreement to the refinement rule"
+        );
+        // And a leaf the density rule does act on is one the size rule acts on too: the relaxation
+        // goes one way, and the labels agree wherever both rules fire.
+        let thin = leaf(4, 8);
+        assert!(density.unsupported(&thin) && size.unsupported(&thin));
+        assert_eq!(size.classify(&thin), density.classify(&thin));
+    }
+
+    #[test]
+    fn an_inert_resolution_leaves_the_labels_alone_whatever_the_criterion() {
+        // Both criteria under `Current` must produce exactly the committed labels: the criterion is
+        // read by the withhold and demand rules, and neither runs. A plan that named the density axis
+        // and left the rule off would otherwise be a second semantics nobody asked for.
+        let model = modelnd(2);
+        let points = spread(&model, 64, true);
+        let committed = settle(Atlas::new(&model, Policy::default()), &points, 6);
+        for certify in Certify::ALL {
+            let atlas = settle(
+                Atlas::new(
+                    &model,
+                    Policy {
+                        certify,
+                        certify_density: 3.0,
+                        ..Policy::default()
+                    },
+                ),
+                &points,
+                6,
+            );
+            assert_eq!(atlas.cells.len(), committed.cells.len(), "{certify:?}");
+            for (a, b) in committed.cells.iter().zip(&atlas.cells) {
+                assert_eq!(a.label, b.label, "{certify:?} moved a label under Current");
+                assert_eq!(a.bounds, b.bounds);
+            }
+            assert_eq!(atlas.coverage().provisional, 0.0, "{certify:?}");
+        }
+    }
+
+    #[test]
+    fn withholding_on_density_relables_without_rearranging_the_partition() {
+        // The property E1.4 needed of its size rule — an arm whose only difference is what it claims —
+        // has to hold of the density rule too, or the two arms would be measuring different searches
+        // and the comparison would be about point placement. Quiet points, so the cells reach a claim
+        // rather than sitting in UNKNOWN, and enough of them that the coarse leaf the size rule
+        // withholds clears the density bar: one leaf over the whole domain holding 6,000 evaluations is
+        // 6,000 per domain against a bar of 1,024.
+        let model = modelnd(2);
+        let points = spread(&model, 6_000, false);
+        let build = |certify| {
+            settle(
+                Atlas::new(
+                    &model,
+                    Policy {
+                        resolution: Resolution::Withhold,
+                        certify,
+                        ..Policy::default()
+                    },
+                ),
+                &points,
+                6,
+            )
+        };
+        let size = build(Certify::Size);
+        let density = build(Certify::Density);
+        let by_bounds = |atlas: &Atlas| -> Vec<(Vec<[f64; 2]>, Label)> {
+            atlas
+                .leaf_ids()
+                .iter()
+                .map(|id| {
+                    let cell = atlas.cell(*id).expect("a leaf is a cell");
+                    (cell.bounds.clone(), cell.label)
+                })
+                .collect::<Vec<_>>()
+        };
+        let (a, b) = (by_bounds(&size), by_bounds(&density));
+        assert_eq!(
+            a.iter().map(|(bounds, _)| bounds).collect::<Vec<_>>(),
+            b.iter().map(|(bounds, _)| bounds).collect::<Vec<_>>(),
+            "two withholding arms that disagree about the criterion must still agree about the cells"
+        );
+        // The two arms have to disagree about a claim, and the direction is the one the arithmetic
+        // predicts: the size rule withholds the coarse leaf and the density rule, satisfied by its
+        // evaluations per domain, certifies it.
+        assert!(
+            a.iter().any(|(_, label)| *label == Label::Provisional),
+            "the size arm made no withheld claim, so there is nothing for the density arm to \
+             disagree about"
+        );
+        assert!(
+            b.iter().any(|(_, label)| *label == Label::Trusted),
+            "the density arm withheld everything the size arm withheld, so the two criteria are not \
+             separable on this fixture"
+        );
+        // And they must actually disagree about something, or the second criterion measures nothing.
+        assert_ne!(
+            a.iter().map(|(_, label)| *label).collect::<Vec<_>>(),
+            b.iter().map(|(_, label)| *label).collect::<Vec<_>>(),
+            "no leaf changed its claim between the two criteria, so this fixture proves nothing"
+        );
+        // The volume the size rule withheld and the density rule did not is exactly the difference in
+        // what the two arms claim, and it is not zero.
+        assert!(size.coverage().trusted < density.coverage().trusted);
+        assert!(size.coverage().provisional > density.coverage().provisional);
     }
 }

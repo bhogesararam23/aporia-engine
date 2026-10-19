@@ -114,6 +114,7 @@ fn outcome(entry: &str, strategy: &'static str) -> aporia_bench::metrics::Outcom
         provisional_volume: 0.0,
         coarse_certified_volume: 0.0,
         coarse_certified_share: Some(0.0),
+        thin_certified_volume: 0.0,
         trusted_over_true_coarse: 0.0,
         // The region decomposition of the same picture: a quarter of the domain is declared wrong, the
         // suspicious tenth of it is justified, and nothing certified is.

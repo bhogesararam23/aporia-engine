@@ -363,10 +363,12 @@ fn announce_axes(plan: &harness::Plan) -> String {
             .join(", ")
     };
     format!(
-        "  trust rule {}  resolution {} (share {:#})  silences {}",
+        "  trust rule {}  resolution {} ({}: share {:#}, density {})  silences {}",
         plan.trust.name(),
         plan.resolution.name(),
+        plan.certify.name(),
         plan.certify_share,
+        plan.certify_density,
         silenced
     )
 }

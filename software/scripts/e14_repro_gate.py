@@ -68,6 +68,7 @@ ADDED_ROW = {
     "coarse_certified_share",
     "trusted_over_true_coarse",
     "leaf_cells",
+    "thin_certified_volume",
     # The region decomposition, added after E1.4 ran. Six columns, none of them inside the identity,
     # and none of them a reading any committed document carries: a replayed arm that changed the
     # twelve fields beside these would still fail this gate, which is the only reason the six are safe
