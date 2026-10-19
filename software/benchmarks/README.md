@@ -50,6 +50,18 @@ protocol with its eight arms and its frozen plan intact. A freeze that could be 
 that can be quietly amended by the first run; this one becomes runnable only in a commit that fills the
 list, and that commit is not allowed to contain a measurement.
 
+`protocols/e1-4-resolution-demand.json` is E1.4 — whether the fault is the *scale* at which certification is
+granted rather than the requirements a quiet leaf meets, and whether a fourth label carries information UNKNOWN
+does not. It is the first `aporia.protocol/3`, which is what its schema number is for: a /3 file must register
+its control entries inside `entries.run` (E1.3b's freeze named none, so its fourth quantity was unmeasurable and
+this one is not), must state the certification bar it measures against, must keep every result-affecting rule out
+of the plan's shape so the identity covers it, and must give its primary metric a denominator and an aggregation
+rather than a name. That schema is also why this file could be committed before `granular/fit_band` existed: the
+reader accepts a freeze whose entries are absent and refuses one whose decision is vague. Note that the paragraph
+above describes `e1-3b-trust-resolution.json` as it was at its freeze — its schema was promoted and its list
+filled in `d89142b`, and eight arms were measured under digest `ea5b9d7140131dc9`, so the file now cited as
+unreadable is the one `results/README.md` reports.
+
 ## What a `truth.json` says
 
 `regions` is a union of axis-aligned boxes in the model's own parameter names. A point inside one of
