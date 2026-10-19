@@ -857,6 +857,142 @@ about it. The provenance claim above — a tree differing only in line endings �
 remark: `scripts/eol-audit.sh` compares every byte-contract path against its stored blob, because `git
 status` and `git diff` disagree with each other exactly when a clean filter is hiding a difference.
 
+## E1.4: what a scale requirement on certification bought, and what it cost
+
+E1.3b left two things standing: the trust axis is closed — requiring more applied channels made certified-over-true
+volume *larger* on the full instrument, the non-finite rule never had a reading to act on, and the only arm that
+reached zero got there by trusting nothing at all — and control cleanliness, the freeze's fourth quantity, had no rows
+to compute from. E1.4 asks the question rule 4 pointed at: whether the fault is the *scale* at which certification is
+granted. A leaf that is quiet because nothing was ever sampled inside it can be half inside a declared region, and no
+requirement added to `TRUSTED` can see that; the proposal under test is that certification should also have to meet a
+share-of-domain bar, with a fourth label, `PROVISIONAL`, for a leaf that is quiet but too coarse to certify. The
+protocol is `benchmarks/protocols/e1-4-resolution-demand.json`, frozen 2026-10-19 before its new entry was authored and
+before any arm ran, digest `3eb45a9ca9005e2d`; the four documents below cite those bytes, `scripts/e14-run.sh` passed
+`--plan`, `--arm`, `--out` and `--archive` and nothing else, and the four identities are `bf3964c8d2d9`,
+`9a242fe5a8aa`, `2b75924a550c`, `5b437246799a`.
+
+**What was true before any arm was read.** The reproduction gate re-measured twenty-three published arms — eleven of
+`e1-geometry`, eight of `e1-3b-trust-resolution` and the four E1.4 arms themselves — 4155 rows, and got back the same
+identity and the same value in every declared field, `wall_ms` except (`benchmarks/analysis/e1-4-reproduction-gate.json`,
+`PASSED`, no problems). The four E1.4 arms are in that gate for a provenance reason: the runner refuses to write a
+second copy of a measurement it can see is the same one, so a published row is bound to bytes by being replayed into a
+scratch namespace and compared, and the bytes doing it here are `ea444fda…` built from `6d41bc0`. The gate's replay also
+writes fields the older files predate — six row columns (`non_finite_readings`, `provisional_volume`,
+`coarse_certified_volume`, `coarse_certified_share`, `trusted_over_true_coarse`, `leaf_cells`) and four document fields
+(`resolution`, `certify_share`, `trust`, `reachability`) — every one of them outside the measurement identity, and the
+gate refuses any *other* added or missing key rather than leaving the allowance open.
+
+**The defect the pilot found, and it is not in the numbers E1.4 decides on.** Arms A and C are meant to be one search
+making two claims: withholding a certification should move no leaf and spend no extra evaluation. The pilot's fifth
+property compares their partitions, and it failed at first — cell counts disagreed on three of five entries (98 against
+93, 303 against 253, 378 against 411). The cause was in the search, not the atlas: the acquisition credit summed
+`coverage().resolved()`, which counts TRUSTED and SUSPICIOUS only, so a `PROVISIONAL` leaf shrank the progress signal
+and the next evaluations landed elsewhere. `Coverage::credit()` is now the figure a search may credit itself with —
+everything that is not "we could not measure" — and `resolved()` stays the claim number the rows report (`6d41bc0`).
+After that the pilot passes on all five properties with 2196 cells compared, 152 labels moved and 44,256 archive records
+matched, and the published run shows the same identity holding at full scale: arm C differs from arm A in
+`leaf_cells` on 0 of 100 cells.
+
+**The deciding quantity, and the guardrails, per arm.** One hundred rows per arm: five entries × five seeds × the
+320/640/1280/2560 ladder, 120,000 charged evaluations and 19,032,000 instruction steps in each arm, and no refusal on
+any arm. `coarse` is the primary metric — mean `coarse_certified_volume`, TRUSTED leaf volume above the frozen
+2⁻⁸ = 0.00390625 share bar — `unk`/`prov`/`trs` are mean UNKNOWN, PROVISIONAL and TRUSTED volume, `over` is mean
+`trusted_over_true`, `over-rows` is rows with that volume strictly positive, `silent` is rows certifying nothing at all,
+`loc` is summed localisations, `cells` mean leaves in the final partition, and the last two columns are paired
+differences against A-current on the same (entry, seed, budget) cell.
+
+| arm | rule | coarse | unk | prov | trs | over | over-rows | silent | loc | cells | Δcoarse | Δunk |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A-current | current | 0.54031 | 0.2647 | 0.0000 | 0.5932 | 0.000171 | 40 | 1 | 60 | 244.5 | — | — |
+| B-demand | demand | 0.00000 | 0.5535 | 0.0000 | 0.3044 | 0.000054 | 28 | 0 | 60 | 330.2 | −0.540312 | **+0.288799** |
+| C-withhold | withhold | 0.00000 | 0.2647 | 0.5403 | 0.0528 | 0.000056 | 37 | 10 | 60 | 244.5 | −0.540312 | 0.000000 |
+| D-demand-and-withhold | both | 0.00000 | 0.5535 | 0.0000 | 0.3044 | 0.000054 | 28 | 0 | 60 | 330.2 | −0.540312 | **+0.288799** |
+
+**No outcome of the frozen rule reads as an improvement, and the rule itself has a gap.** Outcome 1 is refused by A's
+0.54031 — the corpus can state the question. Outcome 2 fires on one arm: `C-withhold` keeps 0.0426 of the control
+entry's 0.8691 mean TRUSTED volume, 4.9% of the reference there, far below the frozen quarter, so it is reported as
+certifying almost nothing and is excluded from the outcomes that decide. Outcome 3 is satisfied by no arm: B and D cut
+the primary metric to zero, lower `trusted_over_true`, lose no localisation on any entry and hold control-entry
+certification above the floor, and each raises mean UNKNOWN by 0.2888 against a ceiling of 0.10. Outcome 4 —
+certification discipline, the permitted outcome — was not reached either, and that is the honest reading rather than the
+convenient one: `H-RESOLVE` states that it is falsified by *any* ceiling being missed, so the ceiling is not outcome 4's
+exception. The freeze enumerates no outcome for "cut the over-claim, gained no localisation, breached the UNKNOWN
+ceiling"; `benchmarks/analysis/e1-4-resolution-demand.json` records that as a defect of its own decision rule instead of
+resolving it by whichever reading is friendlier. Outcome 5 does not fire (capture 0.6748 is above 0.5), outcome 6 does
+not fire (arms did cut), and outcome 7's prediction holds: B's UNKNOWN gives back to TRUSTED between 640 and 1280
+(0.7217 → 0.4756 while TRUSTED goes 0.1317 → 0.3857), the crossing the bar's 4 × 2^d arithmetic put at roughly 1000
+evaluations. `D-demand-and-withhold` is identical to `B-demand` on every deciding column: once a demand has left nothing
+coarse certified, withholding has nothing left to withhold, and the two axes are not independent.
+
+**What the new state is worth, on the pair the freeze fixed.** `capture` — the share of A's real over-claim that sits in
+the volume C would refuse — is 0.6748. `cost` — the share of the clean control's certification C refuses — is 0.9510.
+`H-RENAME`, the null hypothesis that `PROVISIONAL` is UNKNOWN under another name, is therefore *not* falsified: its
+falsifier needs high capture together with *low* withholding on a clean entry, and this is high withholding. One derived
+reading makes the shape clearer, and it decides nothing: the withheld set covers 0.9109 of A's certification while
+holding 0.6748 of its over-claim, an enrichment of 0.74 — the over-claim is *diffuse* across the certified volume rather
+than concentrated in coarse leaves, which is E1.3b's finding restated as a ratio. A scale bar therefore removes about
+nine tenths of what the instrument certifies to reach two thirds of a quantity whose mean is 0.000171 of the domain.
+`H-WITHHOLD`'s own falsifier is the one thing here that could not be computed: it compares withheld capture against the
+capture of the same partition's UNKNOWN volume, and no published column records declared-region overlap for UNKNOWN
+leaves — `trusted_over_true` measures certification only. Reported as unmeasured, not as passed.
+
+**Control cleanliness, which E1.3b could not measure, is now measurable and it moved.** `control/symplectic_spring` is
+in the run list, registered in `entries.control`, and its suspicious volume is 0.0375 under A and C and 0.0176 under B
+and D: demanding resolution *reduced* unjustified suspicion on a clean entry, by refining leaves that disagreed with
+their neighbours. It did that with no localisation gain anywhere (60 of 100 rows in every arm, unchanged per entry) and
+at +85.7 mean leaves. C moves nothing here, as it must not: a claim-only change cannot change what the instrument finds
+suspicious, and that identity is the point of the arm.
+**Where the coarse certification actually was.** A's 0.54031 of coarse-certified domain is not one phenomenon:
+0.82656 mean on the clean control, 0.63633 on `geometry/narrow_oblique` (whose over-claim no leaf can localize —
+localised 0 in every arm), 0.36055 on `granular/fit_band`, 0.54688 on `granular/stroke_reference`, 0.33125 on
+`granular/tolerance_stack`. B pays for removing all of it: control-entry TRUSTED falls 0.8691 → 0.3756, 43.2% of the
+reference, which clears the frozen quarter but is not a small thing to give up on the entry that declares nothing to
+find. C's residual mean over-claim is 0.000056, and none of it is coarse: `trusted_over_true_coarse` is zero in that arm
+by construction, so what survives the withholding is certified inside leaves fine enough to pass the bar.
+
+**Three defects, recorded rather than smoothed.** The pilot's cost bound: stopping rule 2 states one entry, two seeds and
+the two smallest budgets, and `scripts/e14_pilot.py` runs the full frozen plan (100 charged cells per arm). The cause is
+mechanical — with `--plan` the runner refuses every flag that shapes what is measured, so a reduced pilot needs a
+reduced frozen plan, and this freeze did not provide one. No threshold, tolerance or criterion moved, and the pilot
+declares every deciding quantity it does not measure; what was exceeded is the cost bound. The decision-rule gap above.
+And `H-WITHHOLD`'s uncomputable falsifier. All three are in the artefact under `recorded_defects`.
+
+**What the freeze expected, what was measured, and what could not be measured.**
+
+| the freeze named | what it expected | what the run gives | status |
+|---|---|---|---|
+| `coarse_certified_volume`, the primary metric | that a demand would cut it at least in half | A 0.54031 → 0.00000 in B, C and D, paired −0.540312 on all 100 cells | measured, and cheaper to satisfy than hoped: the bar is a filter, not a discovery |
+| `unknown_volume` ceiling +0.10 absolute | that a demand stay inside it | B and D +0.288799, C exactly 0.000000 | measured, ceiling missed by ~2.9× |
+| localisation, no entry worse | no loss, and a gain if the rule is a discovery | 60 of 100 rows in every arm, per entry identical, Δ 0.0 paired | measured, nothing gained |
+| `trusted_over_true` as the guardrail | not raised by any arm | A 0.000171 → B 0.000054, C 0.000056; over-claim rows 40 → 28 / 37 | measured, lower — and lower by definition in C, which is why it cannot decide |
+| certification floor, one quarter on the control | an arm keeps real certification where there is nothing to find | B 0.3756 (43.2% of A) passes, C 0.0426 (4.9%) fails and is reported as certifying almost nothing | measured, outcome 2 fires on C |
+| the informativeness pair | capture above 0.5 with cost below 0.5 separates the new state from UNKNOWN | capture 0.6748, cost 0.9510, enrichment 0.7408 | measured, `H-RENAME` not falsified |
+| control cleanliness | measurable at last | 0.0375 under A/C, 0.0176 under B/D on `control/symplectic_spring` | measured |
+| `H-WITHHOLD`'s falsifier | withheld capture against UNKNOWN capture | no published column records UNKNOWN's declared-region overlap | unmeasurable, reported |
+| the budget crossing outcome 7 predicts | UNKNOWN gives back to TRUSTED between 640 and 1280 | B 0.7217 → 0.4756 UNKNOWN with 0.1317 → 0.3857 TRUSTED | measured, prediction holds |
+
+**What this does not settle.** That no arm reached outcome 3 is not proof that no scale requirement could: the bar this
+protocol froze is 2⁻⁸ of the domain on a 41×41 grid, one rung of a ladder this corpus can walk, and both new entries are
+synthetic one- and two-dimensional models. It is not a proof that `PROVISIONAL` is a synonym for UNKNOWN either — the
+test that would decide it is the unmeasurable row above, and the derived enrichment ratio argues the other way without
+settling anything. What it does establish, and this is the strongest reading the numbers support: on this corpus the
+over-claim is diffuse across what the instrument certifies, so a requirement stated in terms of *scale* trades
+certification for honesty at about 4,600 to 1 — 0.540312 of the domain given up for 0.000117 of mean
+certified-over-true volume — and
+an arm that pays that ratio honestly is not safer by any frozen reading of this file. `TRUSTED` does not become proven
+correct under any outcome here, and `PROVISIONAL` does not become probably fine — it means quiet at a scale this
+experiment did not certify at.
+
+**The next boundary, registered rather than argued.** Three things follow from the readings rather than from taste. The
+falsifier `H-WITHHOLD` needs is computable if a row records declared-region overlap per label, so an `unknown_over_true`
+column is the cheap instrument change that would make the next version of this question decidable. The cost bound on a
+pilot belongs in the protocol file, not in prose, so that a schema-3 freeze can name a reduced plan rather than a reduced
+scope. And the ceiling that decided this experiment measured the wrong thing: an intervention that changes the partition
+wholesale was bounded by an absolute rise in UNKNOWN, and the informative comparison is UNKNOWN *per unit of over-claim
+removed* — B pays 0.288799 of UNKNOWN for 0.000117 of mean over-claim, about 2,500 to 1, which no absolute ceiling of
+0.10 would have surfaced as a ratio. None of that is a reason to re-read these four documents under a
+different rule; it is the shape of the next one.
+
 ## The controls, and a correction to this file
 
 The first version of this file reported the controls as "0.9% random, 2.8% stratified, 2.9% adaptive"
