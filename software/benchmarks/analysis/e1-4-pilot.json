@@ -1,0 +1,82 @@
+{
+ "binary_sha256": "ea444fda09a94594e89c15238529b302c0ad2b3e820ce2669d8fcd7ede35e378",
+ "built_from_commit": "6d41bc0",
+ "checks": {
+  "charged_cost": {
+   "cells": 100,
+   "evaluations_total_per_arm": {
+    "A-current": 120000,
+    "B-demand": 120000,
+    "C-withhold": 120000,
+    "D-demand-and-withhold": 120000
+   },
+   "mismatched": 0
+  },
+  "determinism": {
+   "identity": "bf3964c8d2d9",
+   "rows_compared": 100
+  },
+  "guard_refusal": {
+   "exit": 2,
+   "message": "      refuses to pair documents that were not one experiment with two masks",
+   "passed": true
+  },
+  "namespaces": {
+   "identities": {
+    "A-current": "bf3964c8d2d9",
+    "B-demand": "9a242fe5a8aa",
+    "C-withhold": "2b75924a550c",
+    "D-demand-and-withhold": "5b437246799a"
+   },
+   "resolution_per_arm": {
+    "A-current": "current",
+    "B-demand": "demand",
+    "C-withhold": "withhold",
+    "D-demand-and-withhold": "demand-and-withhold"
+   }
+  },
+  "replay_and_identity": {
+   "archived_sweeps": 20,
+   "identities_per_arm": {
+    "A-current": [
+     "bf3964c8d2d9"
+    ],
+    "B-demand": [
+     "9a242fe5a8aa"
+    ],
+    "C-withhold": [
+     "2b75924a550c"
+    ],
+    "D-demand-and-withhold": [
+     "5b437246799a"
+    ]
+   },
+   "records_matched": 44256,
+   "records_total": 44256
+  },
+  "same_partition": {
+   "cells_compared": 2196,
+   "labels_moved": 152,
+   "partitions_compared": 5
+  }
+ },
+ "generated_by": "scripts/e14_pilot.py",
+ "not_a_measurement_of": [
+  "coarse_certified_volume",
+  "trusted_over_true",
+  "unknown_volume",
+  "localisation",
+  "any verdict about the four arms"
+ ],
+ "problems": [],
+ "protocol": "e1-4-resolution-demand.json",
+ "protocol_digest_prefix": "3eb45a9ca9005e2d",
+ "protocol_sha256": "3eb45a9ca9005e2d8149d0a1fb88659c5e2afcd690ca2cf5e33e4a613808727f",
+ "purpose": "the five infrastructure properties E1.4's freeze requires, and the partition identity that makes its control arm a control rather than a second search",
+ "schema": "aporia.pilot/2",
+ "scratch": {
+  "archives_root": "software/.scratch/e14-pilot-archives-*",
+  "results_root": "software/.scratch/e14-pilot-*"
+ },
+ "verdict": "PASSED"
+}
