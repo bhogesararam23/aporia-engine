@@ -60,7 +60,16 @@ PROTOCOLS = ["e1-geometry", "e1-3b-trust-resolution", "e1-4-resolution-demand"]
 # Written by this build and predating the committed documents. Every one of these is outside the
 # measurement identity, which is why adding it cannot rename a measurement — and the reason the list is
 # closed is that "a document gained a column" is otherwise unfalsifiable.
-ADDED_TOP = {"trust", "reachability", "resolution", "certify_share"}
+ADDED_TOP = {
+    "trust",
+    "reachability",
+    "resolution",
+    "certify_share",
+    # E1.5 states the adequacy criterion and its density bar in every header, beside the scale bar, so
+    # a reader never has to infer which of the two a withholding arm asked about.
+    "certify",
+    "certify_density",
+}
 ADDED_ROW = {
     "non_finite_readings",
     "provisional_volume",

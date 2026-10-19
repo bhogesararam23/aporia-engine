@@ -15,10 +15,12 @@
 
 use aporia_bench::corpus;
 use aporia_bench::corpus_root;
-use aporia_bench::harness::{Plan, RESULTS_SCHEMA, archive_name, identity_of, plan_json};
-use aporia_boundary::{Label, Resolution};
+use aporia_bench::harness::{
+    Plan, RESULTS_SCHEMA, archive_name, identity_of, plan_json, results_json,
+};
+use aporia_boundary::{Certify, Label, Resolution};
 use aporia_search::Strategy;
-use aporia_store::Json;
+use aporia_store::{Environment, Json};
 
 fn entry(id: &str) -> corpus::Entry {
     let entries = corpus::load(&corpus_root()).expect("the corpus loads");
@@ -523,5 +525,210 @@ fn a_negative_zero_is_a_signed_absence_and_this_record_says_so_rather_than_hidin
     assert!(
         rewritten > 0,
         "E1.3b records that committed documents print `-0.0` in their volume columns; none does, so          either the history was rewritten or this assertion is stale"
+    );
+}
+
+#[test]
+fn a_document_names_the_criterion_it_certified_under_even_when_that_criterion_was_inert() {
+    // E1.5's four arms differ by one field, so the field has to be readable from a document on its own.
+    // The plan section deliberately does *not* carry a criterion that no rule could act on — an inert
+    // criterion must not rename a committed measurement, which is what `plan_json` guards and
+    // `a_default_plan_writes_the_bytes_that_named_every_committed_arm` proves — so without a header
+    // statement a reader of arm A would see `certify_share` and no way to know what it was the bar of.
+    let entries = vec![entry("granular/fit_band")];
+    let environment = {
+        let mut e = Environment::current();
+        e.notes.clear();
+        e
+    };
+    let header = |plan: &Plan| results_json(&[], &entries, plan, &environment, None);
+
+    let default = Plan {
+        budgets: vec![320],
+        seeds: vec![1],
+        ..Plan::default()
+    };
+    let doc = header(&default);
+    assert_eq!(
+        doc.get("resolution").and_then(Json::as_str),
+        Some("current"),
+        "the rule is stated even where it is the one every committed arm used"
+    );
+    assert_eq!(
+        doc.get("certify").and_then(Json::as_str),
+        Some("size"),
+        "a header that states a scale bar without stating what the bar measures is half a rule"
+    );
+    assert_eq!(
+        doc.get("certify_share").and_then(Json::as_f64),
+        Some(default.certify_share)
+    );
+    assert_eq!(
+        doc.get("certify_density").and_then(Json::as_f64),
+        Some(default.certify_density)
+    );
+    // The plan section stays byte-identical to what a default plan has always written, which is the
+    // half that keeps this addition from renaming anything already published.
+    assert_eq!(
+        doc.get("plan")
+            .expect("a document records its plan")
+            .to_compact(),
+        plan_json(&default).to_compact()
+    );
+    assert_eq!(
+        doc.get("identity").and_then(Json::as_str),
+        Some(
+            identity_of(
+                RESULTS_SCHEMA,
+                &plan_json(&default),
+                doc.get("entries").expect("entries"),
+            )
+            .as_str()
+        ),
+        "a header field that moved the identity would be a new experiment, not a clearer document"
+    );
+
+    let withheld = Plan {
+        budgets: vec![320],
+        seeds: vec![1],
+        resolution: Resolution::Withhold,
+        certify: Certify::Density,
+        certify_density: 2_048.0,
+        ..Plan::default()
+    };
+    let doc = header(&withheld);
+    assert_eq!(
+        doc.get("certify").and_then(Json::as_str),
+        Some("density"),
+        "the arm that withheld on evidence density has to be readable as that arm"
+    );
+    assert_eq!(
+        doc.get("certify_density").and_then(Json::as_f64),
+        Some(2_048.0)
+    );
+    // And the criterion is in the plan section here, because a rule reads it: the same field the
+    // default plan omits as inert is the one this plan cannot be re-run without.
+    assert!(
+        doc.get("plan")
+            .and_then(|p| p.get("certify"))
+            .and_then(Json::as_str)
+            == Some("density"),
+        "a criterion a rule acts on belongs in the digest as well as the header"
+    );
+}
+
+#[test]
+fn the_two_adequacy_criteria_relabel_differently_and_move_nothing_else() {
+    // E1.5's central comparison is between two criteria, and it is only a comparison if the arms share
+    // a search. A leaf is withheld for being large under one and for being thinly measured under the
+    // other; neither of those is a statement about where the next evaluation goes, so the partition,
+    // the sample counts and the acquisition credit have to come out identical while the *claims* come
+    // out different. E1.4 measured what it looks like when the label reaches the credit — three of five
+    // entries disagreed on cell counts for no reason but the label — and `Coverage::credit` is the
+    // fix; this is the same obligation asserted for the criterion that fix did not exist yet to cover.
+    let anchor = entry("granular/fit_band");
+    let model = anchor.model.as_ref().expect("the band compiles to a model");
+    let plan = |certify, density| Plan {
+        budgets: vec![640],
+        strategies: vec![Strategy::Adaptive],
+        seeds: vec![1],
+        resolution: Resolution::Withhold,
+        certify,
+        certify_density: density,
+        ..Plan::default()
+    };
+    let run = |certify, density| {
+        aporia_search::run(
+            model,
+            plan(certify, density).config(Strategy::Adaptive, 640, 1),
+        )
+    };
+    let by_size = run(Certify::Size, 1_024.0);
+    let by_density = run(Certify::Density, 1_024.0);
+
+    assert_eq!(
+        by_size.evaluations, by_density.evaluations,
+        "the two criteria bought different amounts of evidence, so the arms are not comparable on cost"
+    );
+    assert_eq!(
+        by_size.decisions.len(),
+        by_density.decisions.len(),
+        "the two searches made a different number of acquisition decisions"
+    );
+    for (a, b) in by_size.decisions.iter().zip(&by_density.decisions) {
+        assert_eq!(
+            a.x, b.x,
+            "the two criteria placed a different point at evaluation {}",
+            a.evaluation
+        );
+        assert_eq!(
+            a.family, b.family,
+            "and disagreed about why it was worth buying"
+        );
+    }
+    assert_eq!(
+        by_size.atlas.cells.len(),
+        by_density.atlas.cells.len(),
+        "which criterion certification was measured against changed the partition"
+    );
+    let mut relabelled = 0usize;
+    for (a, b) in by_size.atlas.cells.iter().zip(&by_density.atlas.cells) {
+        assert_eq!(a.bounds, b.bounds, "a cell moved in space");
+        assert_eq!(a.depth, b.depth, "a cell moved in depth");
+        assert_eq!(a.samples, b.samples, "a cell changed its evidence");
+        if a.label != b.label {
+            // A disagreement between the two criteria is about one thing only: whether this measured
+            // leaf is signed off. Neither direction may reach UNKNOWN, which would turn a claim into an
+            // uncertainty statistic, and neither may touch SUSPICIOUS, which is decided by the evidence
+            // a leaf holds rather than by the bar it is judged against.
+            assert!(
+                matches!(
+                    (a.label, b.label),
+                    (Label::Trusted, Label::Provisional) | (Label::Provisional, Label::Trusted)
+                ),
+                "the two criteria disagreed about something other than signing a leaf off: {:?} \
+                 against {:?}",
+                a.label,
+                b.label
+            );
+            relabelled += 1;
+        }
+    }
+
+    let size = by_size.atlas.coverage();
+    let density = by_density.atlas.coverage();
+    assert!(
+        (size.credit() - density.credit()).abs() < 1e-12,
+        "the search credited itself differently under two criteria that saw the same leaves: {} vs {}",
+        size.credit(),
+        density.credit()
+    );
+    // What the criteria disagree about is visible in the report and invisible to the sampler, which is
+    // exactly the separation the experiment needs: `resolved()` is a statement of claims, `credit()` is
+    // the signal the next point is placed against.
+    assert_eq!(
+        size.unknown, density.unknown,
+        "a criterion changed how much of the space was unmeasured, which no adequacy rule is allowed \
+         to do: {} vs {}",
+        size.unknown, density.unknown
+    );
+    assert_ne!(
+        size.resolved(),
+        density.resolved(),
+        "the two criteria made identical claims on this fixture, so they are one arm measured twice"
+    );
+    assert_ne!(size.provisional, density.provisional);
+    let size_outcome =
+        aporia_bench::metrics::Outcome::measure(&anchor, &by_size, 0, Strategy::Adaptive, 640);
+    let density_outcome =
+        aporia_bench::metrics::Outcome::measure(&anchor, &by_density, 0, Strategy::Adaptive, 640);
+    assert_ne!(
+        size_outcome.provisional_volume, density_outcome.provisional_volume,
+        "the two criteria withheld the same volume on this fixture, so nothing here distinguishes \
+         them and the arms would be one arm measured twice"
+    );
+    assert!(
+        relabelled > 0,
+        "no leaf was relabelled between the criteria, which is the same failure as the line above"
     );
 }

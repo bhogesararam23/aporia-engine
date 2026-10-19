@@ -1706,6 +1706,13 @@ pub fn results_json(
         // without the scale it acted on is a word, not a measurement.
         ("resolution", Json::text(plan.resolution.name())),
         ("certify_share", Json::number(plan.certify_share)),
+        // The criterion and its density bar, in every document beside the scale bar. E1.5's arms differ
+        // by exactly this field, and a header that states which scale was withheld at but not *what
+        // withholding was measured against* leaves a reader to infer the criterion from which optional
+        // part of the plan section is present — the inference `plan_json` deliberately avoids by
+        // carrying the bars beside the rule that reads them.
+        ("certify", Json::text(plan.certify.name())),
+        ("certify_density", Json::number(plan.certify_density)),
         ("plan", plan_value),
         ("entries", entries_value),
         // Could the atlas have enclosed what each entry declares, at the granularity this policy
@@ -2059,12 +2066,27 @@ pub fn explain(entry: &Entry, plan: &Plan, strategy: Strategy, seed: u64) -> Opt
     let _ = writeln!(out, "trust rule: {}", trust.name());
     // The scale axis, named together with the number it acts on for the same reason: a quiet coarse
     // leaf may have been left alone by a rule that is off, or reached and withheld by a rule that is
-    // on, and without the bar in front of the reader those two runs explain identically.
+    // on, and without the bar in front of the reader those two runs explain identically. E1.5 adds the
+    // criterion to that sentence because a leaf can be withheld for two different reasons — being
+    // large, or being thinly measured — and an arm is defined by which one it asked. Naming only the
+    // size bar would explain a density arm as if it had been a size arm.
+    let acts_on = match plan.certify {
+        aporia_boundary::Certify::Size => format!(
+            "{} on leaf size: nothing coarser than {:.8} of the domain",
+            plan.certify.name(),
+            plan.certify_share
+        ),
+        aporia_boundary::Certify::Density => format!(
+            "{} on evidence density: nothing holding fewer than {:.0} evaluations per domain volume",
+            plan.certify.name(),
+            plan.certify_density
+        ),
+    };
     let _ = writeln!(
         out,
-        "resolution rule: {}, certifying nothing coarser than {:.8} of the domain",
+        "resolution rule: {}, certifying under {}",
         plan.resolution.name(),
-        plan.certify_share,
+        acts_on,
     );
     let coverage = campaign.atlas.coverage();
     let policy = campaign.atlas.policy();
