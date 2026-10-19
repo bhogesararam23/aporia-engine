@@ -1,0 +1,392 @@
+//! Read the E1.5 freeze the way its own decision rule will be read, and check it can be read.
+//!
+//! A pre-registration fails in two ways. It can name a quantity the instrument does not record, in
+//! which case the analysis invents it or the run stops; or it can leave a combination of readings with
+//! no outcome, which is exactly what E1.4 did — two arms cut the primary metric to zero, held every
+//! other guard, gained nothing and breached one ceiling, and the freeze had written no outcome for
+//! that shape, so the decision came back `fired: null` and the gap went into the defect list. These
+//! tests check both properties mechanically, against the recorded field names this build actually
+//! writes rather than against a list of them kept up by hand.
+
+use aporia_bench::corpus_root;
+use aporia_bench::harness::{Protocol, plan_json};
+use aporia_store::Json;
+use std::path::PathBuf;
+
+const ID: &str = "e1-5-spatial-uncertainty-cost";
+
+fn protocol() -> Protocol {
+    Protocol::load(
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../benchmarks/protocols")
+            .join(format!("{ID}.json")),
+    )
+    .expect("the E1.5 freeze reads")
+}
+
+fn raw() -> Json {
+    let text = std::fs::read_to_string(corpus_root().join("protocols").join(format!("{ID}.json")))
+        .expect("the E1.5 freeze is committed");
+    Json::parse(&text).expect("the freeze is JSON")
+}
+
+/// Every field name a row of this experiment can carry, read out of a row this build measured.
+///
+/// From the writer rather than from a list, because a list of field names is a second definition of
+/// the schema and drifts from the first in exactly the way this test exists to catch.
+fn recorded_fields() -> Vec<String> {
+    let entries = aporia_bench::corpus::load(&corpus_root()).expect("the corpus loads");
+    let entry = entries
+        .iter()
+        .find(|e| e.id() == "control/symplectic_spring")
+        .expect("the registered control is in the corpus");
+    let campaign = aporia_search::run(
+        entry.model.as_ref().expect("the entry compiles"),
+        aporia_search::Config {
+            budget: 320,
+            ..aporia_search::Config::default()
+        },
+    );
+    let outcome = aporia_bench::metrics::Outcome::measure(
+        entry,
+        &campaign,
+        0,
+        aporia_search::Strategy::Adaptive,
+        320,
+    );
+    let Json::Obj(fields) = outcome.to_json() else {
+        panic!("a row is an object");
+    };
+    fields.iter().map(|(key, _)| key.clone()).collect()
+}
+
+/// The names the freeze itself defines, which are quantities rather than columns: the primary metric,
+/// the cost ratios, and the derived volumes its own text introduces.
+const DECLARED_QUANTITIES: [&str; 8] = [
+    "certified_over_region_share",
+    "blindness_per_overclaim_removed",
+    "clean_certification_withdrawal",
+    "clean_certified",
+    "clean_certified_volume",
+    "silence_floor",
+    "false_suspicion",
+    "reduction",
+];
+
+/// The words a protocol file backticks that are not measurements at all: schemas, flags, states.
+const NOT_FIELDS: [&str; 13] = [
+    "aporia.protocol/3",
+    "aporia.protocol/4",
+    "reach",
+    "risk_max",
+    "refine",
+    "where",
+    "not_applicable",
+    "not_measurable",
+    "no_benefit",
+    "capped",
+    "retention",
+    "zero_benefit",
+    "no_benefit",
+];
+
+fn snake_case_in(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for span in text
+        .split('`')
+        .collect::<Vec<_>>()
+        .iter()
+        .step_by(2)
+        .skip(1)
+        .flat_map(|quoted| quoted.split_whitespace().collect::<Vec<_>>())
+    {
+        let word: String = span
+            .chars()
+            .filter(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '_')
+            .collect();
+        let looks_like_a_field = word.contains('_')
+            && word.len() > 4
+            && span.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+        if looks_like_a_field && !out.contains(&word) {
+            out.push(word);
+        }
+    }
+    out
+}
+
+#[test]
+fn the_freeze_reads_under_the_schema_it_declares_and_names_its_own_bytes() {
+    let protocol = protocol();
+    assert_eq!(protocol.schema, Protocol::SCHEMA_V4);
+    assert_eq!(protocol.id, ID);
+    let digest = protocol.digest.clone().expect("a loaded file has a digest");
+    // The digest the four arm documents will cite. Pinned as a value because the point of the field is
+    // that an edit after the run is visible: a test that only re-derived it from the same bytes could
+    // never notice the file having changed under them.
+    assert_eq!(digest, "1044fa5da8db54bf", "the freeze's bytes changed");
+    assert_eq!(protocol.arms.len(), 4);
+    assert_eq!(protocol.plan.certify_density, 1_024.0);
+    assert_eq!(protocol.plan.certify_share, 0.003_906_25);
+    // A `/4` file whose arms moved the bars would be several experiments; the plan states them once.
+    for arm in &protocol.arms {
+        let (plan, _) = protocol.arm(&arm.name).expect("an arm names itself");
+        assert_eq!(plan.certify_share, protocol.plan.certify_share);
+        assert_eq!(plan.certify_density, protocol.plan.certify_density);
+        assert_eq!(plan.trust, aporia_boundary::Trust::Current, "{}", arm.name);
+        assert!(plan.ablate.is_empty(), "{} ablates", arm.name);
+    }
+    // Four arms, four measurements: the plan sections have to differ, or two of the names are one
+    // measurement written twice and the runner's duplicate refusal is the only thing saying so.
+    let sections: Vec<String> = protocol
+        .arms
+        .iter()
+        .map(|arm| {
+            let (plan, _) = protocol.arm(&arm.name).expect("an arm names itself");
+            plan_json(&plan).to_compact()
+        })
+        .collect();
+    let mut distinct = sections.clone();
+    distinct.sort();
+    distinct.dedup();
+    assert_eq!(
+        distinct.len(),
+        4,
+        "the four arms do not name four measurements"
+    );
+    // A-current is the committed semantics: its plan section carries no axis at all, which is what lets
+    // it reproduce the published identities rather than claiming a fifth experiment.
+    assert!(
+        !sections[0].contains("resolution")
+            && !sections[0].contains("certify")
+            && !sections[0].contains("trust"),
+        "the control arm wrote an axis into its own plan section: {}",
+        sections[0]
+    );
+}
+
+#[test]
+fn every_quantity_the_decision_rule_reads_is_a_field_this_build_records() {
+    // The audit that E1.4's uncomputable falsifier was asking for. Every backticked snake_case name in
+    // the deciding text has to be a column this binary writes, a plan field the document records, a
+    // quantity the freeze defines in its own text, or a word that is not a measurement. Anything else
+    // is a rule that cannot be evaluated from the rows, which is the defect this phase was written to
+    // close and must not be written into the next freeze.
+    let recorded = recorded_fields();
+    let document = raw();
+    let mut plan_fields: Vec<String> = Vec::new();
+    if let Some(Json::Obj(fields)) = document.get("plan") {
+        plan_fields = fields.iter().map(|(key, _)| key.clone()).collect();
+    }
+    let metric = document
+        .get("primary_metric")
+        .expect("the freeze states a primary metric");
+    let mut text = String::new();
+    for key in [
+        "definition",
+        "denominator",
+        "zero_denominator",
+        "aggregation",
+        "exactness",
+    ] {
+        text.push_str(metric.get(key).and_then(Json::as_str).unwrap_or_default());
+        text.push(' ');
+    }
+    if let Some(Json::Obj(rules)) = metric.get("cost_rules") {
+        for (_, value) in rules {
+            text.push_str(value.as_str().unwrap_or_default());
+            text.push(' ');
+        }
+    }
+    for outcome in metric
+        .get("decision_rule")
+        .and_then(Json::as_array)
+        .expect("the freeze enumerates outcomes")
+    {
+        text.push_str(outcome.as_str().unwrap_or_default());
+        text.push(' ');
+    }
+    let mut unexplained: Vec<String> = Vec::new();
+    for name in snake_case_in(&text) {
+        if recorded.contains(&name)
+            || plan_fields.contains(&name)
+            || DECLARED_QUANTITIES.contains(&name.as_str())
+            || NOT_FIELDS.contains(&name.as_str())
+        {
+            continue;
+        }
+        unexplained.push(name);
+    }
+    assert!(
+        unexplained.is_empty(),
+        "the deciding text reads quantities no row records: {unexplained:?}\nrecorded: {}",
+        recorded.join(", ")
+    );
+}
+
+#[test]
+fn the_decision_rule_numbers_its_outcomes_in_order_and_covers_every_shape() {
+    let document = raw();
+    let outcomes = document
+        .get("primary_metric")
+        .and_then(|m| m.get("decision_rule"))
+        .and_then(Json::as_array)
+        .expect("the freeze enumerates outcomes");
+    let mut numbers = Vec::new();
+    for outcome in outcomes {
+        let text = outcome.as_str().expect("an outcome is a sentence");
+        let number: String = text.chars().take_while(char::is_ascii_digit).collect();
+        assert!(
+            !number.is_empty(),
+            "an outcome has to be addressable by number so a report can name which one fired: {text}"
+        );
+        numbers.push(
+            number
+                .parse::<u32>()
+                .expect("the outcome number parses as an integer"),
+        );
+    }
+    let mut ordered = numbers.clone();
+    ordered.sort_unstable();
+    assert_eq!(
+        ordered, numbers,
+        "the outcomes are not in the order they are evaluated in"
+    );
+    assert_eq!(
+        numbers.first(),
+        Some(&1),
+        "the rule starts at 1 so a report can say which outcome fired without a legend"
+    );
+    // The shapes a deciding comparison can produce, and the outcome each lands on. This is the check
+    // E1.4's list failed: {metric falls, blindness rises, certification falls, nothing changes} has to
+    // be exhausted, and the arm E1.4 produced - metric to zero, other guards held, no localisation
+    // gain, ceiling breached - must not be homeless here.
+    let shapes = [
+        "no certified over-claim anywhere",
+        "too few measurable rows",
+        "certifies almost nothing",
+        "the metric does not fall",
+        "the metric falls and the cost exceeds the benefit",
+        "the metric falls at an affordable cost with detection gained",
+        "the metric falls at an affordable cost with nothing gained",
+        "every paired difference is zero",
+    ];
+    let names = ["1", "2", "3", "4", "5", "6", "7", "8"];
+    for (shape, name) in shapes.iter().zip(names.iter()) {
+        let found = outcomes
+            .iter()
+            .filter_map(Json::as_str)
+            .any(|text| text.starts_with(name));
+        assert!(found, "no outcome is numbered {name}, which {shape} needs");
+    }
+    // 9 and 10 are the hypothesis tests, evaluated whatever fired, and both are named so a report
+    // cannot print an improvement without them.
+    for name in ["9", "10"] {
+        assert!(
+            outcomes
+                .iter()
+                .filter_map(Json::as_str)
+                .any(|text| text.starts_with(name)),
+            "outcome {name} is missing, so a hypothesis this freeze promised to test would go untested"
+        );
+    }
+}
+
+#[test]
+fn the_pilot_scope_is_a_subset_of_the_experiment_and_the_sets_cover_the_run_list() {
+    let protocol = protocol();
+    let pilot = protocol.pilot.clone().expect("a /4 file freezes a pilot");
+    for name in &pilot.arms {
+        assert!(
+            protocol.arms.iter().any(|arm| &arm.name == name),
+            "the pilot names {name}, which the file does not arm"
+        );
+    }
+    for name in &pilot.entries {
+        assert!(
+            protocol.entries.contains(name),
+            "the pilot names {name}, which is not in entries.run"
+        );
+    }
+    for budget in &pilot.budgets {
+        assert!(
+            protocol.plan.budgets.contains(budget),
+            "pilot budget {budget}"
+        );
+    }
+    for seed in &pilot.seeds {
+        assert!(protocol.plan.seeds.contains(seed), "pilot seed {seed}");
+    }
+    assert!(
+        pilot.budgets.len() < protocol.plan.budgets.len()
+            && pilot.seeds.len() < protocol.plan.seeds.len()
+            && pilot.entries.len() < protocol.entries.len(),
+        "a pilot as wide as its experiment is the defect this schema was written to close"
+    );
+    // And the charge is stated where a reader can see it, because E1.4's pilot ran 100 cells while its
+    // stopping rule described 16.
+    let cells = pilot.arms.len() * pilot.entries.len() * pilot.budgets.len() * pilot.seeds.len();
+    assert_eq!(cells, 16, "the frozen pilot scope is {cells} charged cells");
+
+    let entries = raw().get("entries").expect("entries is a section").clone();
+    let list = |key: &str| -> Vec<String> {
+        entries
+            .get(key)
+            .and_then(Json::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Json::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let run = list("run");
+    let covered: Vec<String> = [list("resolvable"), list("sub_granular"), list("control")].concat();
+    assert_eq!(
+        run.len(),
+        covered.len(),
+        "an entry is in none of the three sets, or in more than one"
+    );
+    for entry in &run {
+        assert_eq!(
+            covered.iter().filter(|name| *name == entry).count(),
+            1,
+            "{entry} is not in exactly one deciding set"
+        );
+    }
+    assert!(
+        !list("control").is_empty(),
+        "a freeze with no control cannot price uncertainty"
+    );
+    assert!(
+        !list("resolvable").is_empty(),
+        "a freeze with no resolvable entry cannot test resolution"
+    );
+}
+
+#[test]
+fn the_freeze_names_entries_that_do_not_exist_yet_and_refuses_to_measure_them_anyway() {
+    // The honest shape of a pre-registration: `run` lists four entries the corpus has not got, so the
+    // runner cannot be talked into a partial version of the experiment. Authoring them is the next
+    // phase, and this test is what says the freeze came first.
+    let protocol = protocol();
+    let entries = aporia_bench::corpus::load(&corpus_root()).expect("the corpus loads");
+    let missing: Vec<&String> = protocol
+        .entries
+        .iter()
+        .filter(|name| !entries.iter().any(|e| e.id() == **name))
+        .collect();
+    let mut sorted = missing.clone();
+    sorted.sort();
+    assert_eq!(
+        sorted,
+        vec![
+            "granular/mixed_cell",
+            "granular/quiet_band",
+            "granular/semantic_step",
+            "granular/thin_reach"
+        ],
+        "the E1.5 entry list was expected to name four entries that do not exist yet, and nothing else"
+    );
+}
