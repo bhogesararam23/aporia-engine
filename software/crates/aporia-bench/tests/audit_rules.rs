@@ -860,6 +860,55 @@ fn a_channel_the_instrument_does_not_have_is_refused_by_name() {
 }
 
 #[test]
+fn an_entry_marked_control_that_declares_a_region_is_refused() {
+    // A `/3` freeze has to name its control entries, and a control is only worth naming because nothing
+    // is to be found on it: its suspicious volume measures false suspicion and its withheld volume
+    // measures cost. An entry claiming both is a different measurement wearing the cleanliness name, so
+    // the audit refuses it. The fixture starts from the record that already passes every other rule, so
+    // the refusal can only be about `control`.
+    let text = said(&granular_corpus(
+        "g-ctrl",
+        &truth3(&Record::base(), &wide_region(), r#","control":true"#),
+    ));
+    assert!(
+        text.contains("marked `control`") && text.contains("nothing is to be found"),
+        "the refusal has to name the contradiction rather than reject the entry: {text}"
+    );
+
+    // And the rule is not vacuous on the committed corpus: five entries are marked control, every one of
+    // them declares nothing to find, and the audit therefore says nothing about any of them. Without the
+    // count the absence would prove nothing -- an empty control set passes by saying nothing, which is
+    // exactly the defect E1.3b reported as unmeasurable.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../benchmarks");
+    let entries = corpus::load(&root).expect("the committed corpus loads");
+    let controls: Vec<&corpus::Entry> = entries.iter().filter(|e| e.truth.control).collect();
+    assert_eq!(
+        controls.len(),
+        5,
+        "five committed entries are marked control, one of them the entry E1.4 registers in its run list"
+    );
+    assert!(
+        controls
+            .iter()
+            .any(|e| e.id() == "control/symplectic_spring"),
+        "E1.4's registered control has to be a control in the corpus as well as in the freeze"
+    );
+    for e in &controls {
+        assert!(
+            e.truth.regions.is_empty() && e.truth.boundaries.is_empty(),
+            "{} is marked control and declares something to find",
+            e.id()
+        );
+    }
+    assert!(
+        !audit::audit(&entries, 41)
+            .iter()
+            .any(|p| p.to_string().contains("marked `control`")),
+        "the committed corpus trips its own control rule"
+    );
+}
+
+#[test]
 fn a_stray_artefact_beside_an_entry_is_refused_rather_than_ignored() {
     // The loader reads the registry, so a stray file cannot become an entry — but it can be read back as
     // one later, which is exactly what an experiment archive written under the corpus root once did.
