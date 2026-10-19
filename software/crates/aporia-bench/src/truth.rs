@@ -30,6 +30,12 @@ pub const LATTICE_PER_AXIS: usize = 32;
 /// sampling artifact rather than a fact. See [`crate::corpus`] and the frozen protocol.
 pub const LATTICE_SENSITIVITY_PER_AXIS: usize = 64;
 
+/// The largest elementary-box decomposition [`Truth::union_overlap_at`] will enumerate before it
+/// refuses. A million boxes is already more arithmetic than a row of a sweep should spend on one
+/// cell's geometry, and the point of a bound is that the measure says *not measurable* rather than
+/// quietly returning an approximation a reader cannot tell apart from the exact case.
+pub const UNION_DECOMPOSITION_LIMIT: usize = 1 << 20;
+
 /// The truth schemas a reader of this build understands.
 ///
 /// `aporia.truth/3` adds the record an E1.3b entry has to carry: what the model computes, what each
@@ -111,6 +117,38 @@ impl Declared {
             }
             acc * ((hi - lo) / width).clamp(0.0, 1.0)
         })
+    }
+
+    /// The region's bound on the model's `axis`, when the declaration names that parameter.
+    ///
+    /// A name the model does not declare is reported as no bound rather than as a whole axis, which is
+    /// the same reading [`Declared::clipped`] gives: an unconstrained region is *nowhere*, not
+    /// everywhere, because a truth file whose names all failed to resolve would otherwise claim the
+    /// entire domain. `corpus::verify` refuses such a file before a measurement runs; this is what the
+    /// arithmetic says if it is ever bypassed.
+    #[must_use]
+    pub fn axis_span(&self, model: &Model, axis: usize) -> Option<[f64; 2]> {
+        self.axes
+            .iter()
+            .find_map(|(name, span)| (axis_of(model, name) == Some(axis)).then_some(*span))
+    }
+
+    /// Does this region cover the whole box `query`? Exact for a box region: `query` is an atom of a
+    /// decomposition cut at every region bound, so a region either contains all of it or none of it,
+    /// and no comparison here needs a tolerance — the cut points are copies of these same bounds.
+    #[must_use]
+    pub fn covers(&self, model: &Model, query: &[[f64; 2]]) -> bool {
+        let mut named = false;
+        for (axis, [lo, hi]) in query.iter().enumerate() {
+            let Some([rlo, rhi]) = self.axis_span(model, axis) else {
+                continue;
+            };
+            named = true;
+            if *lo < rlo || *hi > rhi {
+                return false;
+            }
+        }
+        named
     }
 
     /// Fraction of the *domain* the region covers. For a `where` region this is the envelope fraction
@@ -684,6 +722,160 @@ impl Truth {
         best
     }
 
+    /// Fraction of `cell` the declared regions cover *between them*, counting an overlap once.
+    ///
+    /// [`Truth::overlap_fraction`] answers a different question — how much of this cell lies in the
+    /// single region that best explains it — and that is what `localised` and `false_positive_fraction`
+    /// have always been decided on, so their bytes stay where they are. A union is what a *volume
+    /// decomposition* needs: a certified leaf that two declared boxes tile side by side is untrustworthy
+    /// through and through, and a maximum reports one tile of it. The two are equal on a corpus whose
+    /// regions are disjoint, and `ode/euler_decay_2d`, which declares twenty-four of them, is the
+    /// committed counter-example the difference is pinned on.
+    ///
+    /// Exact while every region is a box: the cell is cut at each region bound that falls inside it, and
+    /// every resulting elementary box is wholly covered or wholly not, so the share is a sum of widths
+    /// rather than an estimate. As soon as one region carries a `where` there is no bound to cut at, and
+    /// the share is sampled on the same fixed midpoint lattice [`Declared::accepted_share`] uses, which
+    /// makes it an approximation with a declared resolution rather than a fact of geometry.
+    ///
+    /// `None` is a refusal, not a zero: it says this build will not state a share for this cell because
+    /// the decomposition would exceed [`UNION_DECOMPOSITION_LIMIT`] elementary boxes. A caller reads
+    /// that as not-measurable and reports it as such.
+    #[must_use]
+    pub fn union_overlap_at(
+        &self,
+        model: &Model,
+        cell: &[[f64; 2]],
+        per_axis: usize,
+    ) -> Option<f64> {
+        if self.regions.is_empty() || cell.is_empty() {
+            return Some(0.0);
+        }
+        let volume = cell
+            .iter()
+            .fold(1.0f64, |acc, [lo, hi]| acc * (hi - lo).max(0.0));
+        if !(volume > 0.0) {
+            // A leaf with no extent overlaps nothing, which is the convention `Declared::clipped`
+            // already keeps by dividing a zero intersection by a floored width. `!(volume > 0.0)` rather
+            // than `volume <= 0.0` so a non-finite extent refuses here too instead of being measured.
+            return Some(0.0);
+        }
+        if self.has_predicates() {
+            return self.sampled_union_share(model, cell, per_axis);
+        }
+        self.boxed_union_share(model, cell, volume)
+    }
+
+    /// [`Truth::union_overlap_at`] on the lattice this build's measures use.
+    #[must_use]
+    pub fn union_overlap(&self, model: &Model, cell: &[[f64; 2]]) -> Option<f64> {
+        self.union_overlap_at(model, cell, LATTICE_PER_AXIS)
+    }
+
+    /// The share of the whole declared domain covered by the union of the regions — the denominator a
+    /// regional-overclaim rate is stated against, and the ceiling every per-label overlap sums to.
+    #[must_use]
+    pub fn union_domain_share(&self, model: &Model) -> Option<f64> {
+        self.union_overlap(model, &domain_bounds(model))
+    }
+
+    /// Exact union share of a box-only declaration, by cutting `cell` at the bounds that reach it.
+    fn boxed_union_share(&self, model: &Model, cell: &[[f64; 2]], volume: f64) -> Option<f64> {
+        // Only the regions that actually reach the cell contribute cut points, so a leaf far from every
+        // declaration stays one box rather than paying for the corpus's whole region list.
+        let reached: Vec<&Declared> = self
+            .regions
+            .iter()
+            .filter(|r| r.overlaps(model, cell))
+            .collect();
+        if reached.is_empty() {
+            return Some(0.0);
+        }
+        let mut cuts: Vec<Vec<f64>> = Vec::with_capacity(cell.len());
+        for (axis, [clo, chi]) in cell.iter().enumerate() {
+            let mut points = vec![*clo, *chi];
+            for region in &reached {
+                if let Some([lo, hi]) = region.axis_span(model, axis) {
+                    // Both ends are pulled inside the cell before they cut it: a region that stops
+                    // short of this leaf would otherwise contribute an interval *outside* the cell,
+                    // whose extent would then be added to a numerator the denominator never counted.
+                    points.push(lo.min(*chi).max(*clo));
+                    points.push(hi.min(*chi).max(*clo));
+                }
+            }
+            points.sort_by(f64::total_cmp);
+            points.dedup();
+            cuts.push(points);
+        }
+        let mut atoms = 1usize;
+        for points in &cuts {
+            atoms = atoms.checked_mul(points.len().saturating_sub(1))?;
+            if atoms > UNION_DECOMPOSITION_LIMIT {
+                return None;
+            }
+        }
+        let mut covered = 0.0f64;
+        let mut slot = vec![0usize; cuts.len()];
+        let mut query: Vec<[f64; 2]> = vec![[0.0, 0.0]; cuts.len()];
+        loop {
+            let mut extent = 1.0f64;
+            let mut whole = true;
+            for (axis, points) in cuts.iter().enumerate() {
+                let (lo, hi) = (points[slot[axis]], points[slot[axis] + 1]);
+                if hi <= lo {
+                    whole = false;
+                    break;
+                }
+                query[axis] = [lo, hi];
+                extent *= hi - lo;
+            }
+            if whole && extent > 0.0 && reached.iter().any(|r| r.covers(model, &query)) {
+                covered += extent;
+            }
+            let mut axis = cuts.len();
+            loop {
+                if axis == 0 {
+                    return Some((covered / volume).clamp(0.0, 1.0));
+                }
+                axis -= 1;
+                slot[axis] += 1;
+                if slot[axis] < cuts[axis].len() - 1 {
+                    break;
+                }
+                slot[axis] = 0;
+            }
+        }
+    }
+
+    /// Union share on the midpoint lattice of `cell`, which is all a carved set can be asked.
+    fn sampled_union_share(
+        &self,
+        model: &Model,
+        cell: &[[f64; 2]],
+        per_axis: usize,
+    ) -> Option<f64> {
+        let arity = cell.len();
+        if arity == 0 || per_axis == 0 {
+            return None;
+        }
+        let total = per_axis.checked_pow(arity as u32)?;
+        if total > UNION_DECOMPOSITION_LIMIT {
+            return None;
+        }
+        let mut point = vec![0.0f64; arity];
+        let mut accepted = 0u64;
+        for index in 0..total {
+            for (axis, [lo, hi]) in cell.iter().enumerate() {
+                let digit = (index / per_axis.pow(axis as u32)) % per_axis;
+                point[axis] = *lo + (hi - lo) * (digit as f64 + 0.5) / per_axis as f64;
+            }
+            if self.contains(model, &point) {
+                accepted += 1;
+            }
+        }
+        Some(accepted as f64 / total as f64)
+    }
+
     /// Is some region's predicate unable to answer at this point? The verification grid hits domain
     /// and envelope edges exactly, which a midpoint lattice never does, so a pole sitting on the edge
     /// of a region shows up here rather than in [`Declared::undefined_in`] — and both are needed.
@@ -836,6 +1028,27 @@ pub fn axis_width(model: &Model, i: usize) -> f64 {
             (hi - lo).max(1e-30)
         }
     }
+}
+
+/// Every axis of the declared domain, as the interval a leaf is cut out of.
+///
+/// A `Choices` axis reports the span its enumerated values live on, which is the same span
+/// [`axis_width`] divides by and the same span the atlas partitions, so a share computed against these
+/// bounds is in the units every other volume column of a row is in.
+#[must_use]
+pub fn domain_bounds(model: &Model) -> Vec<[f64; 2]> {
+    use aporia_ir::Domain;
+    model
+        .params
+        .iter()
+        .map(|p| match &p.domain {
+            Domain::Interval { lo, hi } => [*lo, *hi],
+            Domain::Choices(v) => [
+                v.first().copied().unwrap_or(0.0),
+                v.last().copied().unwrap_or(0.0),
+            ],
+        })
+        .collect()
 }
 
 /// Every grid point, in a deterministic order, over the model's declared domain.
@@ -1121,6 +1334,229 @@ mod tests {
                 .unwrap_or_else(|| panic!("{bound} was read as a region bound"));
             assert!(error.contains("not finite"), "{error}");
         }
+    }
+
+    #[test]
+    fn a_union_counts_two_regions_that_tile_a_cell_once_each() {
+        let m = model(SRC);
+        let tiled =
+            truth(r#"[{"reason":"a","axes":{"x":[0,5]}},{"reason":"b","axes":{"x":[5,10]}}]"#);
+        let domain = &[[0.0, 10.0], [0.0, 1.0]];
+        // The whole cell is untrustworthy, because both halves are declared. The per-region maximum
+        // that `localised` is decided on reports one tile of it, and keeps doing so: this is the
+        // quantity a volume decomposition needs and that history does not use.
+        assert_eq!(tiled.union_overlap(&m, domain), Some(1.0));
+        assert_eq!(tiled.overlap_fraction(&m, domain), 0.5);
+        // A leaf sitting wholly inside one of the tiles is fully untrustworthy too: the share is of the
+        // cell, which is what makes the four label columns add up to the region instead of to a mean.
+        assert_eq!(
+            tiled.union_overlap(&m, &[[0.0, 5.0], [0.0, 1.0]]),
+            Some(1.0)
+        );
+        assert_eq!(
+            tiled.union_overlap(&m, &[[2.0, 7.0], [0.0, 1.0]]),
+            Some(1.0)
+        );
+        assert_eq!(
+            tiled.union_overlap(&m, &[[6.0, 8.0], [0.0, 1.0]]),
+            Some(1.0)
+        );
+    }
+
+    #[test]
+    fn overlapping_regions_are_counted_once_and_a_nested_one_adds_nothing() {
+        let m = model(SRC);
+        let domain = &[[0.0, 10.0], [0.0, 1.0]];
+        let crossing =
+            truth(r#"[{"reason":"a","axes":{"x":[2,8]}},{"reason":"b","axes":{"x":[4,10]}}]"#);
+        // 2..8 union 4..10 is 2..10: eight tenths of the axis, not twelve tenths clamped to ten and not
+        // the six tenths a maximum gives a cell that straddles the middle.
+        assert_eq!(crossing.union_overlap(&m, domain), Some(0.8));
+        assert_eq!(crossing.overlap_fraction(&m, domain), 0.6);
+        let nested =
+            truth(r#"[{"reason":"a","axes":{"x":[2,8]}},{"reason":"b","axes":{"x":[3,4]}}]"#);
+        assert_eq!(nested.union_overlap(&m, domain), Some(0.6));
+        // The order the declarations sit in cannot move the answer, so no entry's score depends on how
+        // its truth file was typed.
+        let flipped =
+            truth(r#"[{"reason":"b","axes":{"x":[4,10]}},{"reason":"a","axes":{"x":[2,8]}}]"#);
+        assert_eq!(
+            flipped.union_overlap(&m, domain),
+            crossing.union_overlap(&m, domain)
+        );
+    }
+
+    #[test]
+    fn a_region_touching_a_cell_at_its_face_covers_none_of_it() {
+        let m = model(SRC);
+        let left = truth(r#"[{"reason":"a","axes":{"x":[0,5]}}]"#);
+        // The envelope test is deliberately conservative — it says these two meet — and the measure
+        // that follows it has to say the meeting has no extent.
+        assert!(left.overlaps(&m, &[[5.0, 10.0], [0.0, 1.0]]));
+        assert_eq!(
+            left.union_overlap(&m, &[[5.0, 10.0], [0.0, 1.0]]),
+            Some(0.0)
+        );
+        // A leaf with no extent of its own overlaps nothing, which is the convention the per-region
+        // clip already keeps rather than a division that happens to land on zero.
+        assert_eq!(left.union_overlap(&m, &[[5.0, 5.0], [0.0, 1.0]]), Some(0.0));
+    }
+
+    #[test]
+    fn a_union_of_one_box_is_the_box_it_was_always_measured_against() {
+        let m = model(SRC);
+        let one = truth(r#"[{"reason":"a","axes":{"x":[4,6]}}]"#);
+        for cell in [
+            vec![[0.0, 10.0], [0.0, 1.0]],
+            vec![[4.0, 6.0], [0.0, 1.0]],
+            vec![[5.0, 10.0], [0.0, 1.0]],
+            vec![[6.0, 10.0], [0.0, 1.0]],
+            vec![[3.0, 4.5], [0.0, 1.0]],
+        ] {
+            assert_eq!(
+                one.union_overlap(&m, &cell),
+                Some(one.overlap_fraction(&m, &cell)),
+                "{cell:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_region_naming_nothing_the_model_declares_covers_nothing() {
+        let m = model(SRC);
+        let nowhere = truth(r#"[{"reason":"a","axes":{"z":[0,10]}}]"#);
+        // `clipped` treats an unresolved name as no constraint on that axis and refuses a region that
+        // resolves nowhere, so the union has to agree: an unconstrained region would otherwise claim
+        // the whole domain through a typo.
+        assert_eq!(
+            nowhere.union_overlap(&m, &[[0.0, 10.0], [0.0, 1.0]]),
+            Some(0.0)
+        );
+    }
+
+    #[test]
+    fn a_carved_union_is_sampled_and_answers_the_same_twice() {
+        let m = model(SRC);
+        let domain = &[[0.0, 10.0], [0.0, 1.0]];
+        let diagonal =
+            truth2(r#"[{"reason":"d","axes":{"x":[0,10],"y":[0,1]},"where":"x + y > 10"}]"#);
+        let boxed = truth2(
+            r#"[{"reason":"d","axes":{"x":[0,10],"y":[0,1]},"where":"x + y > 10"},
+               {"reason":"b","axes":{"x":[0,2]}}]"#,
+        );
+        let carved = diagonal
+            .union_overlap(&m, domain)
+            .expect("a lattice this size is measured");
+        assert!(carved > 0.0 && carved < 1.0, "{carved}");
+        assert_eq!(
+            Some(carved),
+            diagonal.union_overlap(&m, domain),
+            "not deterministic"
+        );
+        let with_box = boxed.union_overlap(&m, domain).expect("same lattice");
+        // The box x in [0,2] lies under the diagonal everywhere, so the two are disjoint and the union
+        // is their sum. The sum is not `carved + 0.2`: on the midpoint lattice a column counts only when
+        // its centre is inside the bound, so six of thirty-two columns count, which is 0.1875. Stating
+        // the lattice's own arithmetic here is the point — a carved region's union share is an estimate
+        // with a declared resolution, and a test that asserted 0.2 would be asserting otherwise.
+        let columns = 6.0f64 / LATTICE_PER_AXIS as f64;
+        assert!(
+            (with_box - (carved + columns)).abs() < 1e-12,
+            "{with_box} against {carved} plus {columns}"
+        );
+        assert!(with_box > carved);
+    }
+
+    #[test]
+    fn a_decomposition_too_large_to_enumerate_is_refused_not_estimated() {
+        // Two regions that each name all ten axes put four interior cuts on every one of them, so the
+        // domain decomposes into five intervals to a power of ten — nine and a half million elementary
+        // boxes, past the bound this build will spend on one cell's geometry.
+        let m = model(
+            "model wide \"\" {\n  input a in [0, 1]\n  input b in [0, 1]\n  input c in [0, 1]\n  \
+             input d in [0, 1]\n  input e in [0, 1]\n  input f in [0, 1]\n  input g in [0, 1]\n  \
+             input h in [0, 1]\n  input i in [0, 1]\n  input j in [0, 1]\n  let z = a + b + c + d + e \
+             + f + g + h + i + j\n  require z < 5\n}\n",
+        );
+        let t = Truth::from_json(
+            &Json::parse(&declared_boxes(m.params.len(), [0.1, 0.2, 0.3, 0.4])).unwrap(),
+        )
+        .unwrap();
+        let cell: Vec<[f64; 2]> = (0..m.params.len()).map(|_| [0.0, 1.0]).collect();
+        assert_eq!(t.union_overlap(&m, &cell), None, "the bound has to refuse");
+        assert_eq!(
+            t.union_overlap_at(&m, &cell, LATTICE_PER_AXIS),
+            None,
+            "and it refuses the same way whatever lattice is named, because a box union never samples"
+        );
+    }
+
+    #[test]
+    fn a_four_dimensional_union_is_exact_rather_than_sampled() {
+        // The same declaration on four axes is 625 elementary boxes, and two disjoint unit-cornered
+        // boxes of side 0.1 cover exactly 2e-4 of the domain. Stating the number, rather than
+        // "nonzero", is what says the decomposition sums extents instead of counting lattice points.
+        let m = model(
+            "model four \"\" {\n  input a in [0, 1]\n  input b in [0, 1]\n  input c in [0, 1]\n  \
+             input d in [0, 1]\n  let z = a + b + c + d\n  require z < 2\n}\n",
+        );
+        let t = Truth::from_json(
+            &Json::parse(&declared_boxes(m.params.len(), [0.1, 0.2, 0.3, 0.4])).unwrap(),
+        )
+        .unwrap();
+        let cell: Vec<[f64; 2]> = (0..m.params.len()).map(|_| [0.0, 1.0]).collect();
+        let share = t.union_overlap(&m, &cell).expect("measured");
+        assert!((share - 0.0002).abs() < 1e-12, "{share}");
+        // A leaf inside neither box is zero and not a refusal, and one inside both boxes' band is
+        // exactly the part of them it holds.
+        let outside: Vec<[f64; 2]> = (0..m.params.len()).map(|_| [0.5, 0.6]).collect();
+        assert_eq!(t.union_overlap(&m, &outside), Some(0.0));
+        let across: Vec<[f64; 2]> = (0..m.params.len()).map(|_| [0.15, 0.35]).collect();
+        // 0.15..0.2 from the first box and 0.3..0.35 from the second: a side of 0.05 on every axis,
+        // over a leaf of side 0.2.
+        let share = t.union_overlap(&m, &across).expect("measured");
+        let expected = 2.0 * (0.05f64).powi(4) / (0.2f64).powi(4);
+        assert!(
+            (share - expected).abs() < 1e-15,
+            "{share} against {expected}"
+        );
+    }
+
+    #[test]
+    fn a_domain_is_measured_in_the_bounds_the_atlas_partitions() {
+        let m = model(SRC);
+        assert_eq!(domain_bounds(&m), vec![[0.0, 10.0], [0.0, 1.0]]);
+        let discrete = model(
+            "model t \"\" {\n  input scheme in {1, 2, 4, 8}\n  let z = scheme\n  require z < 3\n}\n",
+        );
+        assert_eq!(domain_bounds(&discrete), vec![[1.0, 8.0]]);
+        assert!((axis_width(&discrete, 0) - 7.0).abs() < 1e-12);
+        let t = truth(r#"[{"reason":"r","axes":{"scheme":[4,8]}}]"#);
+        // The same 4/7 the volume fraction gives, read off the union path instead of the envelope.
+        let share = t
+            .union_overlap(&discrete, &domain_bounds(&discrete))
+            .expect("one axis, two cut points");
+        assert!((share - 4.0 / 7.0).abs() < 1e-12, "{share}");
+    }
+
+    /// Two regions that each name the first `arity` axes (`a`, `b`, …), the first spanning
+    /// `bounds[0]..bounds[1]` and the second `bounds[2]..bounds[3]`, as a `/1` truth document.
+    fn declared_boxes(arity: usize, bounds: [f64; 4]) -> String {
+        let names: Vec<String> = (0..arity)
+            .map(|i| ((b'a' + i as u8) as char).to_string())
+            .collect();
+        let span = |lo: f64, hi: f64| {
+            let parts: Vec<String> = names
+                .iter()
+                .map(|name| format!("\"{name}\":[{lo},{hi}]"))
+                .collect();
+            format!("{{{}}}", parts.join(","))
+        };
+        format!(
+            r#"{{"schema":"aporia.truth/1","method":"analytic","fault":"x","regions":[{{"reason":"r1","axes":{}}},{{"reason":"r2","axes":{}}}]}}"#,
+            span(bounds[0], bounds[1]),
+            span(bounds[2], bounds[3])
+        )
     }
 
     #[test]
