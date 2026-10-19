@@ -993,6 +993,96 @@ removed* — B pays 0.288799 of UNKNOWN for 0.000117 of mean over-claim, about 2
 0.10 would have surfaced as a ratio. None of that is a reason to re-read these four documents under a
 different rule; it is the shape of the next one.
 
+## E1.5: where the unsupported claims live, and what removing them costs
+
+E1.4 could not decide its own question because its corpus had no entry that both over-claimed and was
+resolvable: on every box-declared entry the certified volume inside a declared region came out at or near
+zero, so the arms were comparing absences. E1.5 asks the question that gap points at — whether APORIA can
+say *where* it makes unsupported trust claims, and whether a truth-blind spatial rule can reduce those
+claims at an acceptable cost in useful certification, uncertainty, false suspicion and computation. The
+protocol is `benchmarks/protocols/e1-5-spatial-uncertainty-cost.json`, the first `aporia.protocol/4`, frozen
+2026-10-19 before its four new entries were authored and before any arm ran; digest `4bfa6855279d165f`,
+which moved twice for prose the corpus contradicted and for no threshold, ceiling, criterion or deciding set
+(`amended_before_running` holds all five sentences, including the pre-run measurement described below). The
+four documents cited here are `70c361de4f69`, `d90d9fa0a9fb`, `c43da22fe65c` and `7a1c11fbd1bf` for arms
+`A-current`, `B-size`, `C-density` and `D-density-and-demand`; `scripts/e15-run.sh` passed `--plan`, `--arm`,
+`--out` and `--archive` and nothing else.
+
+**The metric is a region denominator.** `certified_over_region_share` is `trusted_over_true_union /
+declared_union_volume`, both recorded in the row: how much of the answer key the instrument signed off as
+clean. E1.4's domain denominator could not say, on the committed corpus, because the whole certified
+over-claim there is 0.000171 of a domain whose regions cover 0.1609 of it — a domain denominator lets any
+thin region look safe and turns a comparison between entries into a comparison of region sizes. The four
+label-overlap columns (`trusted_over_true_union`, `unknown_over_true`, `suspicious_over_true`,
+`provisional_over_true`) are new to this experiment and are what makes the two cost rules computable: an
+exchange rate of domain left unmeasured per domain of false certification removed, whose ceiling is 1.0
+because 1.0 is break-even rather than a hope, and a withdrawal bound that says an arm may not give up
+proportionally more of what it certified *correctly* than the over-claim it removed. `not_applicable`,
+`not_measurable` and `no_benefit` are named states, with their tallies printed beside every mean.
+
+**What was true before any arm was read.** The reproduction gate
+(`analysis/e1-5-reproduction-gate.json`, `PASSED`: 23 arms, 4,155 rows, every declared field identical,
+binary `15feac44…` built from `981f36f`) had a first run that *failed*, and that run is published too
+(`analysis/e1-5-reproduction-gate-first-run.json`): writing the certification-criterion field into the plan
+section had renamed E1.4's three withholding arms over a field they could not have read, so their archive
+directories refused them. Fixed forward in `981f36f` — an inert field renames, and must not be written — and
+the gate re-run. The pilot (`analysis/e1-5-pilot.json`, `PASSED`) ran the frozen `pilot` scope itself: two
+arms, two entries, two budgets, two seeds, eight rows per arm and 3,840 charged evaluations each, with all
+six named checks clean; that is the deviation class E1.4 could not avoid, closed by putting the scope in the
+file. Run verification (`analysis/e1-5-run-verification.json`, `PASSED`) records 120 rows per arm, equal
+charged cost across the four arms to the evaluation (144,000 evaluations and 19,416,000 instruction steps
+each), 100 of 120 rows per arm able to carry the metric with the other 20 named as the control's
+`not_applicable`, zero geometry refusals in all 480 rows, and 24 archives that replay 13,224 records each
+and hash clean against their own manifests.
+
+**The result is outcome 5, and it is a real negative.** Under the default instrument the deciding entry
+`granular/quiet_band` certifies 0.06875 of its own declared region; `B-size` takes that to 0.00156,
+`D-density-and-demand` to 0.00313 and `C-density` to exactly nothing. Every guard holds:
+`detected_regions` and `localised_regions` never fall on any entry, the control's false suspicion never rises
+above `A-current`'s paired value, no arm is under the silence floor, and the withdrawal rule passes
+comfortably — the arms keep 46 to 49 per cent of the certification they were right about while removing 95
+to 99 per cent of the over-claim. What fails is the exchange rate: 203.7 domain of extra unmeasured space per
+domain of false certification removed for `B-size`, 214.4 for `C-density` and 207.4 for `D`, against a
+ceiling of 1.0. So the freeze's rule 5 fires — the reduction is priced and not worth having — and H-REGION is
+answered from the side E1.4 could not reach: a truth-blind spatial rule *can* remove essentially all of the
+unsupported regional certification this corpus contains, and it costs about two hundred times what that
+certification was worth signing off on. The two criteria barely separate: density removes more of the
+over-claim and pays a fifth more blindness; on `granular/mixed_cell` the density criterion changed nothing at
+all (0.0005217 under both `A-current` and `C-density`, while both demanding arms reach 0.0003216) because its
+partition is `A-current`'s cell for cell and a rule that only relabels has nothing there to withhold.
+
+**Where the volume went, in the instrument's own columns.** On `quiet_band`, `A-current` holds 0.5803
+trusted and 0.3534 unknown, with 0.4859 of the domain certified in leaves coarser than the bar. `C-density`
+keeps the partition exactly — the same 227.8 mean cells, the same 0.3534 unknown, the same 0.0663 suspicious
+— and moves 0.2785 of the domain from TRUSTED to PROVISIONAL, which is the control claim the freeze states as
+a prerequisite: withholding changes what is claimed, not what was searched. `B-size` cannot do that. Demanding
+resolution rebuilds the partition (324.4 mean cells) and the withheld space becomes UNKNOWN (0.6351) rather
+than a withheld claim. The withheld space is *less* likely to contain the declared region than the unmeasured
+space is: 0.0027 of region per unit of PROVISIONAL against 0.3402 per unit of UNKNOWN, measured on the 80
+paired rows whose partitions are recorded as the same.
+
+**Two things this experiment could not do, stated plainly.** Outcome 10, the mechanism test, is not
+computable from any column the instrument records: deciding whether a certified leaf held an evaluation
+*inside* the declared region needs the leaf's sample positions against the region, and a row carries sample
+counts and region overlaps with no link between them. The freeze asserted the test was computable; it is
+reported unevaluated here, with its proxy labelled as a proxy. And outcome 9's condition cannot distinguish a
+rename from a difference, because "no more region per unit than" is satisfied just as well by "a hundred and
+twenty-five times less", so it fires on this corpus while the two states are manifestly not carrying the same
+information. Both readings are in `analysis/e1-5-spatial-uncertainty-cost.json`, and the decision does not
+rest on either. The deciding set was never listed by the freeze either: the analysis reads it as
+`entries.resolvable`, declares that reading before printing, and reports the same figures over
+`entries.run` minus the control so the choice is visible rather than load-bearing.
+
+**What none of this claims.** `TRUSTED` does not become proven correct and `PROVISIONAL` does not become
+probably fine; a fall in TRUSTED volume is not safety unless the metric and both cost rules say so, and a
+rise in UNKNOWN or PROVISIONAL is not knowledge; a policy that certifies nothing is the absence of a
+measurement, not the best policy at certifying; and a reduction on `granular/semantic_step` — 0.0 under every
+arm, as its own record says it must be — is not a win for a spatial policy under any reading. Nothing here
+settles whether an unsampled violation exists, and nothing here is a claim about curved regions: on a carved
+declaration the decomposition is a lattice estimate, which is why the deciding entries are box-declared and
+why `granular/tolerance_stack`, carried over and carved, appears in the sensitivity reading rather than being
+silently folded into the boxes.
+
 ## The controls, and a correction to this file
 
 The first version of this file reported the controls as "0.9% random, 2.8% stratified, 2.9% adaptive"

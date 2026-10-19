@@ -68,6 +68,23 @@ baseline the literature actually uses**:
   may claim a search contribution on this corpus. What the instrument buys is earlier localisation on
   three entries, not reach.
 
+- **E1.5 (run):** can the instrument say *where* its unsupported trust claims are, and can a truth-blind
+  spatial rule reduce them at an acceptable cost? Measured, and answered in two parts. The location is now
+  recordable: four per-label overlap columns on union geometry, with the decomposition refused rather than
+  estimated where a region is not a sum of boxes. The reduction is real and not worth having: on the entry
+  authored for it the default instrument certifies 0.06875 of its own declared region, a density-withholding
+  arm takes that to exactly nothing while changing no cell of the partition, every other guard holds, and the
+  exchange rate is 203.7 to 214.4 domain left unmeasured per domain of false certification removed against a
+  ceiling of 1.0 that is break-even. So the frozen rule reports the reduction priced rather than the
+  hypothesis confirmed, and the definition of `TRUSTED` stays unresolved — which is what this freeze said a
+  negative would mean. Three limits are about the instrument and are recorded rather than smoothed: the
+  mechanism question (did a certified leaf hold an evaluation *inside* the declared region?) is not
+  computable from any column a row carries, so the account of *why* the over-claim happens is still
+  untested; the test meant to distinguish `PROVISIONAL` from `UNKNOWN` is written as an inequality that
+  fires on a difference just as well as on an equality, so it cannot mean its own sentence; and the whole
+  deciding signal sits on five rows of twenty, all at the smallest frozen budget, which the pre-run
+  measurement said before any arm ran.
+
 One entry, and a baseline that matches the method's reach, is not an answer. And since the pass, no
 claim of novelty appears anywhere in this repository: the metamorphic relations are standard,
 minimisation is standard, dependence-aware fusion is standard outside testing, calibrated scores are
