@@ -258,6 +258,25 @@ def main(argv):
             "the same documents either way; this never re-decides an arm."
         ),
     )
+    parser.add_argument(
+        "--artifact",
+        default=ARTIFACT,
+        help=(
+            "where to write the gate's own record. It defaults to the published E1.4 gate file, and "
+            "a later phase that re-runs this gate to certify *its* binary has to point it somewhere "
+            "else: the published file is the record of the run that preceded E1.4's arms, and "
+            "overwriting it with a different binary's verdict would revise a completed experiment."
+        ),
+    )
+    parser.add_argument(
+        "--purpose",
+        default=(
+            "prove that the scale axis E1.4 measures left every committed measurement it does not name "
+            "exactly as published, and that the bytes doing that also write the four E1.4 arms now being "
+            "read -- which is what binds a published row to a commit rather than to a time of day"
+        ),
+        help="what this run of the gate was for, written into the record it produces",
+    )
     arguments = parser.parse_args(argv)
     for directory in (OUT, ARCHIVE):
         os.makedirs(directory, exist_ok=True)
@@ -366,11 +385,7 @@ def main(argv):
     artifact = {
         "schema": "aporia.reproduction-gate/2",
         "generated_by": "scripts/e14_repro_gate.py",
-        "purpose": (
-            "prove that the scale axis E1.4 measures left every committed measurement it does not name "
-            "exactly as published, and that the bytes doing that also write the four E1.4 arms now being "
-            "read -- which is what binds a published row to a commit rather than to a time of day"
-        ),
+        "purpose": arguments.purpose,
         "binary_sha256": binary_sha,
         "built_from_commit": arguments.commit,
         "protocols": PROTOCOLS,
@@ -427,11 +442,11 @@ def main(argv):
         "problems": problems,
         "verdict": "PASSED" if not problems else "FAILED",
     }
-    os.makedirs(os.path.dirname(ARTIFACT), exist_ok=True)
-    with io.open(ARTIFACT, "w", encoding="utf-8", newline="\n") as handle:
+    os.makedirs(os.path.dirname(os.path.abspath(arguments.artifact)), exist_ok=True)
+    with io.open(arguments.artifact, "w", encoding="utf-8", newline="\n") as handle:
         json.dump(artifact, handle, indent=1, sort_keys=True)
         handle.write("\n")
-    print(f"artifact {ARTIFACT}: {artifact['verdict']}")
+    print(f"artifact {arguments.artifact}: {artifact['verdict']}")
     for problem in problems[:20]:
         print(f"  {problem}")
     if len(problems) > 20:
