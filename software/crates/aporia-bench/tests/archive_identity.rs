@@ -331,53 +331,96 @@ fn an_archive_that_is_not_a_manifest_is_refused_rather_than_walked_past() {
 }
 
 #[test]
-fn every_committed_archive_reads_and_none_of_them_names_its_measurement_yet() {
-    // The compatibility claim, checked against the corpus rather than asserted in prose. Every published
-    // number is opened from one of these directories, and the guard now reads them through
-    // `Manifest::from_json`, so a drifted schema or a missing required field would stop E1.5 before it
-    // ran — and would have been the moment a run overwrote bytes nobody checked.
+fn an_archive_this_build_writes_says_which_measurement_it_holds() {
+    // The end-to-end half of the guard, on bytes the writer made rather than a fixture: run the frozen
+    // pilot scope, then read back what each archive says about itself. This is the property the E1.4
+    // pilot was written to check and the one the reproduction gate depends on — a directory that cannot
+    // name its measurement cannot be recognised without its document beside it, so a later run has to
+    // be stopped rather than allowed to replace evidence.
     //
-    // What the count of *absent* identities says is the more interesting half: not one archive in the
-    // published corpus carries a measurement identity, including E1.4's, because they were written before
-    // an archive could name its measurement. That is precisely the case the guard refuses by name rather
-    // than reading charitably, so the refusal path is exercised on real bytes and not only on a fixture.
-    // Re-running a historical arm to fill the note in would replace published evidence with
-    // self-consistent bytes of a later build, which is the thing the immutability rule forbids; if the
-    // second assertion below ever stops holding, that is what happened.
-    let root = corpus_root().join("archives");
-    let mut dirs: Vec<_> = std::fs::read_dir(&root)
-        .expect("the committed archives are here")
-        .filter_map(Result::ok)
-        .map(|e| e.path())
+    // It reads no directory in the repository except the corpus it loads, because the archives an
+    // earlier phase regenerated on somebody's disk are not published bytes: `benchmarks/archives/` is
+    // gitignored on purpose, and only the numbers under `benchmarks/results/` are committed.
+    let dir =
+        std::env::temp_dir().join(format!("aporia-archive-provenance-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let out = dir.join("results");
+    let archives = dir.join("archives");
+    let protocol = corpus_root()
+        .join("protocols")
+        .join("e1-5-spatial-uncertainty-cost.json");
+    let status = aporia_bench::cli::run_run(
+        "aporia-bench",
+        &[
+            "--plan".to_string(),
+            protocol.display().to_string(),
+            "--arm".to_string(),
+            "A-current".to_string(),
+            "--pilot".to_string(),
+            "--out".to_string(),
+            out.display().to_string(),
+            "--archive".to_string(),
+            archives.display().to_string(),
+        ],
+    )
+    .expect("the frozen pilot scope runs");
+    assert_eq!(status, 0);
+
+    let documents: Vec<_> = std::fs::read_dir(&out)
+        .expect("the pilot wrote a document")
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|e| e == "json"))
+        .collect();
+    assert_eq!(documents.len(), 1, "one arm, one document");
+    let text = std::fs::read_to_string(&documents[0]).expect("the document is readable");
+    let document = Json::parse(&text).expect("the document is JSON");
+    let identity = document
+        .get("identity")
+        .and_then(Json::as_str)
+        .expect("a document publishes its identity")
+        .to_string();
+    let frozen = document
+        .get("protocol")
+        .expect("a frozen run names its protocol");
+    let digest = frozen
+        .get("digest")
+        .and_then(Json::as_str)
+        .expect("and its digest")
+        .to_string();
+
+    let written: Vec<_> = std::fs::read_dir(&archives)
+        .expect("the pilot archived")
+        .filter_map(|e| e.ok().map(|e| e.path()))
         .filter(|p| p.join("manifest.json").exists())
         .collect();
-    dirs.sort();
-    let mut read = 0usize;
-    let mut named = 0usize;
-    for dir in dirs {
-        let path = dir.join("manifest.json");
-        let text =
-            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        let value = Json::parse(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-        let manifest = aporia_store::Manifest::from_json(&value)
-            .unwrap_or_else(|e| panic!("{} reads as no manifest: {e}", path.display()));
-        if let Some(identity) = manifest.measurement_identity() {
+    assert!(
+        written.len() >= 2,
+        "the pilot scope is two entries, and {} archived",
+        written.len()
+    );
+    for directory in &written {
+        let path = directory.join("manifest.json");
+        let manifest = aporia_store::Manifest::from_json(
+            &Json::parse(&std::fs::read_to_string(&path).expect("a manifest is readable"))
+                .expect("a manifest is JSON"),
+        )
+        .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        for (key, want) in [
+            ("measurement_identity", identity.as_str()),
+            ("protocol", "e1-5-spatial-uncertainty-cost"),
+            ("arm", "A-current"),
+            ("protocol_digest", digest.as_str()),
+            // A pilot archive is evidence about the plumbing, and `pilot: true` is what keeps it out of
+            // anybody's reading of the experiment.
+            ("pilot", "true"),
+        ] {
             assert_eq!(
-                identity.len(),
-                12,
-                "{} stated a strange identity",
+                manifest.environment.note(key),
+                Some(want),
+                "{} records the wrong {key}",
                 path.display()
             );
-            named += 1;
         }
-        read += 1;
     }
-    assert!(
-        read > 400,
-        "the published archives are here, and {read} read"
-    );
-    assert_eq!(
-        named, 0,
-        "{named} published archive(s) now name a measurement: either a historical arm was re-run for          its notes, which replaces bytes a reader already opened, or this experiment's own archives          have been committed and the assertion belongs to them rather than here"
-    );
+    let _ = std::fs::remove_dir_all(&dir);
 }
