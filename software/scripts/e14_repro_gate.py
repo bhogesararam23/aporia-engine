@@ -109,8 +109,8 @@ def compare(protocol, arm, committed, replayed, problems):
             problems.append(f"{where}: the replay lost the top-level field {key!r}")
             continue
         if key == "reachability":
-            # Recomputed from the partition rule, which this phase changed for a thin carve. Reported
-            # below rather than compared, and the only movement is on an entry neither experiment scored.
+            # Recomputed from the partition rule, which this phase changed for a thin carve. Listed
+            # by kind below -- section added, class changed, or figures moved with the class held --
             continue
         if canonical(committed[key]) != canonical(replayed[key]):
             problems.append(f"{where}: the top-level field {key!r} differs")
@@ -158,16 +158,50 @@ def compare(protocol, arm, committed, replayed, problems):
 
 
 def reachability_movement(committed, replayed):
-    """Classes the recomputed section states differently, by entry. Reported, never compared away."""
-    moved = []
-    old = {row["entry"]: row for row in committed.get("reachability", [])}
+    """What the recomputed `reachability` section says differently, in the three kinds that mean things.
+
+    The section sits outside the measurement identity and is recomputed from the partition rule rather
+    than recorded from the run, so it is the one part of a replay this phase was allowed to change
+    without that being a changed number. "Changed" is three claims and they read differently:
+
+      - `section_added`: the committed document predates the section, so there was no old answer. Every
+        E1.x document is like this, and listing its entries as "moved" would be the error this function
+        exists to avoid.
+      - `class_changed`: an entry the instrument used to call unresolvable it now calls resolvable, or
+        the reverse. This is the only kind that could touch a frozen claim.
+      - `figures_changed`: same entry, same class, different arithmetic behind it -- the share a witness
+        reached, how many candidates were measured. Reported because the witness ranking is what moved
+        them, and a reader deserves to know the figure under a published class is not the figure that
+        would be written today.
+    """
+    out = {"section_added": [], "class_changed": [], "figures_changed": []}
+    if not committed.get("reachability"):
+        out["section_added"] = sorted(row["entry"] for row in replayed.get("reachability", []))
+        return out
+    old = {row["entry"]: row for row in committed["reachability"]}
     new = {row["entry"]: row for row in replayed.get("reachability", [])}
-    for entry in sorted(set(old) | set(new)):
-        before = old.get(entry, {}).get("class")
-        after = new.get(entry, {}).get("class")
+    for entry in sorted(set(old) & set(new)):
+        if old[entry].get("class") != new[entry].get("class"):
+            out["class_changed"].append(
+                {
+                    "entry": entry,
+                    "committed": old[entry].get("class"),
+                    "replayed": new[entry].get("class"),
+                }
+            )
+            continue
+        figures = ("best_declared_share", "best_envelope_share", "candidates", "witness_depth")
+        before = [
+            [region.get(key) for key in figures] for region in old[entry].get("regions", [])
+        ]
+        after = [
+            [region.get(key) for key in figures] for region in new[entry].get("regions", [])
+        ]
         if before != after:
-            moved.append({"entry": entry, "committed": before, "replayed": after})
-    return moved
+            out["figures_changed"].append(
+                {"entry": entry, "class": new[entry].get("class"), "committed": before, "replayed": after}
+            )
+    return out
 
 
 def archive_identities(arm_directory):
@@ -198,6 +232,15 @@ def main(argv):
     parser.add_argument(
         "--commit", default="unknown", help="the commit the measured binary was built from"
     )
+    parser.add_argument(
+        "--recompute-report",
+        action="store_true",
+        help=(
+            "read the replayed documents from the previous gate's scratch directory instead of "
+            "measuring again, for re-describing bytes already produced. The verdict is computed from "
+            "the same documents either way; this never re-decides an arm."
+        ),
+    )
     arguments = parser.parse_args(argv)
     for directory in (OUT, ARCHIVE):
         os.makedirs(directory, exist_ok=True)
@@ -217,22 +260,26 @@ def main(argv):
             os.remove(replayed_path)
         archive_root = os.path.join(ARCHIVE, protocol, arm)
         before = len(problems)
-        run = subprocess.run(
-            [
-                BIN,
-                "run",
-                "--plan",
-                os.path.join(ROOT, "benchmarks", "protocols", f"{protocol}.json"),
-                "--arm",
-                arm,
-                "--out",
-                OUT,
-                "--archive",
-                archive_root,
-            ],
-            capture_output=True,
-            text=True,
-        )
+        if arguments.recompute_report and os.path.exists(replayed_path):
+            # The bytes this gate already produced, described differently and not re-measured.
+            run = subprocess.CompletedProcess([BIN], 0, "", "")
+        else:
+            run = subprocess.run(
+                [
+                    BIN,
+                    "run",
+                    "--plan",
+                    os.path.join(ROOT, "benchmarks", "protocols", f"{protocol}.json"),
+                    "--arm",
+                    arm,
+                    "--out",
+                    OUT,
+                    "--archive",
+                    archive_root,
+                ],
+                capture_output=True,
+                text=True,
+            )
         if run.returncode != 0:
             problems.append(f"{where}: the runner exited {run.returncode}: {run.stdout}{run.stderr}")
             print(f"{where:<40} {'-':<14} {'-':>4} {'-':>5} {'-':>6}  RUN FAILED")
@@ -245,7 +292,7 @@ def main(argv):
             replayed = json.load(handle)
         rows = compare(protocol, arm, committed, replayed, problems)
         total_rows += rows
-        moved = reachability_movement(committed, replayed)
+        movement = reachability_movement(committed, replayed)
         named, nameless = archive_identities(archive_root)
         if nameless:
             problems.append(
@@ -269,7 +316,7 @@ def main(argv):
                 "wall_ms_committed": wall_ms(committed),
                 "wall_ms_replayed": wall_ms(replayed),
                 "archives_naming_this_measurement": sorted(named),
-                "reachability_moved": moved,
+                "reachability": movement,
                 "verdict": "identical" if len(problems) == before else "DIFFERS",
             }
         )
@@ -277,13 +324,28 @@ def main(argv):
             f"{where:<40} {committed['identity']:<14} {len(committed['sweeps']):>4} {rows:>5} "
             f"{wall_ms(replayed):>6}  {records[-1]['verdict']}"
         )
-    moved_entries = sorted(
-        {m["entry"] for record in records for m in record["reachability_moved"]}
+    added = sorted(
+        {entry for record in records for entry in record["reachability"]["section_added"]}
+    )
+    classes = sorted(
+        {
+            item["entry"]
+            for record in records
+            for item in record["reachability"]["class_changed"]
+        }
+    )
+    figures = sorted(
+        {
+            item["entry"]
+            for record in records
+            for item in record["reachability"]["figures_changed"]
+        }
     )
     print(
-        f"\n{len(records)} arms, {total_rows} rows compared field by field, wall_ms excluded by rule"
+        f"reachability: {len(added)} entries in documents that predate the section, "
+        f"{len(classes)} classes changed {classes or '-'}, {len(figures)} entries whose figures "
+        f"moved with the class held {figures or '-'}"
     )
-    print(f"reachability classes moved on: {moved_entries or 'nothing'}")
     artifact = {
         "schema": "aporia.reproduction-gate/2",
         "generated_by": "scripts/e14_repro_gate.py",
@@ -334,7 +396,16 @@ def main(argv):
         ),
         "arms": records,
         "rows_compared": total_rows,
-        "reachability_moved": moved_entries,
+        "reachability_summary": {
+            "section_added_for_entries": added,
+            "classes_changed": classes,
+            "figures_changed_with_class_held": figures,
+            "why_reported": (
+                "the section is recomputed from the partition rule and sits outside the identity; the "
+                "witness ranking changed under it, so the movement is listed by kind rather than "
+                "compared away or left silent"
+            ),
+        },
         "problems": problems,
         "verdict": "PASSED" if not problems else "FAILED",
     }
