@@ -1,0 +1,825 @@
+{
+ "arms": {
+  "A-current": {
+   "coarse_certified_share": 0.9087021400368035,
+   "coarse_certified_volume": 0.5403125,
+   "detected_regions": 80,
+   "evaluations": 120000,
+   "identity": "bf3964c8d2d9",
+   "instruction_steps": 19032000,
+   "leaf_cells": 244.49,
+   "localised_regions": 60,
+   "over_claim_rows": 40,
+   "per_budget": {
+    "1280": {
+     "coarse_certified_volume": 0.5959375000000001,
+     "leaf_cells": 284.12,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.666708984375,
+     "unknown_volume": 0.19521484375000017
+    },
+    "2560": {
+     "coarse_certified_volume": 0.575625,
+     "leaf_cells": 458.56,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.6907421875,
+     "unknown_volume": 0.16890625000000026
+    },
+    "320": {
+     "coarse_certified_volume": 0.40374999999999966,
+     "leaf_cells": 80.28,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.4098730468749997,
+     "unknown_volume": 0.4435156250000003
+    },
+    "640": {
+     "coarse_certified_volume": 0.5859375000000001,
+     "leaf_cells": 155.0,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.60529296875,
+     "unknown_volume": 0.25109375000000006
+    }
+   },
+   "per_entry": {
+    "control/symplectic_spring": {
+     "coarse_certified_volume": 0.8265625000000003,
+     "control": true,
+     "control_suspicious_volume": 0.037499999999999964,
+     "detected_regions": 0.0,
+     "leaf_cells": 50.4,
+     "localised_regions": 0.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.0,
+     "trusted_volume": 0.8691406250000003,
+     "unknown_volume": 0.11054687500000002
+    },
+    "geometry/narrow_oblique": {
+     "coarse_certified_volume": 0.636328125,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 147.8,
+     "localised_regions": 0.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.0004693508148193359,
+     "trusted_volume": 0.6904541015625,
+     "unknown_volume": 0.2991943359375
+    },
+    "granular/fit_band": {
+     "coarse_certified_volume": 0.36054687499999954,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 293.3,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.0003338694572448611,
+     "trusted_volume": 0.44537353515624944,
+     "unknown_volume": 0.5084350585937509
+    },
+    "granular/stroke_reference": {
+     "coarse_certified_volume": 0.546875,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 355.45,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 5.035400390625e-05,
+     "trusted_volume": 0.60916748046875,
+     "unknown_volume": 0.19156494140625
+    },
+    "granular/tolerance_stack": {
+     "coarse_certified_volume": 0.33125,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 375.5,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.0,
+     "trusted_volume": 0.3516357421875,
+     "unknown_volume": 0.213671875
+    }
+   },
+   "provisional_volume": 0.0,
+   "resolution_rule": "current",
+   "rows": 100,
+   "rows_certifying_nothing": 1,
+   "suspicious_volume": 0.14216308593749996,
+   "trusted_over_true": 0.0001707148551940894,
+   "trusted_volume": 0.5931542968749999,
+   "unknown_volume": 0.2646826171875002
+  },
+  "B-demand": {
+   "coarse_certified_share": 0.0,
+   "coarse_certified_volume": 0.0,
+   "detected_regions": 80,
+   "evaluations": 120000,
+   "identity": "9a242fe5a8aa",
+   "instruction_steps": 19032000,
+   "leaf_cells": 330.19,
+   "localised_regions": 60,
+   "over_claim_rows": 28,
+   "per_budget": {
+    "1280": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 372.28,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.3857128906249998,
+     "unknown_volume": 0.4755664062500006
+    },
+    "2560": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 573.68,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.6561328124999999,
+     "unknown_volume": 0.20678710937500036
+    },
+    "320": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 137.96,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.043925781249999865,
+     "unknown_volume": 0.8098828125000003
+    },
+    "640": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 236.84,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.13173828124999976,
+     "unknown_volume": 0.7216894531250003
+    }
+   },
+   "per_entry": {
+    "control/symplectic_spring": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.01762695312499999,
+     "detected_regions": 0.0,
+     "leaf_cells": 242.65,
+     "localised_regions": 0.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.0,
+     "trusted_volume": 0.37559814453125034,
+     "unknown_volume": 0.6085449218750004
+    },
+    "geometry/narrow_oblique": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 270.6,
+     "localised_regions": 0.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 7.085800170898437e-05,
+     "trusted_volume": 0.369482421875,
+     "unknown_volume": 0.61605224609375
+    },
+    "granular/fit_band": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 346.15,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.00015597343444825217,
+     "trusted_volume": 0.2938598632812488,
+     "unknown_volume": 0.6678222656250014
+    },
+    "granular/stroke_reference": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 362.0,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 4.119873046875e-05,
+     "trusted_volume": 0.30982666015625,
+     "unknown_volume": 0.48280029296875
+    },
+    "granular/tolerance_stack": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 429.55,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.0,
+     "trusted_volume": 0.1731201171875,
+     "unknown_volume": 0.3921875
+    }
+   },
+   "provisional_volume": 0.0,
+   "resolution_rule": "demand",
+   "rows": 100,
+   "rows_certifying_nothing": 0,
+   "suspicious_volume": 0.14214111328124995,
+   "trusted_over_true": 5.3606033325197306e-05,
+   "trusted_volume": 0.30437744140624984,
+   "unknown_volume": 0.5534814453125003
+  },
+  "C-withhold": {
+   "coarse_certified_share": 0.0,
+   "coarse_certified_volume": 0.0,
+   "detected_regions": 80,
+   "evaluations": 120000,
+   "identity": "2b75924a550c",
+   "instruction_steps": 19032000,
+   "leaf_cells": 244.49,
+   "localised_regions": 60,
+   "over_claim_rows": 37,
+   "per_budget": {
+    "1280": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 284.12,
+     "localised_regions": 15,
+     "provisional_volume": 0.5959375000000001,
+     "trusted_volume": 0.07077148437499997,
+     "unknown_volume": 0.19521484375000017
+    },
+    "2560": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 458.56,
+     "localised_regions": 15,
+     "provisional_volume": 0.575625,
+     "trusted_volume": 0.11511718749999986,
+     "unknown_volume": 0.16890625000000026
+    },
+    "320": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 80.28,
+     "localised_regions": 15,
+     "provisional_volume": 0.40374999999999966,
+     "trusted_volume": 0.006123046875000027,
+     "unknown_volume": 0.4435156250000003
+    },
+    "640": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 155.0,
+     "localised_regions": 15,
+     "provisional_volume": 0.5859375000000001,
+     "trusted_volume": 0.019355468749999948,
+     "unknown_volume": 0.25109375000000006
+    }
+   },
+   "per_entry": {
+    "control/symplectic_spring": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.037499999999999964,
+     "detected_regions": 0.0,
+     "leaf_cells": 50.4,
+     "localised_regions": 0.0,
+     "provisional_volume": 0.8265625000000003,
+     "trusted_over_true": 0.0,
+     "trusted_volume": 0.042578125,
+     "unknown_volume": 0.11054687500000002
+    },
+    "geometry/narrow_oblique": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 147.8,
+     "localised_regions": 0.0,
+     "provisional_volume": 0.636328125,
+     "trusted_over_true": 4.2104721069335936e-05,
+     "trusted_volume": 0.0541259765625,
+     "unknown_volume": 0.2991943359375
+    },
+    "granular/fit_band": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 293.3,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.36054687499999954,
+     "trusted_over_true": 0.0001850962638854944,
+     "trusted_volume": 0.08482666015624976,
+     "unknown_volume": 0.5084350585937509
+    },
+    "granular/stroke_reference": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 355.45,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.546875,
+     "trusted_over_true": 5.035400390625e-05,
+     "trusted_volume": 0.06229248046875,
+     "unknown_volume": 0.19156494140625
+    },
+    "granular/tolerance_stack": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 375.5,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.33125,
+     "trusted_over_true": 0.0,
+     "trusted_volume": 0.0203857421875,
+     "unknown_volume": 0.213671875
+    }
+   },
+   "provisional_volume": 0.5403125,
+   "resolution_rule": "withhold",
+   "rows": 100,
+   "rows_certifying_nothing": 10,
+   "suspicious_volume": 0.14216308593749996,
+   "trusted_over_true": 5.551099777221607e-05,
+   "trusted_volume": 0.052841796874999944,
+   "unknown_volume": 0.2646826171875002
+  },
+  "D-demand-and-withhold": {
+   "coarse_certified_share": 0.0,
+   "coarse_certified_volume": 0.0,
+   "detected_regions": 80,
+   "evaluations": 120000,
+   "identity": "5b437246799a",
+   "instruction_steps": 19032000,
+   "leaf_cells": 330.19,
+   "localised_regions": 60,
+   "over_claim_rows": 28,
+   "per_budget": {
+    "1280": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 372.28,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.3857128906249998,
+     "unknown_volume": 0.4755664062500006
+    },
+    "2560": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 573.68,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.6561328124999999,
+     "unknown_volume": 0.20678710937500036
+    },
+    "320": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 137.96,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.043925781249999865,
+     "unknown_volume": 0.8098828125000003
+    },
+    "640": {
+     "coarse_certified_volume": 0.0,
+     "leaf_cells": 236.84,
+     "localised_regions": 15,
+     "provisional_volume": 0.0,
+     "trusted_volume": 0.13173828124999976,
+     "unknown_volume": 0.7216894531250003
+    }
+   },
+   "per_entry": {
+    "control/symplectic_spring": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.01762695312499999,
+     "detected_regions": 0.0,
+     "leaf_cells": 242.65,
+     "localised_regions": 0.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.0,
+     "trusted_volume": 0.37559814453125034,
+     "unknown_volume": 0.6085449218750004
+    },
+    "geometry/narrow_oblique": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 270.6,
+     "localised_regions": 0.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 7.085800170898437e-05,
+     "trusted_volume": 0.369482421875,
+     "unknown_volume": 0.61605224609375
+    },
+    "granular/fit_band": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 346.15,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.00015597343444825217,
+     "trusted_volume": 0.2938598632812488,
+     "unknown_volume": 0.6678222656250014
+    },
+    "granular/stroke_reference": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 362.0,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 4.119873046875e-05,
+     "trusted_volume": 0.30982666015625,
+     "unknown_volume": 0.48280029296875
+    },
+    "granular/tolerance_stack": {
+     "coarse_certified_volume": 0.0,
+     "control": true,
+     "control_suspicious_volume": 0.0,
+     "detected_regions": 20.0,
+     "leaf_cells": 429.55,
+     "localised_regions": 20.0,
+     "provisional_volume": 0.0,
+     "trusted_over_true": 0.0,
+     "trusted_volume": 0.1731201171875,
+     "unknown_volume": 0.3921875
+    }
+   },
+   "provisional_volume": 0.0,
+   "resolution_rule": "demand-and-withhold",
+   "rows": 100,
+   "rows_certifying_nothing": 0,
+   "suspicious_volume": 0.14214111328124995,
+   "trusted_over_true": 5.3606033325197306e-05,
+   "trusted_volume": 0.30437744140624984,
+   "unknown_volume": 0.5534814453125003
+  }
+ },
+ "ceilings": {
+  "capture_floor": 0.5,
+  "certification_floor_of_control": 0.25,
+  "coarse_certified_ratio_for_improvement": 0.5,
+  "cost_ceiling": 0.5,
+  "unknown_absolute": 0.1
+ },
+ "decision": {
+  "all_outcomes": [
+   "If A-current's `coarse_certified_volume` is zero on every row of every entry, stop and report that this corpus cannot state the question: nothing was certified at a scale coarser than the bar, so there is no resolution fault here to fix and no arm has anything to act on.",
+   "If an arm's mean `trusted_volume` on `control/symplectic_spring` is below one quarter of A-current's there, that arm is reported as certifying almost nothing. It is not an improvement on any reading of any other metric, and it is recorded under H-SILENCE as in E1.3b.",
+   "If an arm cuts mean `coarse_certified_volume` to half of A-current's or less, raises mean `unknown_volume` by no more than 0.10 absolute, lowers no entry's `localised_regions` sum, does not raise mean `trusted_over_true`, and keeps control-entry `trusted_volume` at or above a quarter of A-current's, it is a resolution improvement and is reported as one, named.",
+   "If `coarse_certified_volume` falls and safety holds but no entry's `localised_regions` sum rises anywhere, report certification discipline rather than detection gain: the instrument became honest about its scale without learning where anything was. This is a permitted and useful outcome, and it is not outcome 3.",
+   "If `capture` is below 0.5 while `cost` is above 0.5, the PROVISIONAL state withholds certification where there is nothing to withhold at least as often as it withholds certification where there is something, and H-WITHHOLD is refused in favour of H-RENAME: the new state is reported as UNKNOWN under another name.",
+   "If no arm cuts mean `coarse_certified_volume` below A-current's, the limitation is not the scale at which certification is granted, and this experiment reports the definition of TRUSTED as unresolved - E1.3b's rule 4 arrived at from the other side.",
+   "Independent of which of the above fires, report whether the budget crossing the bar's arithmetic predicts is present: a leaf must hold at least four samples to be split, so a quiet space bisected to depth d needs about 4 times 2^d evaluations before it can be certified at 2^-d, which puts the first budget at which the frozen bar can be met at roughly 1000 evaluations. If the per-budget readings do not show UNKNOWN giving back to TRUSTED between 640 and 1280, then this arithmetic or the depth accounting is wrong, and that is stated as a defect of this file."
+  ],
+  "detail": {
+   "arm_guards": {
+    "B-demand": {
+     "checks": {
+      "cuts_coarse_certified_in_half": true,
+      "holds_control_certification": true,
+      "no_localisation_loss": true,
+      "over_claim_not_raised": true,
+      "unknown_within_ceiling": false
+     },
+     "guards_held": false,
+     "localisation_gained": false
+    },
+    "D-demand-and-withhold": {
+     "checks": {
+      "cuts_coarse_certified_in_half": true,
+      "holds_control_certification": true,
+      "no_localisation_loss": true,
+      "over_claim_not_raised": true,
+      "unknown_within_ceiling": false
+     },
+     "guards_held": false,
+     "localisation_gained": false
+    }
+   },
+   "arms_breaching_only_the_unknown_ceiling": [
+    "B-demand",
+    "D-demand-and-withhold"
+   ],
+   "arms_identical_to_demand": [
+    "D-demand-and-withhold"
+   ],
+   "certifies_almost_nothing": [
+    "C-withhold"
+   ],
+   "improvements": [],
+   "rule_7": {
+    "gives_back": {
+     "B-demand": {
+      "trusted_1280": 0.3857128906249998,
+      "trusted_640": 0.13173828124999976,
+      "trusted_rises": true,
+      "unknown_1280": 0.4755664062500006,
+      "unknown_640": 0.7216894531250003,
+      "unknown_falls": true
+     },
+     "D-demand-and-withhold": {
+      "trusted_1280": 0.3857128906249998,
+      "trusted_640": 0.13173828124999976,
+      "trusted_rises": true,
+      "unknown_1280": 0.4755664062500006,
+      "unknown_640": 0.7216894531250003,
+      "unknown_falls": true
+     }
+    },
+    "met": true,
+    "per_budget": {
+     "A-current": {
+      "1280": {
+       "coarse_certified_volume": 0.5959375000000001,
+       "leaf_cells": 284.12,
+       "trusted_volume": 0.666708984375,
+       "unknown_volume": 0.19521484375000017
+      },
+      "2560": {
+       "coarse_certified_volume": 0.575625,
+       "leaf_cells": 458.56,
+       "trusted_volume": 0.6907421875,
+       "unknown_volume": 0.16890625000000026
+      },
+      "320": {
+       "coarse_certified_volume": 0.40374999999999966,
+       "leaf_cells": 80.28,
+       "trusted_volume": 0.4098730468749997,
+       "unknown_volume": 0.4435156250000003
+      },
+      "640": {
+       "coarse_certified_volume": 0.5859375000000001,
+       "leaf_cells": 155.0,
+       "trusted_volume": 0.60529296875,
+       "unknown_volume": 0.25109375000000006
+      }
+     },
+     "B-demand": {
+      "1280": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 372.28,
+       "trusted_volume": 0.3857128906249998,
+       "unknown_volume": 0.4755664062500006
+      },
+      "2560": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 573.68,
+       "trusted_volume": 0.6561328124999999,
+       "unknown_volume": 0.20678710937500036
+      },
+      "320": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 137.96,
+       "trusted_volume": 0.043925781249999865,
+       "unknown_volume": 0.8098828125000003
+      },
+      "640": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 236.84,
+       "trusted_volume": 0.13173828124999976,
+       "unknown_volume": 0.7216894531250003
+      }
+     },
+     "C-withhold": {
+      "1280": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 284.12,
+       "trusted_volume": 0.07077148437499997,
+       "unknown_volume": 0.19521484375000017
+      },
+      "2560": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 458.56,
+       "trusted_volume": 0.11511718749999986,
+       "unknown_volume": 0.16890625000000026
+      },
+      "320": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 80.28,
+       "trusted_volume": 0.006123046875000027,
+       "unknown_volume": 0.4435156250000003
+      },
+      "640": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 155.0,
+       "trusted_volume": 0.019355468749999948,
+       "unknown_volume": 0.25109375000000006
+      }
+     },
+     "D-demand-and-withhold": {
+      "1280": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 372.28,
+       "trusted_volume": 0.3857128906249998,
+       "unknown_volume": 0.4755664062500006
+      },
+      "2560": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 573.68,
+       "trusted_volume": 0.6561328124999999,
+       "unknown_volume": 0.20678710937500036
+      },
+      "320": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 137.96,
+       "trusted_volume": 0.043925781249999865,
+       "unknown_volume": 0.8098828125000003
+      },
+      "640": {
+       "coarse_certified_volume": 0.0,
+       "leaf_cells": 236.84,
+       "trusted_volume": 0.13173828124999976,
+       "unknown_volume": 0.7216894531250003
+      }
+     }
+    },
+    "prediction": "a leaf must hold at least four samples to be split, so a quiet space bisected to depth d needs about 4 x 2^d evaluations before it can be certified at 2^-d; at the frozen bar that is roughly 1000 evaluations, so UNKNOWN should give back to TRUSTED between 640 and 1280"
+   },
+   "why_nothing_fired": "no arm satisfies outcome 3 or outcome 4 as written, and neither outcome 5 nor outcome 6 applies. The arms that came closest are ['B-demand', 'D-demand-and-withhold']: each cuts `coarse_certified_volume` to nothing, lowers `trusted_over_true`, loses no localisation and holds control-entry certification, and is refused only by the +0.1 UNKNOWN ceiling. The freeze enumerates no outcome for 'cut the over-claim, gained no localisation, breached the UNKNOWN ceiling', and H-RESOLVE declares itself falsified by any ceiling being missed, so the ceiling is not read as outcome 4's exception: reporting such an arm as certification discipline would let the size of the intervention buy a permitted verdict, which is what the ceiling was set to prevent. The gap is a defect of this decision rule and is reported as one rather than resolved by whichever reading is friendlier."
+  },
+  "fired": null,
+  "text": "no outcome among 1 to 6 fires as written; see detail.why_nothing_fired"
+ },
+ "generated_by": "scripts/e14_analysis.py",
+ "informativeness": {
+  "capture": 0.6748320601092131,
+  "capture_definition": "arm A's trusted_over_true volume that sits in leaves coarser than the bar, over its whole trusted_over_true volume; under a withholding arm that volume is what moves out of certification, because the two arms share the partition",
+  "control_suspicious_volume_measured": {
+   "A-current": 0.037499999999999964,
+   "B-demand": 0.01762695312499999,
+   "C-withhold": 0.037499999999999964,
+   "D-demand-and-withhold": 0.01762695312499999
+  },
+  "cost": 0.9510112359550562,
+  "cost_definition": "the withholding arm's PROVISIONAL volume on the control entry over the control arm's TRUSTED volume there: certification withdrawn where the entry declares nothing to find",
+  "enrichment_definition": "capture divided by the share of A-current's certification the withheld volume covers; 1.0 means the withheld set holds exactly its share of the real over-claim, above 1.0 means coarse certification is where the over-claim actually lives. Derived after the fact from the two frozen quantities and decides nothing -- no outcome in `decision_rule` reads it.",
+  "enrichment_of_withheld_volume": 0.7408296793481328,
+  "withheld_share_of_certification": 0.9109139103376744
+ },
+ "limitations_this_does_not_remove": [
+  "The bar is a plan constant, so certified at the right scale is measured against a resolution this experiment chose rather than one the model declared. A different bar gives different numbers, and the sensitivity is reported rather than argued away.",
+  "Certification depth is bounded by the sample floor, so every reading here is a statement about this budget ladder. Whether the crossing survives at 5120 and 10240 evaluations is a different experiment.",
+  "The corpus is four declared regions and a control, all analytically declared, all at one or two parameters. Nothing here speaks to a ten-parameter model, where 2^-12 of a domain is a much finer claim than it is here.",
+  "Truth is read only by the metric layer. That makes the primary metric computable without an answer key, and it also means the instrument cannot tell a quiet coarse cell that is genuinely clean from one that is genuinely violated - which is the limitation this whole experiment is about, and no arm here removes it."
+ ],
+ "metric": {
+  "aggregation": "Mean over rows within an arm, each row weighted equally, reported per entry and per budget beside it. Equal weighting per row is deliberate: a volume-weighted mean would let an arm win by doing well on whichever entry has the most rows.",
+  "certify_share": 0.00390625,
+  "denominator": "The declared domain of the entry - the same denominator as `trusted_volume`, `unknown_volume` and `trusted_over_true` in every committed E1.x and E1.3b row, so the numbers of three experiments sit on one scale.",
+  "name": "coarse_certified_volume"
+ },
+ "not_claims": [
+  "that PROVISIONAL means probably safe. It means quiet at a scale this experiment does not certify at.",
+  "that TRUSTED will come to mean proven correct. It means quiet under the channels that ran, now stated with the scale it was granted at.",
+  "that this experiment resolves E1.3, whose condition failed and stays failed.",
+  "that a smaller over-claim number is by itself a safer instrument.",
+  "that any of this generalises past the one- and two-dimensional models in this corpus."
+ ],
+ "paired_against_reference": {
+  "B-demand": {
+   "coarse_certified_volume": {
+    "cells": 100,
+    "mean_difference": -0.5403125
+   },
+   "leaf_cells": {
+    "cells": 100,
+    "mean_difference": 85.7
+   },
+   "localised_regions": {
+    "cells": 100,
+    "mean_difference": 0.0
+   },
+   "per_seed": {
+    "1": -0.5367187499999998,
+    "2": -0.5058593749999997,
+    "3": -0.5265625000000002,
+    "4": -0.5531250000000001,
+    "5": -0.5792968750000002
+   },
+   "provisional_volume": {
+    "cells": 100,
+    "mean_difference": 0.0
+   },
+   "rows_where_partitions_differ": 100,
+   "trusted_over_true": {
+    "cells": 100,
+    "mean_difference": -0.00011710882186889209
+   },
+   "trusted_volume": {
+    "cells": 100,
+    "mean_difference": -0.28877685546875015
+   },
+   "unknown_volume": {
+    "cells": 100,
+    "mean_difference": 0.2887988281250002
+   }
+  },
+  "C-withhold": {
+   "coarse_certified_volume": {
+    "cells": 100,
+    "mean_difference": -0.5403125
+   },
+   "leaf_cells": {
+    "cells": 100,
+    "mean_difference": 0.0
+   },
+   "localised_regions": {
+    "cells": 100,
+    "mean_difference": 0.0
+   },
+   "per_seed": {
+    "1": -0.5367187499999998,
+    "2": -0.5058593749999997,
+    "3": -0.5265625000000002,
+    "4": -0.5531250000000001,
+    "5": -0.5792968750000002
+   },
+   "provisional_volume": {
+    "cells": 100,
+    "mean_difference": 0.5403125
+   },
+   "rows_where_partitions_differ": 0,
+   "trusted_over_true": {
+    "cells": 100,
+    "mean_difference": -0.00011520385742187336
+   },
+   "trusted_volume": {
+    "cells": 100,
+    "mean_difference": -0.5403125
+   },
+   "unknown_volume": {
+    "cells": 100,
+    "mean_difference": 0.0
+   }
+  },
+  "D-demand-and-withhold": {
+   "coarse_certified_volume": {
+    "cells": 100,
+    "mean_difference": -0.5403125
+   },
+   "leaf_cells": {
+    "cells": 100,
+    "mean_difference": 85.7
+   },
+   "localised_regions": {
+    "cells": 100,
+    "mean_difference": 0.0
+   },
+   "per_seed": {
+    "1": -0.5367187499999998,
+    "2": -0.5058593749999997,
+    "3": -0.5265625000000002,
+    "4": -0.5531250000000001,
+    "5": -0.5792968750000002
+   },
+   "provisional_volume": {
+    "cells": 100,
+    "mean_difference": 0.0
+   },
+   "rows_where_partitions_differ": 100,
+   "trusted_over_true": {
+    "cells": 100,
+    "mean_difference": -0.00011710882186889209
+   },
+   "trusted_volume": {
+    "cells": 100,
+    "mean_difference": -0.28877685546875015
+   },
+   "unknown_volume": {
+    "cells": 100,
+    "mean_difference": 0.2887988281250002
+   }
+  }
+ },
+ "preconditions": {
+  "arms_found": [
+   "A-current",
+   "B-demand",
+   "C-withhold",
+   "D-demand-and-withhold"
+  ],
+  "binary_sha256": "ea444fda09a94594e89c15238529b302c0ad2b3e820ce2669d8fcd7ede35e378",
+  "built_from_commit": "6d41bc0",
+  "pilot": "PASSED",
+  "reproduction_gate": "PASSED"
+ },
+ "problems": [],
+ "protocol": {
+  "digest": "3eb45a9ca9005e2d",
+  "frozen": "2026-10-19",
+  "id": "e1-4-resolution-demand"
+ },
+ "recorded_defects": [
+  "the pilot ran the full frozen plan (100 charged cells per arm) where stopping rule 2 states one entry, two seeds and the two smallest budgets. The cause is mechanical: with --plan the runner refuses every flag that shapes what is measured, so a reduced pilot needs a reduced frozen plan, and this freeze did not provide one. No threshold, tolerance or criterion moved, and the pilot declares every deciding quantity it does not measure; what was exceeded is the freeze's cost bound on the pilot.",
+  "the decision rule enumerates no outcome for an arm that cuts the primary metric to zero, holds every other guard, gains no localisation and misses only the UNKNOWN ceiling. B and D are exactly that arm. The gap is reported as a defect of the rule rather than resolved by reading outcome 4's 'safety holds' as excluding the ceiling, which is the reading that would have made this a permitted outcome.",
+  "H-WITHHOLD's first falsifier -- whether the withheld volume captures more of the real over-claim than the volume the same partition calls UNKNOWN -- is not computable from any published column: `trusted_over_true` measures certification overlapping a declared region, and nothing records UNKNOWN overlapping one. The enrichment ratio reported beside the frozen pair is the closest computable reading and it is not that test."
+ ],
+ "schema": "aporia.e1-4-analysis/1"
+}
