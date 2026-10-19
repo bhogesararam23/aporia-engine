@@ -1479,10 +1479,12 @@ fn the_e1_4_freeze_names_its_entry_sets_and_its_decision_rule() {
         "and E1.3b's decision is cited as a measurement, not as a defect to repair"
     );
 
-    // The status text and the tree have to agree, in whichever direction the run goes. Written as a
-    // two-way check so this assertion cannot be weakened later by editing the freeze to match a run:
-    // either the freeze still says NOT RUN and no document cites it, or documents exist and the
-    // freeze no longer claims it has not been measured.
+    // The status text and the tree have to agree, and the way they agree is not what this assertion first
+    // said. The status is a statement made at the freeze, and the digest every arm cites is a digest of
+    // these bytes, so re-editing the prose to describe the run would break every document that cites the
+    // freeze -- which is why E1.3b's status still says NOT RUN while eight documents measure under its
+    // digest. What a reader can check, and what is stronger than a prose update, is that the freeze could
+    // not have been touched after the fact: the file on disk still digests to what its published arms say.
     let status = field("status").as_str().unwrap_or_default().to_string();
     let measured = documents_citing("e1-4-resolution-demand");
     if measured.is_empty() {
@@ -1492,9 +1494,28 @@ fn the_e1_4_freeze_names_its_entry_sets_and_its_decision_rule() {
         );
     } else {
         assert!(
-            !status.contains("NOT RUN"),
-            "{} results document(s) cite this freeze while its status still says NOT RUN",
-            measured.len()
+            status.contains("FROZEN, NOT RUN"),
+            "the freeze's words are part of the bytes its arms cite, so they cannot be rewritten to \
+             describe the run; the run describes itself in benchmarks/results/"
         );
+        let path = corpus_root()
+            .join("protocols")
+            .join("e1-4-resolution-demand.json");
+        let bytes = std::fs::read(&path).expect("the frozen protocol file is committed");
+        let digest = aporia_store::digest::sha256_hex(&bytes[..]);
+        let expected = &digest[..16];
+        for document in &measured {
+            let text = std::fs::read_to_string(document).expect("a committed document is readable");
+            let value = Json::parse(&text).expect("a committed document is JSON");
+            assert_eq!(
+                value
+                    .get("protocol")
+                    .and_then(|p| p.get("digest"))
+                    .and_then(Json::as_str),
+                Some(expected),
+                "{} cites a protocol digest the freeze's own bytes no longer produce",
+                document.display()
+            );
+        }
     }
 }
