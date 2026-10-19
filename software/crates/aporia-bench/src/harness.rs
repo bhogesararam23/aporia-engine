@@ -800,13 +800,13 @@ impl Protocol {
         }
         if v4 && plan_value.get("certify").is_some() {
             return Err(format!(
-                "protocol: a {} plan section does not carry certify — each arm states its own                  adequacy criterion, beside its mask, its trust rule and its scale rule",
+ "protocol: a {} plan section does not carry certify — each arm states its own adequacy criterion, beside its mask, its trust rule and its scale rule",
                 Self::SCHEMA_V4
             ));
         }
         if v4 && plan_value.get("certify_density").is_none() {
             return Err(format!(
-                "protocol: a {} plan must state certify_density, because the density its arms hold                  themselves to is one number for the whole experiment, and a bar that travelled                  nowhere could be moved after the run without any document noticing",
+ "protocol: a {} plan must state certify_density, because the density its arms hold themselves to is one number for the whole experiment, and a bar that travelled nowhere could be moved after the run without any document noticing",
                 Self::SCHEMA_V4
             ));
         }
@@ -935,7 +935,7 @@ impl Protocol {
             let certify = match item.get("certify") {
                 Some(_) if !v4 => {
                     return Err(format!(
-                        "protocol: arm {name:?} states a certify criterion, and {schema} arms state a                          mask, a trust rule and a scale rule. Promote the file to {} in the commit                          that means to change what it measures.",
+ "protocol: arm {name:?} states a certify criterion, and {schema} arms state a mask, a trust rule and a scale rule. Promote the file to {} in the commit that means to change what it measures.",
                         Self::SCHEMA_V4
                     ));
                 }
@@ -945,14 +945,14 @@ impl Protocol {
                     })?;
                     aporia_boundary::Certify::parse(text).ok_or_else(|| {
                         format!(
-                            "protocol: arm {name:?} names the unknown certify criterion {text:?};                              this tool knows {}",
+ "protocol: arm {name:?} names the unknown certify criterion {text:?}; this tool knows {}",
                             aporia_boundary::Certify::names().join(", ")
                         )
                     })?
                 }
                 None if v4 => {
                     return Err(format!(
-                        "protocol: arm {name:?} states no certify criterion, and a {} arm is its                          mask, its trust rule, its scale rule and its adequacy criterion together",
+ "protocol: arm {name:?} states no certify criterion, and a {} arm is its mask, its trust rule, its scale rule and its adequacy criterion together",
                         Self::SCHEMA_V4
                     ));
                 }

@@ -232,7 +232,7 @@ fn entry(name: &str, control: bool, boundaries: usize) -> corpus::Entry {
 
 #[expect(
     clippy::too_many_arguments,
-    reason = "a fabricated outcome mirrors the real one field for field, and hiding fields behind               a second struct would make the test rows harder to read than the rows they imitate"
+    reason = "a fabricated outcome mirrors the real one field for field, and hiding fields behind a second struct would make the test rows harder to read than the rows they imitate"
 )]
 fn outcome(
     entry: &corpus::Entry,
@@ -314,7 +314,7 @@ fn outcome(
 /// plus a boundary one side cannot see and a channel that computed nothing on one entry.
 #[expect(
     clippy::too_many_lines,
-    reason = "the fixture is three entries' worth of sweeps for two arms, and collapsing it would               hide which number belongs to which entry"
+    reason = "the fixture is three entries' worth of sweeps for two arms, and collapsing it would hide which number belongs to which entry"
 )]
 fn fabricated(entry_evaluations: u64) -> (Json, Json) {
     let region = entry("region", false, 1);
