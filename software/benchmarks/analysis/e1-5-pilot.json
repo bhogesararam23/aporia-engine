@@ -1,0 +1,101 @@
+{
+ "arms": {
+  "A-current": {
+   "archives": [
+    "control-symplectic_spring-adaptive-seed1",
+    "granular-quiet_band-adaptive-seed1"
+   ],
+   "budgets": [
+    320,
+    640
+   ],
+   "certify": "size",
+   "charged_evaluations": 3840,
+   "entries": [
+    "control/symplectic_spring",
+    "granular/quiet_band"
+   ],
+   "identity": "47b0e0e2cb4b",
+   "instruction_steps": 1509120,
+   "resolution": "current",
+   "rows": 8,
+   "seeds": [
+    1,
+    2
+   ]
+  },
+  "C-density": {
+   "archives": [
+    "control-symplectic_spring-adaptive-seed1-res-withhold-certify-density",
+    "granular-quiet_band-adaptive-seed1-res-withhold-certify-density"
+   ],
+   "budgets": [
+    320,
+    640
+   ],
+   "certify": "density",
+   "charged_evaluations": 3840,
+   "entries": [
+    "control/symplectic_spring",
+    "granular/quiet_band"
+   ],
+   "identity": "76297b27cbea",
+   "instruction_steps": 1509120,
+   "resolution": "withhold",
+   "rows": 8,
+   "seeds": [
+    1,
+    2
+   ]
+  }
+ },
+ "binary": ".scratch/e1x-bin/aporia-bench.exe",
+ "binary_sha256": "15feac448eb87aa8a6b5a5b6e709a68850f27260a65130c8cb3aa2b9cd874d0b",
+ "built_from_commit": "37a54df",
+ "checks": {
+  "archive_identity": [],
+  "certify_axis": [],
+  "determinism": [],
+  "equal_charged_cost": [],
+  "namespace_separation": [],
+  "replay": []
+ },
+ "frozen_pilot": {
+  "arms": [
+   "A-current",
+   "C-density"
+  ],
+  "budgets": [
+   320,
+   640
+  ],
+  "checks": [
+   "determinism",
+   "namespace separation",
+   "equal charged cost",
+   "replay",
+   "archive identity names the measurement",
+   "the certify axis reaches the plan and the policy"
+  ],
+  "entries": [
+   "control/symplectic_spring",
+   "granular/quiet_band"
+  ],
+  "seeds": [
+   1,
+   2
+  ]
+ },
+ "generated_by": "scripts/e15_pilot.py",
+ "not_a_measurement": "No deciding quantity is read here. This establishes that the instrument holds the freeze's promises about scope, cost, replay, namespace and the criterion, on which every later number in the experiment depends.",
+ "problems": [],
+ "protocol": {
+  "digest": "4bfa6855279d165f",
+  "file": "benchmarks/protocols/e1-5-spatial-uncertainty-cost.json",
+  "id": "e1-5-spatial-uncertainty-cost"
+ },
+ "purpose": "Run the scope E1.5 froze for its pilot and check the six properties that file names, before any arm of the comparison is read.",
+ "rows_expected_per_arm": 8,
+ "schema": "aporia.pilot/1",
+ "verdict": "PASSED"
+}
