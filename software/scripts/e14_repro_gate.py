@@ -68,6 +68,16 @@ ADDED_ROW = {
     "coarse_certified_share",
     "trusted_over_true_coarse",
     "leaf_cells",
+    # The region decomposition, added after E1.4 ran. Six columns, none of them inside the identity,
+    # and none of them a reading any committed document carries: a replayed arm that changed the
+    # twelve fields beside these would still fail this gate, which is the only reason the six are safe
+    # to add.
+    "declared_union_volume",
+    "trusted_over_true_union",
+    "unknown_over_true",
+    "suspicious_over_true",
+    "provisional_over_true",
+    "region_overlap_refusals",
 }
 # Declared not part of a measurement before any of this ran, in the protocols' own words.
 NON_IDENTITY_ROW = {"wall_ms"}

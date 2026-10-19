@@ -21,6 +21,29 @@
 //! - `counterexample` — dimensions and significant digits left after minimisation, which is the
 //!   usefulness half of the same finding, and the oracle calls and model executions it took, which
 //!   are two numbers because the two oracles do not cost the same per answer.
+//! - `<label>_over_true` — for each of the four labels, how much of the domain it covers *and* lies
+//!   inside the union of the declared regions. These are the decomposition the last eight experiments
+//!   could not write down: `trusted_over_true` alone says what was certified wrongly, and says nothing
+//!   about where the volume went when a rule stopped certifying it. The four sum to
+//!   `declared_union_volume`, the union of the entry's regions counted once where they overlap, which
+//!   is what makes "reduced over-claim" readable as resolution, uncertainty, suspicion or silence
+//!   rather than as one undifferentiated fall.
+//!
+//! Two quantities of the same cell differ on purpose. `trusted_over_true` asks how much of a leaf lies
+//! in the *single region that best explains* it, because that is what `localised` and
+//! `false_positive_fraction` have always been decided against and their bytes are published history.
+//! `<label>_over_true` asks how much lies in the *union*, because a leaf two declared boxes tile side
+//! by side is untrustworthy through and through. `trusted_over_true_union` is the union-geometry twin
+//! of the historical column, and the gap between the two on a multi-region entry is reported rather
+//! than reconciled.
+//!
+//! The decomposition is exact — the four columns add up to `declared_union_volume`, and none of them
+//! exceeds the volume of the label it is measured under — while every region is a box, because then
+//! both sides are arithmetic. Once a region carves a `where`, the leaf's share and the domain's share
+//! are two estimates of one set taken on two different lattices, and the four columns add up to within
+//! the finer of them rather than exactly. Which entries that reaches, and by how much, is measured in
+//! `tests/label_overlap.rs` and not argued here; a metric whose denominator is only exact on box
+//! declarations has to say so before an experiment is designed on it.
 
 use crate::corpus::Entry;
 use crate::truth::Boundary;
@@ -35,6 +58,33 @@ use aporia_store::Json;
 /// of a threshold are two thresholds, and the drift would silently move the boundary between a corpus
 /// that can be measured and one that cannot.
 pub const LOCALISATION_BAR: f64 = 0.5;
+
+/// Which of the four label columns a leaf's region overlap accumulates into.
+///
+/// An index rather than four `if`s at the call site, because the four columns are one decomposition:
+/// every leaf contributes its overlap to exactly one of them, and a label that appeared in two of the
+/// branches — or in none — would break the bound the tests check.
+#[must_use]
+fn label_column(label: Label) -> usize {
+    match label {
+        Label::Trusted => 0,
+        Label::Unknown => 1,
+        Label::Suspicious => 2,
+        Label::Provisional => 3,
+    }
+}
+
+/// A zero that prints as zero.
+///
+/// A sum of non-negative terms can land on `-0.0` when the first term is `-0.0`, which is what the
+/// results README records as a cosmetic defect in `trusted_over_true`'s committed bytes: the value
+/// compares equal to zero everywhere and normalising it would rewrite published rows to change how a
+/// zero displays. The columns written from now on are born clean instead, so a reader does not have to
+/// hold a sign of a quantity that has no sign.
+#[must_use]
+fn clean(volume: f64) -> f64 {
+    if volume == 0.0 { 0.0 } else { volume }
+}
 
 /// One declared boundary and what the finished atlas had to say about it.
 #[derive(Clone, Debug, PartialEq)]
@@ -303,6 +353,34 @@ pub struct Outcome {
     /// the withheld state takes over from certification, and it can be read out of a row rather than
     /// reconstructed from an archive.
     pub trusted_over_true_coarse: f64,
+    /// Fraction of the declared domain the union of the entry's regions covers, counted once where they
+    /// overlap. `trusted_over_true` and `false_positive_fraction` are decided against the *best single
+    /// region* a cell lies in, which is the right question for those two and the wrong one for a
+    /// decomposition: a leaf that two declared boxes tile side by side is untrustworthy through and
+    /// through, and a maximum reports one tile of it. Recorded per row rather than left to the reader
+    /// because it is the denominator of a regional over-claim rate, and a rate whose denominator is
+    /// re-derived by each analysis is a rate that can be changed after the run.
+    pub declared_union_volume: f64,
+    /// The union-geometry counterpart of [`Outcome::trusted_over_true`], so the four label columns
+    /// below are one decomposition of the same quantity and not three of one and a fourth of another.
+    /// `None` when any leaf refused to state its overlap — see [`Outcome::region_overlap_refusals`].
+    pub trusted_over_true_union: Option<f64>,
+    /// Fraction of the domain labelled UNKNOWN that lies inside the union of the declared regions: the
+    /// unmeasured part of the space that is actually wrong. E1.4's H-WITHHOLD asked whether the withheld
+    /// volume holds more of the real over-claim than the UNKNOWN volume does, and no published column
+    /// could answer it — this is that column, and its absence is why the falsifier was reported
+    /// unevaluated rather than passed.
+    pub unknown_over_true: Option<f64>,
+    /// Fraction of the domain labelled SUSPICIOUS that lies inside the declared union: the justified
+    /// half of `suspicious_volume`, stated as a volume beside the ratio [`Outcome::false_positive_fraction`]
+    /// gives rather than only as that ratio.
+    pub suspicious_over_true: Option<f64>,
+    /// Fraction of the domain labelled PROVISIONAL that lies inside the declared union.
+    pub provisional_over_true: Option<f64>,
+    /// How many leaves [`Truth::union_overlap`] refused to measure, which is what makes the four
+    /// columns above `None` rather than a partial sum. A refusal is a fact about this partition and this
+    /// declaration, not a zero: a cell whose overlap cannot be stated has not been found clean.
+    pub region_overlap_refusals: u64,
     /// How many leaves the finished partition holds, which is the currency a resolution demand spends.
     /// Charged evaluations cannot show the cost of looking closer — a split re-arranges measurements
     /// already paid for — so without this column a policy that doubled the partition would look free.
@@ -413,7 +491,32 @@ impl Outcome {
             .map(volume_of)
             .sum();
 
-        // A suspicious cell's justified share is its overlap with the union of declared regions.
+        // The same partition read against the union of the declared regions instead of against its best
+        // single region: one pass over the leaves, each leaf contributing its overlap to exactly one of
+        // the four columns, so the four add up to `declared_union_volume` and not to twice or half of
+        // it. A leaf the geometry refuses to state takes the whole decomposition down with it, because
+        // three columns that sum to less than the truth are not three honest columns.
+        let mut overlap = [0.0f64; 4];
+        let mut refusals = 0u64;
+        for c in &leaves {
+            match truth.union_overlap(model, &c.bounds) {
+                None => refusals += 1,
+                Some(share) => overlap[label_column(c.label)] += volume_of(c) * share,
+            }
+        }
+        let domain_union = truth.union_overlap(model, &crate::truth::domain_bounds(model));
+        if domain_union.is_none() {
+            // The denominator refusing is the same event as a leaf refusing: the decomposition is then
+            // not a decomposition of anything, and `0.0` would read as an entry with no region.
+            refusals += 1;
+        }
+        let stated = |value: f64| (refusals == 0).then_some(clean(value));
+        let declared_union_volume = domain_union.map_or(0.0, clean);
+
+        // A suspicious cell's justified share is its overlap with the one declared region that explains
+        // it best — `Truth::overlap_fraction` folds regions by maximum, not by union, which the comment
+        // beside this block has claimed since it was written. The number is published history and does
+        // not move; the union-geometry reading is `suspicious_over_true` beside it.
         let false_positive_fraction = if suspicious_volume > 0.0 {
             let justified: f64 = suspicious
                 .iter()
@@ -482,6 +585,12 @@ impl Outcome {
                 .map(|c| cell_fraction(model, &c.bounds) * truth.overlap_fraction(model, &c.bounds))
                 .sum::<f64>()
                 .clamp(0.0, 1.0),
+            declared_union_volume,
+            trusted_over_true_union: stated(overlap[0]),
+            unknown_over_true: stated(overlap[1]),
+            suspicious_over_true: stated(overlap[2]),
+            provisional_over_true: stated(overlap[3]),
+            region_overlap_refusals: refusals,
             leaf_cells: campaign.atlas.coverage().cells as u64,
             lattice_sensitive,
             replay: None,
@@ -537,6 +646,35 @@ impl Outcome {
             (
                 "trusted_over_true_coarse",
                 Json::number(self.trusted_over_true_coarse),
+            ),
+            // The region decomposition, on union geometry: one denominator the entry declares and four
+            // columns that add up to it, so a fall in certified over-claim can be traced to where the
+            // volume went instead of being read as safety from the fall alone. All four are `null` when
+            // a leaf refused, and the count beside them says how many.
+            (
+                "declared_union_volume",
+                Json::number(self.declared_union_volume),
+            ),
+            (
+                "trusted_over_true_union",
+                self.trusted_over_true_union
+                    .map_or(Json::Null, Json::number),
+            ),
+            (
+                "unknown_over_true",
+                self.unknown_over_true.map_or(Json::Null, Json::number),
+            ),
+            (
+                "suspicious_over_true",
+                self.suspicious_over_true.map_or(Json::Null, Json::number),
+            ),
+            (
+                "provisional_over_true",
+                self.provisional_over_true.map_or(Json::Null, Json::number),
+            ),
+            (
+                "region_overlap_refusals",
+                Json::count(self.region_overlap_refusals),
             ),
             ("findings", Json::count(self.findings)),
             (

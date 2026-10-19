@@ -292,6 +292,14 @@ fn outcome(
         coarse_certified_volume: 0.0,
         coarse_certified_share: Some(0.0),
         trusted_over_true_coarse: 0.0,
+        // The region decomposition at the same "nothing overlaps" reading the row already states, so
+        // `compare` sees a complete row rather than one with the new columns missing.
+        declared_union_volume: 0.0,
+        trusted_over_true_union: Some(0.0),
+        unknown_over_true: Some(0.0),
+        suspicious_over_true: Some(0.0),
+        provisional_over_true: Some(0.0),
+        region_overlap_refusals: 0,
         leaf_cells: 8,
         lattice_sensitive: None,
         census,
