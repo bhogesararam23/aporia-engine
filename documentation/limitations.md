@@ -253,6 +253,59 @@ flags are now read by the channel that consumes its answer — an unfinished ref
 *not compared* rather than as agreement, and a reference that leaves the real numbers where the runtime
 does not is named as a divergence instead of being skipped.
 
+## The agent workflow (first slice)
+
+`aporia investigate` is the product's first workflow, not its finished form. These are its limits, in the
+same spirit as the rest of this page.
+
+- **The sandbox is copy isolation, not an operating-system jail.** A command runs as the user, can read
+  and write paths outside the workspace, and can use the network. Path containment governs the tools the
+  host itself performs; it cannot govern what a child process does. Running adversarial code is outside
+  this slice's claim.
+- **A timeout kills the direct child only.** A grandchild can survive it and can hold the output pipes
+  open; draining stops after a two-second grace and the outcome records whether both streams reached EOF.
+- **The environment scrub is a name policy.** Names containing KEY, TOKEN, SECRET, PASSWORD, CREDENTIAL
+  or AUTH_SOCK, and known vendor prefixes, are not inherited. A secret under another name is.
+- **The copy is complete or refused.** Links and junctions are refused rather than followed; more than
+  20,000 files, 512 MiB total or 64 MiB in one file stops the copy. Caches, build output and version
+  control (`.git`, `target`, `node_modules`, virtual environments and tool caches) are omitted by name.
+  The source itself is never written.
+- **The inspection is bounded.** Five thousand entries, four levels, and 4 KiB per manifest or model and
+  2 KiB per README. The summary says when it truncated; facts are not a claim that an absent thing is
+  missing.
+- **Approval is one-shot.** The model cannot add or change a task afterwards. A follow-up it suggests is
+  recorded and reported, not executed. There is no resume of an interrupted investigation.
+- **No live language model was tested.** There was no provider key or local endpoint on the build
+  machine. The HTTP provider is tested against a local mock server, and the committed demonstration uses
+  a human-authored scripted transcript. The record labels a scripted provider as one; no live-model
+  quality claim is made.
+- **No TLS and no vendor adapter.** The HTTP provider speaks plain HTTP to a local endpoint. HTTPS is
+  refused at construction rather than half-supported. There is no authentication header and no support
+  for content-part responses; an endpoint that needs either is not supported by this slice.
+- **No patch-and-verify stage.** The tasks are observations: the instrument run and `exec`. The agent
+  does not edit the project, compare a modified version, or run regression tests for a change. The
+  charter's stage 7 is future work.
+- **Follow-ups are a list, not a ranked backlog.** `suggest_experiment` records a question, rationale,
+  method and cost; the report prints the list. It is not ranked against the remaining gaps, and the
+  agent cannot start one without a new investigation.
+- **The instrument is demonstrated; `exec` is exercised only with a fixture.** The committed corpus run
+  is a real instrument run with a real archive. `exec` is implemented and tested, but no Python or Rust
+  build is part of the demonstration.
+- **The journal is tamper-evident, not tamper-proof.** Editing a line breaks the next line's `prev`;
+  editing the last line breaks the manifest's head. Anyone who rewrites the whole chain and the manifest
+  can produce a record that verifies. The claim is "these are the bytes that were written", not
+  authorship. `report.md` and `investigation.json` are derived from the journal and are not themselves
+  hashed; `report` verifies the journal and the sandbox digest.
+- **Evidence existence is not truth.** The host checks that a finding's evidence ids were recorded, and
+  records the finding's kind (`observation`, `interpretation`, `hypothesis`), severity and stated
+  uncertainty. It cannot check that the interpretation is right. A finding's severity is the model's
+  assessment; exit status `1` means "completed with a critical/high finding", not "the finding is
+  correct".
+- **The terminal is the workbench.** There is no GUI, no live tool-activity surface beyond the console
+  lines, and no experiment backlog UI. The record is the persistent surface.
+- **No command replay.** The instrument's archive remains replayable with `aporia replay`; the journal
+  can be re-read and verified. Arbitrary `exec` commands are not re-executed from the record.
+
 ## Questions that come up
 
 **Why not just fuzz it?** Random search is in the comparison as a baseline (the Random family), and the
@@ -275,10 +328,16 @@ omitting a measured field while keeping a table of timings would be a cleaner-lo
 same content. It is labelled non-comparable in the results README, and 627 of 945 rows moved in a run
 that changed no measurement.
 
-**Why no LLM, no cloud, no API in the loop?** Not ideology: a component whose behaviour is not
-specified cannot be replayed bit-for-bit, and this instrument's whole claim is that a trust map can be
-re-executed and checked. Everything that reasons here — language, IR, interpreters, evidence model,
-search, minimiser, archive, replay — is in this repository.
+**Why does the instrument have no LLM, no cloud and no API in its reasoning loop?** Not ideology: a
+component whose behaviour is not specified cannot be replayed bit-for-bit, and the instrument's whole
+claim is that a trust map can be re-executed and checked. Everything that reasons inside it — language,
+IR, interpreters, evidence model, search, minimiser, archive, replay — is in this repository. The agent
+layer is separate: it is model-backed behind a provider boundary, it names the provider in its record,
+and it calls the instrument as a deterministic tool.
+
+**Does APORIA use a language model?** The agent layer does. The instrument does not. In this slice the
+model proposes a plan and interprets recorded results; the host executes only what a person approved and
+checks every evidence id. The committed demonstration uses a scripted transcript, not a model.
 
 **Can I trust a number in this repository?** Every number in `software/benchmarks/results/README.md` is
 derived from a committed JSON file in the same directory, and the file that produced it is named in the

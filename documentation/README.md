@@ -6,7 +6,9 @@ as such rather than smoothed over.
 
 | page | what it answers |
 |---|---|
-| [architecture.md](architecture.md) | how a model becomes a Trust Atlas: A-IR, execution, the five evidence channels, calibration and fusion, the atlas and its labelling policy, the adaptive search, minimisation |
+| [product-charter.md](product-charter.md) | the governing product definition: who APORIA serves, the eight stages, the principles, and what a complete first version must do |
+| [agent-workflow.md](agent-workflow.md) | the first slice of that product: `aporia investigate`, providers, permissions, the sandbox, exit codes, the record and its limits |
+| [architecture.md](architecture.md) | how a model becomes a Trust Atlas: A-IR, execution, the five evidence channels, calibration and fusion, the atlas and its labelling policy, the adaptive search, minimisation — and the application layer that calls the instrument |
 | [adapter-protocol.md](adapter-protocol.md) | the contract an external program has to satisfy — one JSON object per line each way, and what every kind of failure means |
 | [reproducibility.md](reproducibility.md) | the archive as an artifact: what it holds, why each field earns its place, integrity versus reproduction, what `compare` will say, how a measurement is named |
 | [portability.md](portability.md) | which platforms have been measured and which are only expected, prerequisites, and the transcendental-function caveat on cross-platform replay |
@@ -24,17 +26,19 @@ Outside this directory, two documents carry the evidence:
 
 ## Reading order
 
-To use it: the root README, then `adapter-protocol.md` if a program is involved.
+To use it: the root README, then `agent-workflow.md` for the agent command, then `adapter-protocol.md`
+if a program is involved.
 
-To judge it: `prior-work.md`, then `limitations.md`, then the results README. The literature position
-comes first because it decides which questions are worth asking at all; the research claim is worth
-nothing except as measured, and the measurement file is where the negative and inconclusive results are
-kept.
+To judge it: `product-charter.md` for what the product claims to be, then `prior-work.md`, then
+`limitations.md`, then the results README. The charter decides the product's bar; the literature position
+decides which questions are worth asking at all; the research claim is worth nothing except as measured,
+and the measurement file is where the negative and inconclusive results are kept.
 
 To change it: `developer-guide.md`, then `architecture.md` for the reasons, then `reproducibility.md`
 before touching anything that writes a file — an archive is a byte contract, and the two most painful
 defects in this project's history were a checkout rewriting digested bytes and a field whose meaning
-changed while its name did not.
+changed while its name did not. For the agent layer, `agent-workflow.md` is the contract and
+`aporia-agent`'s journal is the byte contract.
 
 ## A note on the other documentation directory
 

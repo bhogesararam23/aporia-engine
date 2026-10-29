@@ -1,0 +1,130 @@
+# The agent workflow
+
+The first slice of the product defined in [product-charter.md](product-charter.md). It is one complete
+workflow, deliberately narrow: inspect a project, propose an evidence-backed plan, get approval, run
+the approved tasks in an isolated copy, interpret only recorded results, and leave a record someone
+else can verify.
+
+The Trust Atlas instrument is the first capability this workflow calls. The instrument's own reasoning
+path remains deterministic and model-free; the agent around it is model-backed behind a replaceable
+provider boundary.
+
+```
+project ──▶ inspect ──▶ propose ──▶ approve ──▶ execute ──▶ interpret ──▶ record
+              (host)     (model)     (person)    (host)      (model)       (host)
+                                                    │
+                                                    └── aporia run <model.ap> ── archive
+```
+
+## Command
+
+```sh
+aporia investigate <project-dir> --objective TEXT --provider PROVIDER \
+    [--model NAME] [--workdir DIR] [--approve] \
+    [--allow-exec PROGRAM]... [--max-turns N] [--max-tool-calls N] [--timeout MS]
+
+aporia investigate report <investigation-dir>
+```
+
+- `--provider scripted:<transcript.json>` consumes a committed transcript. It is a test double and the
+  offline demo; the report says **no model was consulted**.
+- `--provider http://host:port/v1 --model NAME` talks to a local OpenAI-compatible endpoint over plain
+  HTTP. There is no TLS and no vendor adapter in this slice.
+- The plan is printed and **refused** unless `--approve` is given or standard input is a terminal.
+- `--allow-exec` names a bare program an `exec` task may run. With none, any `exec` task is rejected
+  before approval.
+- `--workdir` defaults to `.aporia/investigations` (ignored by git). The record never overwrites an
+  existing directory.
+
+Exit statuses: `0` completed without a critical/high finding, `1` completed with one, `2` usage, `3`
+project or sandbox unusable, `5` record integrity failure on `report`, `10` plan refused, `11` provider
+failure, `12` budget exhausted (the record is incomplete), `13` the record could not be written.
+
+## Stages and who owns them
+
+| stage | owner | what it may do |
+|---|---|---|
+| inspect | host | read the source, bounded to 5,000 entries and four levels; produce numbered facts |
+| propose | model | read workspace files and call `propose_plan`; no execution |
+| approve | person | see every gap, task, cost, risk and dependency; approve or refuse |
+| execute | host | run the approved task list in dependency order, inside the sandbox copy |
+| interpret | model | read recorded results; `record_finding`, `suggest_experiment`, `finish` |
+| record | host | write the journal, plan, report and manifest from structured events |
+
+Gaps must cite inspection fact ids (`F1`, `F2`). Findings must cite facts or task-result ids (`R1`).
+The host rejects anything it did not record. A plan has the charter's four priority names and must state
+the condition that makes each step necessary. The model cannot add a task after approval; a follow-up it
+believes in is recorded as a suggestion, not run.
+
+## Sandbox and permissions
+
+The source is copied to `workspace/`; the source is never written. Caches, version-control data and build
+output are omitted by name, and the copy fails rather than silently dropping project content it cannot
+reproduce (a link, a socket, a file past the limit). Every tool path is canonicalised and confined to the
+workspace. Commands run without a shell, with a fixed working directory, a scrubbed environment, a
+deadline, and at most 1 MiB retained from each stream (with a SHA-256 over every byte read).
+
+This is copy isolation, not an operating-system jail. The full set of non-guarantees is in
+[limitations.md#the-agent-workflow-first-slice](limitations.md#the-agent-workflow-first-slice); the short
+version is that a command still runs as the user and can reach the network, and a timeout kills the direct
+child only.
+
+## The record
+
+```
+<workdir>/inv-<unix-second>[-n]/
+  workspace/            the copy the tasks ran in; instrument archives under workspace/archives/
+  sandbox.json          every copied file, its size and SHA-256; ignored directories
+  journal.jsonl         one JSON event per line, each carrying the SHA-256 of the line before it
+  inspection.json       the facts, their ids, and what the scan skipped or truncated
+  plan.json             the proposed plan, if one was proposed
+  report.md             host-generated: gaps, approvals, real exit statuses, findings, limits
+  investigation.json    machine summary
+  manifest.json         written last; its presence means the record is complete
+```
+
+`aporia investigate report <dir>` verifies the journal chain, the manifest's head and event count, and
+the recorded digest of `sandbox.json`, then prints `report.md`. It executes nothing. A record whose bytes
+changed exits `5`.
+
+The report is generated by the host from the journal and the structured results, not from the model's
+prose. A finding is printed with its kind (`observation`, `interpretation`, `hypothesis`), its severity
+(the model's own assessment), and the evidence ids it cites. A scripted provider is named as one. An
+incomplete budget is printed as an incomplete record, not as a conclusion. The journal records every
+model response, tool result and task outcome; request payloads are not duplicated, and are reconstructible
+from those events plus the objective and inspection. `report.md` and `investigation.json` are derived from
+the journal; `report` verifies the journal and the recorded sandbox digest, not the derived files.
+
+## The instrument as a tool
+
+`instrument_run` starts the `aporia` binary in the sandbox and records the archive it wrote: path,
+manifest SHA-256, file count. The agent does not link the analysis crates or read the in-memory atlas.
+That is deliberate. The instrument's archive is the interface a later reader can replay; linking its
+internals would let the agent bypass the contract and would make the agent's claims depend on private
+types.
+
+## Demonstration
+
+`software/examples/investigate/projectile.json` is a human-authored transcript for the corpus entry
+`software/benchmarks/aerospace/projectile_sign_mutant`. The report labels it as scripted. From
+`software/`:
+
+```sh
+cargo build --release -p aporia-cli
+./target/release/aporia investigate benchmarks/aerospace/projectile_sign_mutant \
+    --objective "Determine where this model's declared r >= 0 rule stops holding, using the existing instrument, and leave a replayable record." \
+    --provider scripted:examples/investigate/projectile.json \
+    --approve --workdir .scratch/agent-demo
+./target/release/aporia investigate report .scratch/agent-demo/inv-...
+```
+
+## What this slice does not do
+
+- No GUI; the terminal is the interim workbench.
+- No live language model was tested (no provider key or local endpoint existed on the build machine).
+  The HTTP boundary is tested against a local mock server only.
+- No OS-level isolation or network blocking; no automatic patch/improve stage; no model-driven expansion
+  of the approved plan; no replay of arbitrary commands (the instrument's archive is replayable, and the
+  journal is auditable).
+- `exec` is exercised with a fixture, not with a real Python/Rust build in the committed demo. The
+  demonstrated capability is the atlas.

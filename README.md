@@ -1,17 +1,48 @@
 # APORIA
 
-**A local analysis instrument for numerical and scientific computation. Hand it a computation, its
-input domain, and whatever physical or mathematical rules you know. It executes, gathers five kinds of
-evidence, decides where the next experiment goes, narrows in on the place where behaviour turns bad,
-shrinks the failure down to something a human can read, and emits a Trust Atlas — a map of TRUSTED /
-SUSPICIOUS / UNKNOWN over the parameter space in which every region carries replayable proof.**
+**An agentic research and development workbench for code-driven work. Give it a project and an
+objective: it inspects what exists, identifies missing experiments and untested assumptions, proposes an
+evidence-backed plan, and — after you approve it — runs the approved work in an isolated copy, interprets
+the recorded results, and leaves a record someone else can verify.**
 
-APORIA is not a bug finder. The product is *where trust stops, and how sharply*. A failure at one
-point is an input to the search, not the output.
+The product is the agent and the complete workflow. Its first capability is APORIA's own numerical trust
+instrument: hand it a computation, its input domain and whatever physical or mathematical rules you know,
+and it executes, gathers five kinds of evidence, decides where the next experiment goes, narrows in on the
+place where behaviour turns bad, and emits a Trust Atlas — a map of TRUSTED / SUSPICIOUS / UNKNOWN over the
+parameter space in which every region carries replayable proof. The instrument is not a bug finder; its own
+output answers *where trust stops, and how sharply*. The governing product definition is
+[the charter](documentation/product-charter.md); the workflow and its current boundaries are in
+[the agent workflow](documentation/agent-workflow.md).
 
-No cloud, no external API, no model download, no LLM in the runtime loop. Everything that reasons —
-the language, the intermediate representation, the interpreters, the evidence model, the search, the
-minimiser, the archive and the replay — is implemented in this repository.
+The instrument has no cloud API, no model download, and no LLM in its reasoning path. Everything that
+reasons inside it — the language, the intermediate representation, the interpreters, the evidence model,
+the search, the minimiser, the archive and the replay — is implemented in this repository. The agent layer
+above it is model-backed behind a provider boundary (`aporia-agent`): the provider can be a scripted
+transcript, a local OpenAI-compatible endpoint, or a future implementation, and the record names which one
+ran. The instrument the agent calls stays deterministic and replayable.
+
+## The agent workflow
+
+```sh
+aporia investigate <project> --objective "…" --provider scripted:<transcript>|http://host:port/v1 \
+    [--model NAME] [--approve] [--allow-exec PROGRAM]… [--workdir DIR]
+aporia investigate report <investigation-dir>
+```
+
+It inspects the project into numbered facts, asks the model for gaps and an ordered plan, prints the plan
+and refuses to run it without approval, executes only the approved tasks in a sandbox copy, gives the
+model the recorded results (not the original project) to interpret, and writes a hash-chained journal, a
+host-generated report and a manifest. Findings must cite recorded evidence ids. `report` verifies the
+record without executing anything. A scripted provider is labelled as one; a budget that runs out is an
+incomplete record, not a conclusion.
+
+The full contract — exit codes, permissions, record layout, what is not guaranteed — is in
+[documentation/agent-workflow.md](documentation/agent-workflow.md). A demonstration on the corpus entry
+`aerospace/projectile_sign_mutant` is in
+[software/examples/investigate](software/examples/investigate/README.md).
+
+The research question below belongs to the instrument, not to the agent: it is a measured claim about the
+Trust Atlas, and the agent does not change the evidence model it uses.
 
 ## The research question
 
@@ -101,16 +132,25 @@ software/crates/
                     comparison, verdict, explanation
   aporia-adapter    the external-computation boundary: a child program, its line protocol, its
                     failure modes, and an example solver to copy
+  aporia-sandbox    the isolated investigation workspace: a complete copy with a digest per file,
+                    path containment, argv-only execution, timeouts, output caps and a scrubbed
+                    environment
+  aporia-agent      the application layer: inspect, plan validation and evidence grounding, the
+                    provider boundary (scripted and local HTTP), the orchestrator, the hash-chained
+                    investigation journal and the host-generated report
   aporia-cli        the command line: `aporia run <model.ap>` (optionally `--program`, `--archive`),
-                    `aporia replay`, `aporia report`, `aporia compare`, `aporia bench`
+                    `aporia replay`, `aporia report`, `aporia compare`, `aporia bench`, and
+                    `aporia investigate`
 software/benchmarks/  35 corpus entries with declared ground truth, the frozen protocol files the
                     experiments read before they run, and the committed measurements
 software/examples/    external programs in other languages and the models they answer for —
-                      `beam.py` (Python 3, standard library only) and `beam.ap`
+                      `beam.py` (Python 3, standard library only), `beam.ap`, and a human-authored
+                      investigation transcript for the first end-to-end demonstration
 software/scripts/     dev-env, test runner, lint gate, and the gate that build-verifies every
                       committed tree
-documentation/        architecture, adapter protocol, reproducibility, portability, prior work,
-                      contributor guide, limitations — the developer-facing docs, tracked and public
+documentation/        product charter, agent workflow, architecture, adapter protocol,
+                      reproducibility, portability, prior work, contributor guide, limitations —
+                      the developer-facing docs, tracked and public
 ```
 
 ## Build and run
