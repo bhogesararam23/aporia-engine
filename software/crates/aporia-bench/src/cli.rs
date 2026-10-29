@@ -928,13 +928,13 @@ pub fn archive_namespace_guard(
             ) {
                 (None, _) => {
                     return Err(format!(
- "{} holds an archive that records no measurement identity: it predates the point at which an archive could name the measurement it belongs to, so nothing here can prove this run would reproduce it rather than replace it. Pass --archive DIR to give this experiment its own namespace.",
+                        "{} holds an archive that records no measurement identity: it predates the point at which an archive could name the measurement it belongs to, so nothing here can prove this run would reproduce it rather than replace it. Pass --archive DIR to give this experiment its own namespace.",
                         dir.display()
                     ));
                 }
                 (Some(w), Some(p)) if w != p => {
                     return Err(format!(
- "{} belongs to measurement {w}, and this run is measurement {p}. A directory name carries the entry, the strategy, the seed and the axes an arm states, not the experiment, so this is where two protocols that share those five are told apart. Pass --archive DIR.",
+                        "{} belongs to measurement {w}, and this run is measurement {p}. A directory name carries the entry, the strategy, the seed and the axes an arm states, not the experiment, so this is where two protocols that share those five are told apart. Pass --archive DIR.",
                         dir.display()
                     ));
                 }

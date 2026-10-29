@@ -158,7 +158,7 @@ fn a_directory_that_belongs_to_another_measurement_is_refused_by_both_identities
     assert_eq!(
         archive_name(&e, &foreign, Strategy::Adaptive, foreign.seeds[0]),
         archive_name(&e, &ours, Strategy::Adaptive, ours.seeds[0]),
- "if these names differed there would be no collision to refuse, and the test would be about nothing"
+        "if these names differed there would be no collision to refuse, and the test would be about nothing"
     );
     let at = plant(&dir, &foreign, Some(&foreign_identity));
     let error = aporia_bench::cli::archive_namespace_guard(&ours, &entries)
