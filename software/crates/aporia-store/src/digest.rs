@@ -38,42 +38,94 @@ pub fn sha256_hex(data: &[u8]) -> String {
 }
 
 /// SHA-256 of a byte string.
-#[expect(
-    clippy::unreadable_literal,
-    reason = "the initial state vector is transcribed from FIPS 180-4, same as the round constants"
-)]
 #[must_use]
 pub fn sha256(data: &[u8]) -> [u8; 32] {
-    let mut h: [u32; 8] = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
-        0x5be0cd19,
-    ];
-    let mut block = [0u8; 64];
-    let len = data.len();
-    let mut pos = 0;
-    // Process whole blocks, then pad the last one with the length in bits, big-endian.
-    while len - pos >= 64 {
-        block.copy_from_slice(&data[pos..pos + 64]);
-        compress(&mut h, &block);
-        pos += 64;
-    }
-    let tail = &data[pos..];
-    block = [0u8; 64];
-    block[..tail.len()].copy_from_slice(tail);
-    block[tail.len()] = 0x80;
-    if tail.len() >= 56 {
-        compress(&mut h, &block);
-        block = [0u8; 64];
-    }
-    let bits = (len as u64) * 8;
-    block[56..].copy_from_slice(&bits.to_be_bytes());
-    compress(&mut h, &block);
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    hasher.finish()
+}
 
-    let mut out = [0u8; 32];
-    for (i, word) in h.iter().enumerate() {
-        out[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
+/// The same SHA-256, fed in pieces.
+///
+/// The sandbox hashes a child process's whole output stream while retaining only a prefix of it.
+/// A one-shot function would make the recorded digest depend on the display cap, which is exactly
+/// the kind of measurement that must not move when a limit moves.
+#[derive(Clone, Debug)]
+pub struct Sha256 {
+    state: [u32; 8],
+    block: [u8; 64],
+    filled: usize,
+    len: u64,
+}
+
+impl Default for Sha256 {
+    fn default() -> Self {
+        Self::new()
     }
-    out
+}
+
+impl Sha256 {
+    #[expect(
+        clippy::unreadable_literal,
+        reason = "the initial state vector is transcribed from FIPS 180-4, same as the round constants"
+    )]
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            state: [
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+                0x5be0cd19,
+            ],
+            block: [0u8; 64],
+            filled: 0,
+            len: 0,
+        }
+    }
+
+    /// Feed bytes. Any chunking produces the same digest as one call with the concatenation.
+    pub fn update(&mut self, mut data: &[u8]) {
+        self.len = self.len.wrapping_add(data.len() as u64);
+        if self.filled > 0 {
+            let take = (64 - self.filled).min(data.len());
+            self.block[self.filled..self.filled + take].copy_from_slice(&data[..take]);
+            self.filled += take;
+            data = &data[take..];
+            if self.filled == 64 {
+                compress(&mut self.state, &self.block);
+                self.filled = 0;
+            }
+        }
+        while data.len() >= 64 {
+            let mut whole = [0u8; 64];
+            whole.copy_from_slice(&data[..64]);
+            compress(&mut self.state, &whole);
+            data = &data[64..];
+        }
+        if !data.is_empty() {
+            self.block[..data.len()].copy_from_slice(data);
+            self.filled = data.len();
+        }
+    }
+
+    /// Pad with `0x80`, zeros, and the bit length; return the digest.
+    #[must_use]
+    pub fn finish(mut self) -> [u8; 32] {
+        let bits = self.len.wrapping_mul(8);
+        self.block[self.filled] = 0x80;
+        self.block[self.filled + 1..].fill(0);
+        if self.filled >= 56 {
+            compress(&mut self.state, &self.block);
+            self.block = [0u8; 64];
+        }
+        self.block[56..].copy_from_slice(&bits.to_be_bytes());
+        compress(&mut self.state, &self.block);
+
+        let mut out = [0u8; 32];
+        for (i, word) in self.state.iter().enumerate() {
+            out[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
+        }
+        out
+    }
 }
 
 fn compress(h: &mut [u32; 8], block: &[u8; 64]) {
@@ -161,5 +213,21 @@ mod tests {
     #[test]
     fn different_inputs_give_different_digests() {
         assert_ne!(sha256_hex(b"model x { }"), sha256_hex(b"model y { }"));
+    }
+
+    #[test]
+    fn streaming_and_one_shot_agree_across_block_boundaries() {
+        // The sandbox hashes a whole child-process stream while retaining at most a prefix of it.
+        // If the streaming form disagreed with the one-shot form, the recorded digest would depend
+        // on the output cap -- a measurement that changes when a display limit changes.
+        for len in [0usize, 1, 55, 56, 63, 64, 65, 119, 120, 128, 1000] {
+            let data: Vec<u8> = (0..len).map(|i| (i % 251) as u8).collect();
+            let mut streamed = Sha256::new();
+            for chunk in data.chunks(7) {
+                streamed.update(chunk);
+            }
+            assert_eq!(streamed.finish(), sha256(&data), "length {len}");
+        }
+        assert_eq!(Sha256::new().finish(), sha256(&[]));
     }
 }

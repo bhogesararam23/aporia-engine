@@ -51,6 +51,14 @@ pub enum Exit {
     /// asked at all -- regions from different parameter spaces, for instance. Not `Clean`, because a
     /// comparison that was not completed has not found the pair to be the same.
     Incomplete,
+    /// `aporia investigate`: the plan was printed and refused, or approval was unavailable.
+    Refused,
+    /// `aporia investigate`: the provider or the orchestrator could not finish the investigation.
+    Provider,
+    /// `aporia investigate`: the budget ran out before a delivery; the record is incomplete.
+    Budget,
+    /// `aporia investigate`: the record could not be written.
+    Record,
 }
 
 impl Exit {
@@ -67,6 +75,10 @@ impl Exit {
             Self::Archive => 7,
             Self::Differing => 8,
             Self::Incomplete => 9,
+            Self::Refused => 10,
+            Self::Provider => 11,
+            Self::Budget => 12,
+            Self::Record => 13,
         }
     }
 }

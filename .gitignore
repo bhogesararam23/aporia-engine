@@ -44,3 +44,9 @@
 .DS_Store
 Thumbs.db
 *.log
+
+# Default investigation records. They are persistent local evidence, not source: the report names
+# the source revision, the journal can be re-read and verified, and a rerun produces a new record
+# rather than the same bytes.
+/.aporia/
+/**/.aporia/

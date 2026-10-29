@@ -1,0 +1,21 @@
+[package]
+name = "aporia-agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The agent application layer: model-provider boundary, investigation planning, evidence-grounded orchestration, and the tamper-evident record."
+
+[dependencies]
+aporia-sandbox = { path = "../aporia-sandbox" }
+aporia-store = { path = "../aporia-store" }
+
+# The child `tests/execute.rs` uses to observe a completed task, a missing archive and a timeout.
+[[bin]]
+name = "agent-fixture"
+path = "src/bin/agent_fixture.rs"
+
+[lints]
+workspace = true

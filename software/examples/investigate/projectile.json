@@ -1,0 +1,78 @@
+{
+  "note": "Human-authored transcript for the first end-to-end demonstration. No model was consulted. F3 is the model.ap fact produced by inspecting software/benchmarks/aerospace/projectile_sign_mutant at the time this file was written; if the project changes, the plan must be rewritten rather than silently accepted.",
+  "responses": [
+    {
+      "tool_calls": [
+        {
+          "id": "call-1",
+          "name": "propose_plan",
+          "arguments": {
+            "gaps": [
+              {
+                "id": "G1",
+                "title": "The model's declared rule has no recorded run in this investigation",
+                "priority": "high",
+                "why": "The project contains a scientific model and a declared rule, but this investigation holds no archived evidence of where that rule stops holding.",
+                "condition": "The objective is to locate the rule's boundary, and no recorded run of the model exists yet.",
+                "evidence": ["F3"]
+              }
+            ],
+            "tasks": [
+              {
+                "id": "T1",
+                "title": "Run the trust atlas on the projectile model",
+                "question": "Where does the declared r >= 0 rule stop holding under the instrument's evidence model?",
+                "gap_ids": ["G1"],
+                "depends_on": [],
+                "method": "Run the existing instrument on model.ap with a small budget and archive the result.",
+                "tool": "instrument_run",
+                "arguments": {
+                  "model": "model.ap",
+                  "budget": 80
+                },
+                "expected_evidence": "The instrument's archived atlas and its report of the violated rule.",
+                "success_criteria": "The instrument exits and writes an archive whose manifest is recorded.",
+                "estimated_cost": "80 evaluations, well under a minute on this machine.",
+                "risk": "The sample is small; the reported region may be coarser than a larger run would find."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tool_calls": [
+        {
+          "id": "call-2",
+          "name": "record_finding",
+          "arguments": {
+            "kind": "observation",
+            "severity": "high",
+            "text": "The instrument ran the corpus model for 80 evaluations and its own report names a violated r >= 0 region. This finding repeats what the recorded stdout says; it does not independently verify the boundary.",
+            "evidence": ["F3", "R1"],
+            "uncertainty": "One budget and one run; the atlas is the instrument's own output and has not been replayed in a second run."
+          }
+        }
+      ]
+    },
+    {
+      "tool_calls": [
+        {
+          "id": "call-3",
+          "name": "finish",
+          "arguments": {
+            "summary": "The instrument ran in the sandbox copy and wrote a replayable archive. The recorded finding is the instrument's report of a violated rule, not a new claim by the agent.",
+            "next_steps": [
+              "Replay the archive with `aporia replay workspace/archives/T1` before sharing the region.",
+              "Run a second budget to see whether the reported region is stable."
+            ],
+            "unresolved": [
+              "The run used one budget (80 evaluations) and one seed.",
+              "No patch or independent numerical check was applied."
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

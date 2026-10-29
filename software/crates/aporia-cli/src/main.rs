@@ -6,6 +6,8 @@
 //! aporia replay <archive-dir>                   check an archive, then reproduce its run
 //! aporia report <archive-dir>                   print a stored run without executing anything
 //! aporia compare <dir-a> <dir-b>                say what differs between two stored runs
+//! aporia investigate <project> --objective ...  inspect, plan, approve and run in a sandbox copy
+//! aporia investigate report <dir>               verify and print a finished investigation
 //! aporia bench <command> [flags]                the measurement harness, forwarded to aporia-bench
 //! aporia help | --version                       this text, or which build this is
 //! ```
@@ -20,10 +22,12 @@
 //! reported SUSPICIOUS regions, `2` bad usage, `3` the model could not be read, compiled or verified,
 //! `4` the program stopped answering and the map is incomplete, `5` archive integrity failure, `6`
 //! archive intact but the run did not reproduce, `7` the run finished and the archive could not be
-//! written, `8` the two archives differ, `9` the two archives agree on everything comparable.
+//! written, `8` the two archives differ, `9` the two archives agree on everything comparable. The
+//! agent command adds `10` plan refused, `11` provider failure, `12` budget exhausted (record
+//! incomplete) and `13` the record could not be written.
 
 use aporia_cli::run::Exit;
-use aporia_cli::{bench, compare, replay, report, run};
+use aporia_cli::{bench, compare, investigate, replay, report, run};
 use aporia_search::Config;
 use std::path::PathBuf;
 
@@ -48,6 +52,12 @@ fn usage() -> &'static str {
      \x20     compared, and the counts — the text form prints only what moved\n\
      \x20 bench <command> [flags]    the measurement harness: list, verify, audit, reach, run,\n\
      \x20                            verdict, scan, explain, e2 (bare `bench` shows its own usage)\n\
+     \x20 investigate <project> --objective TEXT --provider PROVIDER\n\
+     \x20     [--model NAME] [--workdir DIR] [--approve] [--allow-exec PROGRAM]...\n\
+     \x20     [--max-turns N] [--max-tool-calls N] [--timeout MS]\n\
+     \x20     inspect, propose an evidence-backed plan, and run the approved tasks in a\n\
+     \x20     sandbox copy. PROVIDER is scripted:<transcript.json> or http://host:port/v1.\n\
+     \x20 investigate report <dir>  verify and print a finished investigation\n\
      \x20 help                        show this text\n\
      \x20 version                     which build of aporia this is\n\
      exit: 0 clean (or archives identical), 1 suspicious regions reported, 2 usage,\n\
@@ -55,7 +65,8 @@ fn usage() -> &'static str {
      \x20     4 the program stopped answering (the map above is incomplete),\n\
      \x20     5 archive integrity failure, 6 archive intact but the run did not reproduce,\n\
      \x20     7 the run finished and the archive could not be written,\n\
-     \x20     8 the two archives differ, 9 the two archives agree on what could be compared\n"
+     \x20     8 the two archives differ, 9 the two archives agree on what could be compared,\n\
+     \x20     10 plan refused, 11 provider failure, 12 budget exhausted, 13 record write failure\n"
 }
 
 fn main() {
@@ -84,6 +95,11 @@ fn main() {
                 compare::command
             };
             two_directories("compare", &positional, read_it)
+        }
+        Some("investigate") => {
+            let mut out = std::io::stdout().lock();
+            let mut err = std::io::stderr().lock();
+            investigate::command(&args[1..], &mut out, &mut err)
         }
         Some("bench") => {
             let stdout = std::io::stdout();

@@ -1,0 +1,22 @@
+[package]
+name = "aporia-sandbox"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "The isolated investigation workspace: a complete source copy, path containment, and argv-only execution with time, output and environment limits."
+
+[dependencies]
+# Only for the workspace's one digest. The sandbox hashes a child's whole output stream while
+# retaining a prefix, so it needs the streaming form rather than a second implementation.
+aporia-store = { path = "../aporia-store" }
+
+# The child used by `tests/exec.rs` to observe a real process, a real timeout and a real output cap.
+[[bin]]
+name = "sandbox-fixture"
+path = "src/bin/sandbox_fixture.rs"
+
+[lints]
+workspace = true

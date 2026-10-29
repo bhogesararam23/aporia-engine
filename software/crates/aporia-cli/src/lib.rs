@@ -23,6 +23,7 @@
 pub mod archive;
 pub mod bench;
 pub mod compare;
+pub mod investigate;
 pub mod replay;
 pub mod report;
 pub mod run;
