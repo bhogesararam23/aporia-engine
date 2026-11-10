@@ -49,6 +49,9 @@ impl Tool for InstrumentRun {
         &self.meta
     }
 
+    // The instrument's contract is a sequence of checks followed by one execution and one
+    // archive check; splitting it would scatter the order the checks happen in.
+    #[allow(clippy::too_many_lines)]
     fn run(&self, context: &mut ToolContext, arguments: &Json) -> ToolResult {
         let fields = crate::json::fields(arguments).expect("validated object");
         let model = json::string(fields, "model")?.to_string();
@@ -100,7 +103,8 @@ impl Tool for InstrumentRun {
             archive.clone(),
         ])
         .with_timeout(INSTRUMENT_TIMEOUT_MS);
-        let outcome = exec_in_with_cancel(context.sandbox().root(), &spec, Some(context.cancel_flag()));
+        let outcome =
+            exec_in_with_cancel(context.sandbox().root(), &spec, Some(context.cancel_flag()));
         let data = Json::object(vec![
             ("model", Json::text(&model)),
             ("budget", Json::count(budget)),
@@ -174,7 +178,7 @@ fn archive_artifact(root: &Path, display: &str) -> Result<ArtifactRef, ToolFailu
             format!("the archive manifest cannot be read: {error}"),
         )
     })?;
-    let files = count_files(root)?;
+    let files = count_files(root);
     Ok(ArtifactRef {
         kind: "instrument_archive".to_string(),
         path: format!("workspace/{}", display.replace('\\', "/")),
@@ -183,7 +187,7 @@ fn archive_artifact(root: &Path, display: &str) -> Result<ArtifactRef, ToolFailu
     })
 }
 
-fn count_files(root: &Path) -> Result<u64, ToolFailure> {
+fn count_files(root: &Path) -> u64 {
     let mut count = 0u64;
     let mut stack = vec![root.to_path_buf()];
     while let Some(directory) = stack.pop() {
@@ -201,10 +205,10 @@ fn count_files(root: &Path) -> Result<u64, ToolFailure> {
             if kind.is_file() {
                 count += 1;
                 if count >= MAX_ARCHIVE_FILES {
-                    return Ok(count);
+                    return count;
                 }
             }
         }
     }
-    Ok(count)
+    count
 }

@@ -74,6 +74,9 @@ impl Tool for RunCommand {
         &self.meta
     }
 
+    // One linear sequence of checks and one execution; splitting it would hide the order in
+    // which the permissions are consulted.
+    #[allow(clippy::too_many_lines)]
     fn run(&self, context: &mut ToolContext, arguments: &Json) -> ToolResult {
         let fields = crate::json::fields(arguments).expect("validated object");
         let argv = json::string_array(fields, "argv")?;
@@ -111,10 +114,9 @@ impl Tool for RunCommand {
 
         let working_directory = match json::optional_string(fields, "cwd")? {
             Some(cwd) => {
-                let resolved = context
-                    .sandbox()
-                    .resolve(cwd)
-                    .map_err(|error| ToolFailure::new(ErrorClass::Denied, format!("{cwd}: {error}")))?;
+                let resolved = context.sandbox().resolve(cwd).map_err(|error| {
+                    ToolFailure::new(ErrorClass::Denied, format!("{cwd}: {error}"))
+                })?;
                 if !resolved.is_dir() {
                     return Err(ToolFailure::new(
                         ErrorClass::NotFound,
@@ -127,7 +129,8 @@ impl Tool for RunCommand {
         };
 
         let timeout_ms = json::optional_u64(fields, "timeout_ms")?.unwrap_or(DEFAULT_TIMEOUT_MS);
-        let output_limit = json::optional_u64(fields, "output_limit")?.unwrap_or(DEFAULT_OUTPUT_LIMIT);
+        let output_limit =
+            json::optional_u64(fields, "output_limit")?.unwrap_or(DEFAULT_OUTPUT_LIMIT);
         let mut spec = ExecSpec::new(argv.clone())
             .with_timeout(timeout_ms.min(MAX_TIMEOUT_MS))
             .with_output_limit(output_limit.min(MAX_OUTPUT_LIMIT))
@@ -138,20 +141,14 @@ impl Tool for RunCommand {
 
         let outcome = exec_in_with_cancel(&working_directory, &spec, Some(context.cancel_flag()));
         let mut data = Json::object(vec![
+            ("argv", Json::Arr(argv.iter().map(Json::text).collect())),
             (
-                "argv",
-                Json::Arr(argv.iter().map(Json::text).collect()),
+                "cwd",
+                Json::text(working_directory.to_string_lossy().to_string()),
             ),
-            ("cwd", Json::text(working_directory.to_string_lossy().to_string())),
             ("duration_ms", Json::count(outcome.duration_ms)),
-            (
-                "stdout_sha256",
-                Json::text(outcome.stdout.sha256.clone()),
-            ),
-            (
-                "stderr_sha256",
-                Json::text(outcome.stderr.sha256.clone()),
-            ),
+            ("stdout_sha256", Json::text(outcome.stdout.sha256.clone())),
+            ("stderr_sha256", Json::text(outcome.stderr.sha256.clone())),
             ("stdout_bytes", Json::count(outcome.stdout.bytes)),
             ("stderr_bytes", Json::count(outcome.stderr.bytes)),
         ]);
@@ -159,7 +156,10 @@ impl Tool for RunCommand {
         match outcome.status {
             ExecStatus::Completed => {
                 let code = outcome.exit_code.unwrap_or(-1);
-                data = merge(data, Json::object(vec![("exit_code", Json::count(code.max(0) as u64))]));
+                data = merge(
+                    data,
+                    Json::object(vec![("exit_code", Json::count(code.max(0) as u64))]),
+                );
                 if code == 0 {
                     let mut text = String::new();
                     let _ = writeln!(
@@ -238,9 +238,7 @@ fn extra_environment(fields: &json::Fields) -> Result<Vec<(String, String)>, Too
     }
     let mut out = Vec::new();
     for (name, value) in entries {
-        if !name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
             || name.is_empty()
             || name.starts_with(|c: char| c.is_ascii_digit())
         {
@@ -281,9 +279,9 @@ fn declared_artifacts(
     let Some(value) = json::field(fields, "artifacts") else {
         return Ok(Vec::new());
     };
-    let paths = value
-        .as_array()
-        .ok_or_else(|| ToolFailure::new(ErrorClass::InvalidArguments, "artifacts must be an array"))?;
+    let paths = value.as_array().ok_or_else(|| {
+        ToolFailure::new(ErrorClass::InvalidArguments, "artifacts must be an array")
+    })?;
     if paths.len() > MAX_ARTIFACTS {
         return Err(ToolFailure::new(
             ErrorClass::InvalidArguments,
@@ -317,7 +315,7 @@ fn declared_artifacts(
 /// the files inside it.
 fn describe_artifact(path: &Path, display: &str) -> ArtifactRef {
     let metadata = fs::metadata(path).ok();
-    if metadata.as_ref().is_some_and(|meta| meta.is_file()) {
+    if metadata.as_ref().is_some_and(fs::Metadata::is_file) {
         let bytes = fs::read(path).unwrap_or_default();
         return ArtifactRef {
             kind: "file".to_string(),
@@ -347,10 +345,10 @@ fn describe_artifact(path: &Path, display: &str) -> ArtifactRef {
             }
             let bytes = fs::read(&child).unwrap_or_default();
             total += bytes.len() as u64;
-            let name = child
-                .strip_prefix(path)
-                .map(|relative| relative.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_else(|_| child.to_string_lossy().to_string());
+            let name = child.strip_prefix(path).map_or_else(
+                |_| child.to_string_lossy().to_string(),
+                |relative| relative.to_string_lossy().replace('\\', "/"),
+            );
             files.push((name, sha256_hex(&bytes)));
         }
     }
@@ -368,7 +366,11 @@ fn describe_artifact(path: &Path, display: &str) -> ArtifactRef {
 }
 
 fn excerpt(stderr: &str, stdout: &str) -> String {
-    let source = if stderr.trim().is_empty() { stdout } else { stderr };
+    let source = if stderr.trim().is_empty() {
+        stdout
+    } else {
+        stderr
+    };
     let trimmed = source.trim_end();
     if trimmed.len() <= EXCERPT {
         return trimmed.to_string();

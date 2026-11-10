@@ -44,8 +44,9 @@ fn read_result(context: &ToolContext, name: &str) -> Result<Json, ToolFailure> {
             format!("`{name}` is over 1 MiB; result reading supports files up to 1 MiB"),
         ));
     }
-    let text = fs::read_to_string(&path)
-        .map_err(|error| ToolFailure::new(ErrorClass::Io, format!("cannot read `{name}`: {error}")))?;
+    let text = fs::read_to_string(&path).map_err(|error| {
+        ToolFailure::new(ErrorClass::Io, format!("cannot read `{name}`: {error}"))
+    })?;
     Json::parse(&text).map_err(|error| {
         ToolFailure::new(
             ErrorClass::Unsupported,
@@ -193,7 +194,10 @@ fn compare(left: &Json, right: &Json, path: &str, out: &mut Vec<Difference>) {
             for name in names {
                 let child = format!("{path}.{name}");
                 match (
-                    left_fields.iter().find(|(key, _)| key == name).map(|(_, value)| value),
+                    left_fields
+                        .iter()
+                        .find(|(key, _)| key == name)
+                        .map(|(_, value)| value),
                     right_fields
                         .iter()
                         .find(|(key, _)| key == name)

@@ -50,11 +50,7 @@ fn program_dir(temp: &Temp) -> PathBuf {
     } else {
         "agent-fixture"
     };
-    fs::copy(
-        env!("CARGO_BIN_EXE_agent-fixture"),
-        dir.join(name),
-    )
-    .expect("copy the fixture");
+    fs::copy(env!("CARGO_BIN_EXE_agent-fixture"), dir.join(name)).expect("copy the fixture");
     dir
 }
 
