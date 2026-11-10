@@ -636,7 +636,7 @@ impl Engine {
             calls: self.calls,
             findings: &self.investigation.findings,
             experiments,
-            changes: &[],
+            changes: &self.investigation.changes,
             failure: self.failure.as_deref(),
             root: self.record.root(),
         }

@@ -380,6 +380,8 @@ pub struct Investigation {
     pub pending_approval: Option<ApprovalRequest>,
     /// The model's closing delivery.
     pub delivery: Option<Delivery>,
+    /// Every change the agent made in the workspace, with the digests before and after.
+    pub changes: Vec<FileChange>,
     pub turns: u64,
     pub calls: u64,
 }
@@ -521,6 +523,10 @@ impl Investigation {
             (
                 "delivery",
                 self.delivery.as_ref().map_or(Json::Null, Delivery::to_json),
+            ),
+            (
+                "changes",
+                Json::Arr(self.changes.iter().map(FileChange::to_json).collect()),
             ),
             ("turns", Json::count(self.turns)),
             ("calls", Json::count(self.calls)),
