@@ -146,6 +146,9 @@ impl Event {
 
     /// The payload written under the kind.
     #[must_use]
+    #[allow(clippy::too_many_lines)]
+    // One flat table from variant to payload: splitting it would scatter the contract it exists
+    // to keep in one place.
     pub fn payload(&self) -> Json {
         match self {
             Self::SessionStarted {
@@ -282,6 +285,8 @@ mod tests {
     use super::*;
     use std::collections::BTreeSet;
 
+    #[allow(clippy::too_many_lines)]
+    // The fixture's purpose is to enumerate every variant; a shorter list would test less.
     fn samples() -> Vec<Event> {
         vec![
             Event::SessionStarted {
