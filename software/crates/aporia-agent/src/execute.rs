@@ -168,6 +168,7 @@ fn status_text(status: &ExecStatus) -> String {
         ExecStatus::Completed => "completed",
         ExecStatus::LaunchFailed(_) => "launch_failed",
         ExecStatus::Timeout => "timeout",
+        ExecStatus::Cancelled => "cancelled",
     }
     .to_string()
 }

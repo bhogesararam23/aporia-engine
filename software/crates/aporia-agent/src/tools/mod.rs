@@ -6,17 +6,21 @@
 //! the permission check before it runs. A command written in prose is not a command that runs:
 //! dispatch is the only path from a model request to an effect.
 
+pub mod command;
+
 pub mod context;
 pub mod files;
+pub mod instrument;
 pub mod intel;
 pub mod invocations;
 pub mod meta;
 pub mod registry;
 pub mod result;
+pub mod results;
 pub mod schema;
 pub mod source_git;
 
-pub use context::ToolContext;
+pub use context::{Session, ToolContext};
 pub use invocations::{Begin, InvocationTable};
 pub use meta::ToolMeta;
 pub use registry::Registry;

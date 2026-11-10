@@ -105,6 +105,10 @@ impl Tool for SourceGit {
                 ErrorClass::Timeout,
                 "git did not answer within 10 seconds",
             )),
+            ExecStatus::Cancelled => Err(ToolFailure::new(
+                ErrorClass::Cancelled,
+                "the git query was cancelled",
+            )),
             ExecStatus::Completed => {
                 let code = outcome.exit_code.unwrap_or(-1);
                 if code != 0 {
