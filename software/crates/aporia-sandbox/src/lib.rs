@@ -18,5 +18,7 @@ pub mod exec;
 pub mod path;
 
 pub use copy::{CopyLimits, CopyReport, FileRecord, IGNORED_DIRS, Sandbox, SandboxError};
-pub use exec::{Captured, ExecOutcome, ExecSpec, ExecStatus, exec_in, is_sensitive_env};
+pub use exec::{
+    Captured, ExecOutcome, ExecSpec, ExecStatus, exec_in, exec_in_with_cancel, is_sensitive_env,
+};
 pub use path::PathError;

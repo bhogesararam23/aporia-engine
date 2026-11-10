@@ -14,6 +14,7 @@ use std::fmt::Write as _;
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, Command, ExitStatus, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -34,6 +35,9 @@ pub struct ExecSpec {
     pub output_limit: u64,
     /// Extra variables for this child, applied after the inherited environment is scrubbed.
     pub env: Vec<(String, String)>,
+    /// When set, the child inherits ONLY these names (still minus credential-shaped ones).
+    /// `None` keeps the name-policy scrub, which is what the first slice's tasks use.
+    pub env_allowlist: Option<Vec<String>>,
 }
 
 impl ExecSpec {
@@ -44,6 +48,7 @@ impl ExecSpec {
             timeout_ms: 120_000,
             output_limit: DEFAULT_OUTPUT_LIMIT,
             env: Vec::new(),
+            env_allowlist: None,
         }
     }
 
@@ -64,6 +69,12 @@ impl ExecSpec {
         self.env.push((key.to_string(), value.to_string()));
         self
     }
+
+    #[must_use]
+    pub fn with_env_allowlist(mut self, names: Vec<String>) -> Self {
+        self.env_allowlist = Some(names);
+        self
+    }
 }
 
 /// The outcome of a process that was launched.
@@ -75,6 +86,8 @@ pub enum ExecStatus {
     LaunchFailed(String),
     /// The deadline passed and the process was killed.
     Timeout,
+    /// The caller's cancellation flag was set and the process was killed.
+    Cancelled,
 }
 
 /// One captured stream: a retained prefix, a count and a digest of everything read.
@@ -167,6 +180,31 @@ where
         .collect()
 }
 
+/// What the child inherits: with an allowlist, only those names (minus credential-shaped ones,
+/// which are refused even if listed); without one, the name-policy scrub the first slice uses.
+fn inherited_environment<I>(vars: I, allowlist: Option<&[String]>) -> Vec<(String, String)>
+where
+    I: IntoIterator<Item = (String, String)>,
+{
+    match allowlist {
+        None => retained_environment(vars),
+        Some(list) => vars
+            .into_iter()
+            .filter(|(name, _)| {
+                !is_sensitive_env(name) && list.iter().any(|allowed| env_name_eq(allowed, name))
+            })
+            .collect(),
+    }
+}
+
+fn env_name_eq(left: &str, right: &str) -> bool {
+    if cfg!(windows) {
+        left.eq_ignore_ascii_case(right)
+    } else {
+        left == right
+    }
+}
+
 fn drain(mut reader: impl Read + Send + 'static, limit: u64, state: Arc<Mutex<CaptureState>>) {
     // One thread per pipe: `read` has no timeout and a programme that waits is a normal thing.
     thread::spawn(move || {
@@ -226,6 +264,18 @@ impl crate::copy::Sandbox {
 /// limits, not the permission.
 #[must_use]
 pub fn exec_in(directory: &Path, spec: &ExecSpec) -> ExecOutcome {
+    exec_in_with_cancel(directory, spec, None)
+}
+
+/// The same execution with a cancellation flag. When the flag is set, the direct child is killed
+/// and the outcome says `Cancelled`. Descendants are not tracked: a grandchild can survive the
+/// kill, which is why draining has its own deadline -- the same limitation the timeout has.
+#[must_use]
+pub fn exec_in_with_cancel(
+    directory: &Path,
+    spec: &ExecSpec,
+    cancel: Option<&AtomicBool>,
+) -> ExecOutcome {
     let started = Instant::now();
     if spec.argv.is_empty() {
         return failure("the command line is empty".to_string(), started, true);
@@ -249,18 +299,17 @@ pub fn exec_in(directory: &Path, spec: &ExecSpec) -> ExecOutcome {
     // whose first launch is delayed by a policy verdict could report a 5-second child as having
     // no timeout at all, because the launch itself had already spent the budget.
     let deadline = spawned + Duration::from_millis(spec.timeout_ms.max(1));
-    let (exit_status, timed_out) = match wait_for(&mut child, deadline) {
-        Ok(result) => result,
-        Err(reason) => return failure(reason, started, false),
+    let ended = wait_for(&mut child, deadline, cancel);
+    let (exit_status, status) = match ended {
+        WaitEnd::Exited(status) => (Some(status), ExecStatus::Completed),
+        WaitEnd::TimedOut => (None, ExecStatus::Timeout),
+        WaitEnd::Cancelled => (None, ExecStatus::Cancelled),
+        WaitEnd::Failed(reason) => return failure(reason, started, false),
     };
     let (stdout, stderr, complete) = finish_capture(&stdout_state, &stderr_state);
 
     ExecOutcome {
-        status: if timed_out {
-            ExecStatus::Timeout
-        } else {
-            ExecStatus::Completed
-        },
+        status,
         exit_code: exit_status.and_then(|status| status.code()),
         duration_ms: elapsed(started),
         stdout,
@@ -277,7 +326,11 @@ fn spawn(directory: &Path, spec: &ExecSpec) -> Result<Child, String> {
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    for (name, value) in retained_environment(std::env::vars()) {
+    // The child starts from an empty environment. Without this the child inherits everything the
+    // parent has -- including provider credentials -- and the scrub below only ever overrode
+    // names, so the promise of a scrubbed environment was not kept.
+    command.env_clear();
+    for (name, value) in inherited_environment(std::env::vars(), spec.env_allowlist.as_deref()) {
         command.env(name, value);
     }
     for (name, value) in &spec.env {
@@ -289,22 +342,34 @@ fn spawn(directory: &Path, spec: &ExecSpec) -> Result<Child, String> {
         .map_err(|error| format!("cannot start `{}`: {error}", spec.argv[0]))
 }
 
-fn wait_for(child: &mut Child, deadline: Instant) -> Result<(Option<ExitStatus>, bool), String> {
+enum WaitEnd {
+    Exited(ExitStatus),
+    TimedOut,
+    Cancelled,
+    Failed(String),
+}
+
+fn wait_for(child: &mut Child, deadline: Instant, cancel: Option<&AtomicBool>) -> WaitEnd {
     loop {
+        if cancel.is_some_and(|flag| flag.load(Ordering::SeqCst)) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return WaitEnd::Cancelled;
+        }
         match child.try_wait() {
-            Ok(Some(status)) => return Ok((Some(status), false)),
+            Ok(Some(status)) => return WaitEnd::Exited(status),
             Ok(None) => {
                 if Instant::now() >= deadline {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return Ok((None, true));
+                    return WaitEnd::TimedOut;
                 }
                 thread::sleep(Duration::from_millis(5));
             }
             Err(error) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(format!("cannot wait for the child: {error}"));
+                return WaitEnd::Failed(format!("cannot wait for the child: {error}"));
             }
         }
     }
@@ -370,5 +435,34 @@ mod tests {
             vec!["PATH", "CARGO_HOME"],
             "the filter kept or dropped the wrong names"
         );
+    }
+
+    #[test]
+    fn an_allowlist_keeps_only_listed_names_and_still_refuses_credentials() {
+        let vars = vec![
+            ("PATH".to_string(), "/bin".to_string()),
+            ("HOME".to_string(), "/home/user".to_string()),
+            ("OPENAI_API_KEY".to_string(), "sk-secret".to_string()),
+            ("LANG".to_string(), "C".to_string()),
+        ];
+        let allowlist = vec![
+            "PATH".to_string(),
+            "LANG".to_string(),
+            "OPENAI_API_KEY".to_string(),
+        ];
+        let kept = inherited_environment(vars, Some(&allowlist));
+        let names: Vec<&str> = kept.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, vec!["PATH", "LANG"]);
+    }
+
+    #[test]
+    fn no_allowlist_keeps_the_name_policy_scrub() {
+        let vars = vec![
+            ("PATH".to_string(), "/bin".to_string()),
+            ("MY_SECRET".to_string(), "hunter2".to_string()),
+        ];
+        let kept = inherited_environment(vars, None);
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].0, "PATH");
     }
 }

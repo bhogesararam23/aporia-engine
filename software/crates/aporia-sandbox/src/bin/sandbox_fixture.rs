@@ -36,6 +36,13 @@ fn main() {
                 Err(_) => println!("ABSENT"),
             }
         }
+        Some("env") => {
+            let mut names: Vec<String> = std::env::vars().map(|(name, _)| name).collect();
+            names.sort();
+            for name in names {
+                println!("{name}");
+            }
+        }
         Some("cwd") => {
             println!("{}", std::env::current_dir().expect("cwd").display());
         }

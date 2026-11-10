@@ -213,3 +213,64 @@ fn credential_shaped_names_are_refused_the_environment() {
         assert!(!is_sensitive_env(name), "{name} was wrongly scrubbed");
     }
 }
+
+#[test]
+fn a_cancelled_run_kills_the_child_and_says_cancelled() {
+    let (_temp, sandbox) = sandbox();
+    let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = std::sync::Arc::clone(&cancel);
+    let setter = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        flag.store(true, Ordering::SeqCst);
+    });
+    let spec = ExecSpec::new(vec![
+        fixture().to_string(),
+        "sleep".to_string(),
+        "10000".to_string(),
+    ]);
+    let started = std::time::Instant::now();
+    let outcome = aporia_sandbox::exec_in_with_cancel(sandbox.root(), &spec, Some(&cancel));
+    setter.join().expect("setter");
+    assert_eq!(outcome.status, ExecStatus::Cancelled, "{outcome:?}");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "the child was not killed promptly"
+    );
+}
+
+#[test]
+fn an_allowlisted_child_sees_only_listed_inherited_variables() {
+    let (_temp, sandbox) = sandbox();
+    let spec = ExecSpec::new(vec![fixture().to_string(), "env".to_string()])
+        .with_env_allowlist(vec!["PATH".to_string()]);
+    let outcome = sandbox.exec(&spec);
+    assert_eq!(outcome.status, ExecStatus::Completed, "{outcome:?}");
+    let mut names: Vec<String> = outcome.stdout.text.lines().map(str::to_string).collect();
+    names.sort();
+    assert_eq!(
+        names,
+        vec!["APORIA_SANDBOX".to_string(), "PATH".to_string()],
+        "the child saw something outside the allowlist"
+    );
+}
+
+#[test]
+fn the_default_environment_is_the_parents_minus_credential_shaped_names() {
+    let (_temp, sandbox) = sandbox();
+    let spec = ExecSpec::new(vec![fixture().to_string(), "env".to_string()]);
+    let outcome = sandbox.exec(&spec);
+    assert_eq!(outcome.status, ExecStatus::Completed, "{outcome:?}");
+    let child: Vec<String> = outcome.stdout.text.lines().map(str::to_string).collect();
+    let mut expected: Vec<String> = std::env::vars()
+        .map(|(name, _)| name)
+        .filter(|name| !is_sensitive_env(name))
+        .collect();
+    expected.push("APORIA_SANDBOX".to_string());
+    expected.sort();
+    let mut sorted_child = child.clone();
+    sorted_child.sort();
+    assert_eq!(
+        sorted_child, expected,
+        "the child inherited something the scrub was supposed to remove"
+    );
+}
