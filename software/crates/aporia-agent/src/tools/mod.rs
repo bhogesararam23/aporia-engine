@@ -14,6 +14,7 @@ pub mod meta;
 pub mod registry;
 pub mod result;
 pub mod schema;
+pub mod source_git;
 
 pub use context::ToolContext;
 pub use invocations::{Begin, InvocationTable};
