@@ -8,6 +8,7 @@
 
 pub mod context;
 pub mod files;
+pub mod intel;
 pub mod invocations;
 pub mod meta;
 pub mod registry;

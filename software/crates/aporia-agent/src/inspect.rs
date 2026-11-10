@@ -433,7 +433,7 @@ fn read_prefix(path: &Path, limit: u64) -> Result<String, std::io::Error> {
     Ok(String::from_utf8_lossy(&bytes).to_string())
 }
 
-fn manifest_kind(lower: &str) -> &'static str {
+pub(crate) fn manifest_kind(lower: &str) -> &'static str {
     match lower {
         "cargo.toml" => "Rust manifest",
         "pyproject.toml" | "setup.py" | "setup.cfg" | "requirements.txt" => "Python manifest",
@@ -445,7 +445,7 @@ fn manifest_kind(lower: &str) -> &'static str {
     }
 }
 
-fn is_manifest(lower: &str) -> bool {
+pub(crate) fn is_manifest(lower: &str) -> bool {
     manifest_kind(lower) != "manifest"
 }
 
@@ -477,7 +477,7 @@ fn manifest_name(text: &str) -> Option<String> {
     None
 }
 
-fn looks_like_test(relative: &Path) -> bool {
+pub(crate) fn looks_like_test(relative: &Path) -> bool {
     let path = relative
         .to_string_lossy()
         .replace('\\', "/")
@@ -502,7 +502,7 @@ fn extension_summary(extensions: &BTreeMap<String, usize>) -> String {
         .join(", ")
 }
 
-fn read_git_head(root: &Path) -> Option<String> {
+pub(crate) fn read_git_head(root: &Path) -> Option<String> {
     let head_path = root.join(".git").join("HEAD");
     let text = fs::read_to_string(head_path).ok()?;
     let text = text.trim();
