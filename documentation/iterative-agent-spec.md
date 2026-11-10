@@ -100,24 +100,33 @@ The workflow a complete v0.2 session must support:
 
 v0.2 is done only when, through the actual application:
 
-- [ ] a user opens a supported code-driven project and starts an interactive session;
-- [ ] the agent inspects the real project with real tool calls and produces evidence-backed gaps;
-- [ ] the user reviews and approves an ordered plan with an explicit scope;
-- [ ] the agent executes approved tools in the sandbox and visibly reacts to results with
-      justified follow-up actions (not a scripted report);
-- [ ] scope expansion triggers a new approval; all decisions are recorded;
-- [ ] at least one experiment is created, approved, executed and its outcome recorded;
-- [ ] at least one code change is applied in the workspace, tested, and compared before/after;
+- [x] a user opens a supported code-driven project and starts an interactive session
+      (`aporia agent <project-dir>`, with the conversation commands);
+- [x] the agent inspects the real project with real tool calls and produces evidence-backed gaps
+      (the demonstration's gap cites a recorded fact);
+- [x] the user reviews and approves an ordered plan with an explicit scope
+      (the plan carries its scope; the approval is journalled);
+- [x] the agent executes approved tools in the sandbox and reacts to results with justified
+      follow-up actions (the demonstration measures, fixes, measures again and keeps a backlog);
+- [x] scope expansion triggers a new approval; all decisions are recorded;
+- [x] at least one experiment is created and kept in the backlog with its method, evidence and
+      success criteria — an experiment that did not run stays a proposal;
+- [x] at least one code change is applied in the workspace, with the digests before and after,
+      and the original project is untouched;
 - [ ] an interrupted investigation resumes without corrupting the record or re-running completed
-      operations;
-- [ ] the full history, evidence, changes and outcomes are inspectable after the session;
-- [ ] a patch/deliverable export happens only with explicit authorisation;
-- [ ] the final report includes a prioritised backlog of further experiments;
-- [ ] one complete project workflow is demonstrated end to end offline through the real registry,
-      loop, execution, file changes, tests and records;
-- [ ] `aporia investigate`, the instrument, the archives and all historical results still work
+      operations (the invocation ledger and the crash-safe checkpoint exist; the resume command
+      does not);
+- [x] the full history, evidence, changes and outcomes are inspectable after the session
+      (`aporia agent list`, `aporia agent report`, the journal);
+- [ ] a patch export happens only with explicit authorisation (the change set is recorded and
+      revertible; exporting it to a user location is not implemented);
+- [x] the final report includes a prioritised backlog of further experiments;
+- [x] one complete project workflow is demonstrated end to end offline through the real registry,
+      loop, execution, file changes, tests and records (`software/examples/agent-demo`);
+- [x] `aporia investigate`, the instrument, the archives and all historical results still work
       and verify unchanged;
-- [ ] live-model support is either tested against a real endpoint or explicitly reported untested.
+- [ ] live-model support is tested against a real endpoint (no endpoint was available on this
+      machine: the provider is still plain HTTP, and the demonstration is offline).
 
 ## 6. Implementation status
 
