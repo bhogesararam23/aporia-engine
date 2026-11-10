@@ -27,7 +27,7 @@
 //! incomplete) and `13` the record could not be written.
 
 use aporia_cli::run::Exit;
-use aporia_cli::{bench, compare, investigate, replay, report, run};
+use aporia_cli::{agent, bench, compare, investigate, replay, report, run};
 use aporia_search::Config;
 use std::path::PathBuf;
 
@@ -58,6 +58,12 @@ fn usage() -> &'static str {
      \x20     inspect, propose an evidence-backed plan, and run the approved tasks in a\n\
      \x20     sandbox copy. PROVIDER is scripted:<transcript.json> or http://host:port/v1.\n\
      \x20 investigate report <dir>  verify and print a finished investigation\n\
+     \x20 agent <project> --objective TEXT --provider PROVIDER\n\
+     \x20     [--model NAME] [--workdir DIR] [--allow-exec PROGRAM]... [--allow-write]\n\
+     \x20     [--max-turns N] [--max-tool-calls N] [--timeout MS] [--batch]\n\
+     \x20     open an interactive investigation: the agent inspects the project, proposes a\n\
+     \x20     plan, and waits for your approval before anything runs. `agent list` shows the\n\
+     \x20     investigations this work directory holds; `agent report <dir>` prints one.\n\
      \x20 help                        show this text\n\
      \x20 version                     which build of aporia this is\n\
      exit: 0 clean (or archives identical), 1 suspicious regions reported, 2 usage,\n\
@@ -100,6 +106,11 @@ fn main() {
             let mut out = std::io::stdout().lock();
             let mut err = std::io::stderr().lock();
             investigate::command(&args[1..], &mut out, &mut err)
+        }
+        Some("agent") => {
+            let mut out = std::io::stdout().lock();
+            let mut err = std::io::stderr().lock();
+            agent::command(&args[1..], &mut out, &mut err)
         }
         Some("bench") => {
             let stdout = std::io::stdout();

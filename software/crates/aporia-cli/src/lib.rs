@@ -20,6 +20,7 @@
 //! still gets an answer here that `aporia-bench` could not offer, because nothing in `run`, `replay`,
 //! `report` or `compare` requires a corpus to exist.
 
+pub mod agent;
 pub mod archive;
 pub mod bench;
 pub mod compare;
