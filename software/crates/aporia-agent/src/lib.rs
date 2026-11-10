@@ -23,6 +23,7 @@ pub mod prompt;
 pub mod provider;
 pub mod record;
 pub mod report;
+pub mod session;
 
 pub use execute::{Artifact, TaskResult, execute};
 pub use inspect::{Fact, FactKind, InspectError, Inspection, InspectionSummary, inspect};
@@ -39,3 +40,4 @@ pub use provider::{
 };
 pub use record::{RecordDir, RecordSummary, verify_record};
 pub use report::{machine_summary, render_plan, render_report};
+pub use session::{Phase, SESSION_SCHEMA, SessionState, SessionStatus};
