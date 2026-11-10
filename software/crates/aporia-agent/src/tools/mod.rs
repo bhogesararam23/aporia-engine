@@ -7,8 +7,8 @@
 //! dispatch is the only path from a model request to an effect.
 
 pub mod command;
-
 pub mod context;
+pub mod control;
 pub mod files;
 pub mod instrument;
 pub mod intel;

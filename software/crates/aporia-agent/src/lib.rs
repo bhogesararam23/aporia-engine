@@ -13,9 +13,11 @@
 //! sandbox and reads the archive manifest it wrote. That keeps the archive the interface: a claim
 //! this application produces can still be replayed with the instrument's own tools.
 
+pub mod engine;
 pub mod events;
 pub mod execute;
 pub mod inspect;
+pub mod investigation;
 pub mod journal;
 pub mod json;
 pub mod orchestrator;

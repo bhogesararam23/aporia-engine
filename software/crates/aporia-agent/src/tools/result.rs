@@ -111,10 +111,13 @@ impl ErrorClass {
 }
 
 /// A classified tool failure.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ToolFailure {
     pub class: ErrorClass,
     pub message: String,
+    /// Structured detail for the record and the model: the captured streams, the exit code, the
+    /// digests. A failure that ran something has evidence, and that evidence belongs with it.
+    pub data: Json,
 }
 
 impl ToolFailure {
@@ -123,7 +126,14 @@ impl ToolFailure {
         Self {
             class,
             message: message.into(),
+            data: Json::Null,
         }
+    }
+
+    #[must_use]
+    pub fn with_data(mut self, data: Json) -> Self {
+        self.data = data;
+        self
     }
 
     /// The form the model sees: the class is part of the message, so a refusal is never mistaken

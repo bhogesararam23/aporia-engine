@@ -12,14 +12,46 @@ use aporia_sandbox::Sandbox;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+/// What a control tool may do to the investigation it belongs to.
+///
+/// The tools that propose a plan, record a finding, keep the backlog or close the delivery need
+/// the session's own state. They get it through this seam rather than through a global, so the
+/// same registry serves a session and a test.
+pub trait Session {
+    /// The investigation's working state.
+    fn investigation(&mut self) -> &mut crate::investigation::Investigation;
+
+    /// Write one event into the journal.
+    fn journal(&mut self, kind: &str, payload: aporia_store::Json) -> Result<(), String>;
+
+    /// Put a decision in front of the person and pause.
+    fn request_approval(&mut self, request: crate::scope::ApprovalRequest);
+
+    /// The ceiling the session was configured with.
+    fn limits(&self) -> crate::scope::ScopeLimits;
+
+    /// Record the closing delivery. Returns whether the investigation may finish.
+    fn deliver(&mut self, delivery: crate::orchestrator::Delivery) -> bool;
+}
+
 /// The host-controlled context of one tool invocation.
-#[derive(Debug)]
 pub struct ToolContext<'a> {
     sandbox: &'a Sandbox,
     source: &'a Path,
     instrument: &'a Path,
     scope: Option<&'a Scope>,
     cancel: &'a AtomicBool,
+    session: Option<&'a mut dyn Session>,
+}
+
+impl std::fmt::Debug for ToolContext<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ToolContext")
+            .field("source", &self.source)
+            .field("scope", &self.scope)
+            .field("has_session", &self.session.is_some())
+            .finish()
+    }
 }
 
 impl<'a> ToolContext<'a> {
@@ -37,7 +69,20 @@ impl<'a> ToolContext<'a> {
             instrument,
             scope,
             cancel,
+            session: None,
         }
+    }
+
+    /// The same context with the session attached, for the tools that act on it.
+    #[must_use]
+    pub fn with_session(mut self, session: &'a mut dyn Session) -> Self {
+        self.session = Some(session);
+        self
+    }
+
+    /// The session, when this context has one.
+    pub fn session_mut(&mut self) -> Option<&mut (dyn Session + 'a)> {
+        self.session.as_deref_mut()
     }
 
     /// The isolated copy. Tools read and write here, never in the source.
@@ -67,6 +112,12 @@ impl<'a> ToolContext<'a> {
     #[must_use]
     pub fn cancelled(&self) -> bool {
         self.cancel.load(Ordering::SeqCst)
+    }
+
+    /// The cancellation flag itself, so a long tool can pass it to the process boundary.
+    #[must_use]
+    pub fn cancel_flag(&self) -> &'a AtomicBool {
+        self.cancel
     }
 
     /// The host's risk gate. Read-only tools always pass; writing needs approved write access;

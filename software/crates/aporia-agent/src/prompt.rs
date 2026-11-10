@@ -201,3 +201,104 @@ fn tool(name: &str, description: &str, parameters: &str) -> ToolSchema {
         parameters: Json::parse(parameters).expect("the built-in tool schema is valid JSON"),
     }
 }
+
+/// The rules of the iterative investigation, and the permissions this session has.
+///
+/// The model is told what it may do, what it may not do, and what the record is for. It is never
+/// told that a command in prose is a command: it is told that only the tools exist.
+#[must_use]
+pub fn system_v2(allow_exec: &[String], allow_write: bool) -> String {
+    let exec = if allow_exec.is_empty() {
+        "You may not run project programs in this session: no program was permitted. A command \
+         you would like to run has to be proposed in the plan and approved."
+            .to_string()
+    } else {
+        format!(
+            "Programs a plan may ask to run: {}. A program named in any other way is refused.",
+            allow_exec.join(", ")
+        )
+    };
+    let write = if allow_write {
+        "A plan may ask to edit the workspace copy. The original project is never written."
+    } else {
+        "A plan may not ask to edit the workspace in this session; only reading and running are \
+         available."
+    };
+    format!(
+        "You are APORIA's investigator, a bounded research and engineering agent. You work in \
+         one loop: look, decide, act, read the result, decide again. The host runs the tools; \
+         you never run a command by writing one.\n\
+         \n\
+         How to work:\n\
+         - Start by inspecting the actual project with the tools you are given. Do not assume what \
+           a file contains; read it.\n\
+         - Every gap must cite evidence ids this investigation recorded (F for inspection facts, I \
+           for tool invocations, E for experiment outcomes). An unknown id is rejected.\n\
+         - Propose a plan with propose_plan: the objective, the gaps, the ordered tasks, the scope \
+           you need, and what would count as success. The host validates it, then a person approves \
+           it. Nothing runs before that.\n\
+         - When you learn something new, revise_plan. If the revision asks for more permission \
+           than was approved, the person is asked again; do not assume it will be granted.\n\
+         - Work with the tools: read, search, run what was approved, run the instrument, compare \
+           results. A tool that fails returns the failure; read it and respond, do not repeat the \
+           same call blindly.\n\
+         - Keep the backlog honest: propose_experiment for work that was identified but not \
+           performed, update_experiment for what happened. An experiment without a runner stays a \
+           proposal; it is never reported as a completed experiment.\n\
+         - Record findings with record_finding: observation (what the output shows), \
+           interpretation (what you infer), hypothesis (a plausible but untested explanation). \
+           Say what remains uncertain.\n\
+         - Never invent a result, a number, or an execution. Completing a run does not confirm a \
+           hypothesis.\n\
+         - Call tools with one JSON object of arguments and no unknown fields. Text without a tool \
+           call is an error the host returns to you.\n\
+         - {exec}\n\
+         - {write}\n\
+         - The investigation record is finite: turn, tool-call and wall-clock budgets are \
+           enforced. If they run out, the record says the investigation is incomplete."
+    )
+}
+
+/// The objective, the facts that were read, and how to begin.
+#[must_use]
+pub fn objective_v2(
+    objective: &str,
+    root: &Path,
+    inspection: &Inspection,
+    exec_allowed: bool,
+) -> String {
+    let mut out = format!(
+        "Objective:\n{objective}\n\nProject root: {}\n\nInspection facts (ids are citable):\n",
+        root.display()
+    );
+    out.push_str(&inspection.rendered(PROMPT_FACTS_LIMIT));
+    let _ = write!(
+        out,
+        "\nScan summary: {} entries, {} files, {} bytes, truncated: {}. Skipped: {}\n",
+        inspection.summary.entries,
+        inspection.summary.files,
+        inspection.summary.bytes,
+        inspection.summary.truncated,
+        if inspection.summary.skipped.is_empty() {
+            "none".to_string()
+        } else {
+            inspection.summary.skipped.join(", ")
+        }
+    );
+    if inspection.summary.truncated {
+        out.push_str(
+            "The scan was truncated, so the facts are not a claim that anything absent is missing.\n",
+        );
+    }
+    out.push_str(
+        "\nBegin by looking at the project with the tools, then propose a plan grounded in what \
+         you found. You cannot execute anything yet; approval comes first.\n",
+    );
+    if !exec_allowed {
+        out.push_str(
+            "No program is permitted in this session yet, so a plan that needs to run something \
+             will be refused; read and reason first.\n",
+        );
+    }
+    out
+}

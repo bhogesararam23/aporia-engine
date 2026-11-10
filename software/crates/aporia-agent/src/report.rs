@@ -6,8 +6,9 @@
 //! the model that produced the investigation being available again.
 
 use crate::execute::{Artifact, TaskResult};
+use crate::investigation::{Experiment, FileChange};
 use crate::orchestrator::{Delivery, Outcome, RunReport, Suggestion};
-use crate::plan::{Plan, ValidatedPlan};
+use crate::plan::{Finding, Plan, ValidatedPlan};
 use aporia_store::Json;
 use std::fmt::Write as _;
 
@@ -419,4 +420,104 @@ pub fn machine_summary(report: &RunReport) -> Json {
         ("sandbox_sha256", Json::text(&report.sandbox_sha256)),
         ("workspace", Json::text("workspace")),
     ])
+}
+
+/// What the v0.2 report is rendered from: the structured state, never the model's prose.
+#[derive(Debug)]
+pub struct V2Summary<'a> {
+    pub objective: &'a str,
+    pub status: &'a str,
+    pub provider: &'a str,
+    pub turns: usize,
+    pub calls: usize,
+    pub findings: &'a [Finding],
+    pub experiments: Vec<&'a Experiment>,
+    pub changes: &'a [FileChange],
+    pub failure: Option<&'a str>,
+    pub root: &'a std::path::Path,
+}
+
+/// Render the v0.2 investigation report from the structured record.
+///
+/// Every section is a fact the host recorded: what was asked, what the tools did, what was
+/// recorded, what remains uncertain. The model's closing words appear as one section among many,
+/// not as the source of the others.
+#[must_use]
+pub fn render_v2_report(summary: &V2Summary<'_>) -> String {
+    let mut out = String::from("# Investigation report\n\n");
+    let _ = writeln!(out, "Objective: {}", summary.objective);
+    let _ = writeln!(out, "Status: {}", summary.status);
+    let _ = writeln!(out, "Provider: {}", summary.provider);
+    let _ = writeln!(
+        out,
+        "Turns: {}, tool calls: {}",
+        summary.turns, summary.calls
+    );
+    if let Some(failure) = summary.failure {
+        let _ = writeln!(out, "\n**The investigation is incomplete: {failure}**");
+    }
+
+    out.push_str("\n## Findings\n\n");
+    if summary.findings.is_empty() {
+        out.push_str("No findings were recorded.\n");
+    } else {
+        for finding in summary.findings {
+            let _ = writeln!(
+                out,
+                "- [{} / {}] {} (evidence: {})",
+                finding.kind.as_str(),
+                finding.severity.as_str(),
+                finding.text,
+                finding.evidence.join(", ")
+            );
+            let _ = writeln!(out, "  uncertainty: {}", finding.uncertainty);
+        }
+    }
+
+    out.push_str("\n## Experiment backlog\n\n");
+    if summary.experiments.is_empty() {
+        out.push_str("The backlog is empty.\n");
+    } else {
+        for experiment in &summary.experiments {
+            let _ = writeln!(
+                out,
+                "- {} [{}] {} — {}",
+                experiment.id,
+                experiment.status.as_str(),
+                experiment.priority,
+                experiment.title
+            );
+            let _ = writeln!(out, "  question: {}", experiment.question);
+            if let Some(result) = &experiment.result {
+                let _ = writeln!(out, "  result: {result}");
+            }
+            if let Some(follow_up) = &experiment.follow_up {
+                let _ = writeln!(out, "  follow-up: {follow_up}");
+            }
+        }
+    }
+
+    out.push_str("\n## Changes in the workspace\n\n");
+    if summary.changes.is_empty() {
+        out.push_str("The workspace copy is unchanged.\n");
+    } else {
+        for change in summary.changes {
+            let _ = writeln!(
+                out,
+                "- {} ({}): {} -> {}",
+                change.path,
+                change.kind.as_str(),
+                change.before.as_deref().unwrap_or("absent"),
+                change.after.as_deref().unwrap_or("absent")
+            );
+        }
+    }
+
+    out.push_str("\n## Record\n\n");
+    let _ = writeln!(out, "Investigation directory: {}", shown(summary.root));
+    out.push_str(
+        "The journal, the plan and the artefacts are in that directory. The report is generated \
+         from them; the model's own words are not the source of any fact above.\n",
+    );
+    out
 }
