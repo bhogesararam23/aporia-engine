@@ -13,6 +13,7 @@
 //! sandbox and reads the archive manifest it wrote. That keeps the archive the interface: a claim
 //! this application produces can still be replayed with the instrument's own tools.
 
+pub mod events;
 pub mod execute;
 pub mod inspect;
 pub mod journal;
@@ -26,6 +27,7 @@ pub mod report;
 pub mod scope;
 pub mod session;
 
+pub use events::Event;
 pub use execute::{Artifact, TaskResult, execute};
 pub use inspect::{Fact, FactKind, InspectError, Inspection, InspectionSummary, inspect};
 pub use journal::{Journal, RecordError, Verified, verify_journal};
