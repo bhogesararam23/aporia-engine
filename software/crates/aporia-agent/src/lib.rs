@@ -41,7 +41,7 @@ pub use plan::{
 pub use provider::{
     Message, ModelProvider, ModelRequest, ModelResponse, ProviderError, Role, ToolCall, ToolSchema,
 };
-pub use record::{RecordDir, RecordSummary, verify_record};
+pub use record::{RecordDir, RecordSummary, read_checkpoint, verify_record};
 pub use report::{machine_summary, render_plan, render_report};
 pub use scope::{
     ApprovalKind, ApprovalRequest, Decision, Expansion, Risk, Scope, ScopeLimits, expansions,

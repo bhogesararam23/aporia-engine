@@ -54,6 +54,11 @@ pub enum RecordError {
         path: PathBuf,
         reason: String,
     },
+    /// A session checkpoint exists but is not a readable record of its schema.
+    Checkpoint {
+        path: PathBuf,
+        reason: String,
+    },
 }
 
 impl std::fmt::Display for RecordError {
@@ -100,6 +105,11 @@ impl std::fmt::Display for RecordError {
             Self::Manifest { path, reason } => {
                 write!(f, "{} is not a usable manifest: {reason}", path.display())
             }
+            Self::Checkpoint { path, reason } => write!(
+                f,
+                "{} is not a readable session checkpoint: {reason}",
+                path.display()
+            ),
         }
     }
 }
