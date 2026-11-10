@@ -2,12 +2,14 @@
 
 Developer-facing documentation for APORIA, in the repository, tracked, and public. Everything here
 describes the code as it is now; where something is unmeasured, unfinished or refused, that is written
-as such rather than smoothed over.
+as such rather than smoothed over. One page is an adopted specification rather than a description —
+it carries an explicit implementation-status table so the two are never confused.
 
 | page | what it answers |
 |---|---|
 | [product-charter.md](product-charter.md) | the governing product definition: who APORIA serves, the eight stages, the principles, and what a complete first version must do |
 | [agent-workflow.md](agent-workflow.md) | the first slice of that product: `aporia investigate`, providers, permissions, the sandbox, exit codes, the record and its limits |
+| [iterative-agent-spec.md](iterative-agent-spec.md) | the v0.2 contract: the gap audit of the first slice, the architecture decisions, the end-to-end workflow specification, the acceptance criteria, and which milestones are implemented |
 | [architecture.md](architecture.md) | how a model becomes a Trust Atlas: A-IR, execution, the five evidence channels, calibration and fusion, the atlas and its labelling policy, the adaptive search, minimisation — and the application layer that calls the instrument |
 | [adapter-protocol.md](adapter-protocol.md) | the contract an external program has to satisfy — one JSON object per line each way, and what every kind of failure means |
 | [reproducibility.md](reproducibility.md) | the archive as an artifact: what it holds, why each field earns its place, integrity versus reproduction, what `compare` will say, how a measurement is named |
