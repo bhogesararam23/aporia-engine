@@ -142,6 +142,14 @@ impl std::fmt::Display for ToolFailure {
 
 impl std::error::Error for ToolFailure {}
 
+/// The JSON field helpers report argument problems as strings; in a tool those are invalid
+/// arguments by definition.
+impl From<String> for ToolFailure {
+    fn from(message: String) -> Self {
+        Self::new(ErrorClass::InvalidArguments, message)
+    }
+}
+
 /// The result of one dispatch.
 pub type ToolResult = Result<ToolOutput, ToolFailure>;
 

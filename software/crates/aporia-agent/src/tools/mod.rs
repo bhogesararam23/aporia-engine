@@ -7,6 +7,7 @@
 //! dispatch is the only path from a model request to an effect.
 
 pub mod context;
+pub mod files;
 pub mod invocations;
 pub mod meta;
 pub mod registry;
@@ -60,7 +61,22 @@ pub fn dispatch(registry: &Registry, context: &mut ToolContext, call: &ToolCall)
     schema::validate(&tool.meta().parameters, &arguments, "arguments")
         .map_err(|reason| ToolFailure::new(ErrorClass::InvalidArguments, reason))?;
     context.check_risk(tool.meta().risk)?;
-    tool.run(context, &arguments)
+    let mut output = tool.run(context, &arguments)?;
+    output.text = cap_output(&output.text, tool.meta().max_output_bytes);
+    Ok(output)
+}
+
+/// Enforce the tool's declared output limit. The cut is on a character boundary and says it
+/// happened, so a bounded view is never mistaken for the whole output.
+fn cap_output(text: &str, limit: usize) -> String {
+    if text.len() <= limit {
+        return text.to_string();
+    }
+    let mut end = limit;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}\n[output truncated at {limit} bytes]", &text[..end])
 }
 
 #[cfg(test)]
@@ -234,5 +250,21 @@ mod tests {
         assert_eq!(schemas.len(), 1);
         assert_eq!(schemas[0].name, "echo");
         assert_eq!(registry.names(), vec!["echo"]);
+    }
+
+    #[test]
+    fn the_declared_output_limit_is_enforced_and_says_so() {
+        let (source, _workspace, sandbox, instrument) = fixture();
+        let cancel = AtomicBool::new(false);
+        let mut context = ToolContext::new(&sandbox, &source.0, &instrument, None, &cancel);
+        let mut registry = Registry::new();
+        registry
+            .register(Box::new(Echo::new(Risk::ReadOnly)))
+            .expect("register");
+        let long = "x".repeat(5000);
+        let arguments = format!(r#"{{"message":"{long}"}}"#);
+        let output = dispatch(&registry, &mut context, &call(&arguments)).expect("ok");
+        assert!(output.text.len() < 5000);
+        assert!(output.text.contains("[output truncated at 4096 bytes]"));
     }
 }
