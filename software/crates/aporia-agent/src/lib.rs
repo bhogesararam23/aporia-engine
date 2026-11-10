@@ -26,6 +26,7 @@ pub mod record;
 pub mod report;
 pub mod scope;
 pub mod session;
+pub mod tools;
 
 pub use events::Event;
 pub use execute::{Artifact, TaskResult, execute};
