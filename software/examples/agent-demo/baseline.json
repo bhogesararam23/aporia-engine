@@ -1,0 +1,11 @@
+{
+  "note": "What this project produces today. The error does not shrink as the grid is refined: it approaches -0.5, which is the closing segment the rule adds when it walks from the last sample back to the first.",
+  "exact": 0.3333333333333333,
+  "rows": [
+    {"n": 5, "estimate": -0.15625, "error": -0.4895833333333333},
+    {"n": 9, "estimate": -0.1640625, "error": -0.4973958333333333},
+    {"n": 17, "estimate": -0.166015625, "error": -0.4993489583333333},
+    {"n": 33, "estimate": -0.16650390625, "error": -0.4998372395833333}
+  ],
+  "expected_after_a_correct_rule": "the error should fall like the square of the step size: about 0.0083 at n=9 and about 0.0005 at n=33"
+}

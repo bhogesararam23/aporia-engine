@@ -1,0 +1,7 @@
+{
+  "function": "x^2",
+  "x0": 0.0,
+  "x1": 1.0,
+  "n": 9,
+  "note": "the sweep in experiment.py uses these values; the estimate is compared with the exact integral of x^2 over [x0, x1]"
+}

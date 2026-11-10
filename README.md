@@ -41,6 +41,28 @@ The full contract — exit codes, permissions, record layout, what is not guaran
 `aerospace/projectile_sign_mutant` is in
 [software/examples/investigate](software/examples/investigate/README.md).
 
+## The agent workbench
+
+```sh
+aporia agent <project> --objective "…" --provider scripted:<transcript>|http://host:port/v1 \
+    [--model NAME] [--allow-exec PROGRAM]… [--allow-write] [--batch]
+aporia agent list
+aporia agent report <investigation-dir>
+```
+
+This is the second slice, and the one the product charter describes: an iterative, supervised
+investigation. The agent inspects a real project through a registry of tools — files, search,
+dependencies, tests, experiments, results, read-only Git context, and the instrument — proposes a
+plan grounded in what it read, and waits for you to approve the scope before anything runs. After
+that it keeps going: it runs what was approved, reads the results, decides what to do next, keeps a
+backlog of the work it found but did not do, can change files in its own copy of the project, and
+compares before and after. You can talk to it between turns, approve or refuse, and watch what it
+does. Every decision and every result is recorded.
+
+The contract is in [documentation/agent-workbench.md](documentation/agent-workbench.md), and the
+demonstration — a small numerical project with a real defect, fixed and measured in the workspace —
+is in [software/examples/agent-demo](software/examples/agent-demo/README.md).
+
 The research question below belongs to the instrument, not to the agent: it is a measured claim about the
 Trust Atlas, and the agent does not change the evidence model it uses.
 

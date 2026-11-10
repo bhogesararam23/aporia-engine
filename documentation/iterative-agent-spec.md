@@ -125,11 +125,11 @@ Updated as milestones land; a row is checked only when its tests and gates pass.
 
 | milestone | state |
 |---|---|
-| A — foundation: session/event types, permissions, record contract | in progress |
-| B — tool registry and execution foundation | planned |
-| C — project intelligence tools | planned |
-| D — execution and scientific tools | planned |
-| E — iterative agent loop | planned |
-| F — sandbox editing and patch lifecycle | planned |
-| G — persistence and interactive application | planned |
-| H — provider, demonstration, release audit | planned |
+| A — foundation: session/event types, permissions, record contract | done (`session.rs`, `scope.rs`, `events.rs`, the versioned checkpoint) |
+| B — tool registry and execution foundation | done (`tools/`: registry, schema validation, dispatch, invocation ledger, error classes, output limits) |
+| C — project intelligence tools | done (file listing, literal search, ranged reading, discovery, read-only source Git) |
+| D — execution and scientific tools | done (`run_command`, `instrument_run`, result reading and comparison) |
+| E — iterative agent loop | done (`engine.rs`: one loop, plan versions, scope approval, findings, backlog) |
+| F — sandbox editing and patch lifecycle | partial (create, modify, delete, revert and change tracking; no unified-diff export) |
+| G — persistence and interactive application | partial (`aporia agent` with the conversation commands; session resume and list are not yet implemented) |
+| H — provider, demonstration, release audit | partial (the offline demonstration is real and tested; HTTPS provider support and the live smoke path are not implemented) |
