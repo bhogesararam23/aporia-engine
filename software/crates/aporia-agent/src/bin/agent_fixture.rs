@@ -34,6 +34,9 @@ fn main() {
             let mut stdout = std::io::stdout().lock();
             let _ = writeln!(stdout, "{}", args[1..].join(" "));
         }
+        Some("cwd") => {
+            println!("{}", std::env::current_dir().expect("cwd").display());
+        }
         Some("fail") => {
             let code = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(1);
             std::process::exit(code);
@@ -44,7 +47,7 @@ fn main() {
             println!("slept");
         }
         _ => {
-            eprintln!("agent-fixture: choose instrument, echo, fail or sleep");
+            eprintln!("agent-fixture: choose instrument, echo, cwd, fail or sleep");
             std::process::exit(2);
         }
     }

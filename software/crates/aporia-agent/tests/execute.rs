@@ -185,3 +185,28 @@ fn the_result_serialises_the_stream_identity_for_the_record() {
         .expect("sha256");
     assert_eq!(hash.len(), 64);
 }
+
+#[test]
+fn exec_in_runs_the_child_in_the_named_directory() {
+    let (_temp, sandbox) = sandbox();
+    let elsewhere = Temp::new("elsewhere");
+    let spec = aporia_sandbox::ExecSpec::new(vec![fixture(), "cwd".to_string()]);
+    let outcome = aporia_sandbox::exec_in(elsewhere.path(), &spec);
+    assert!(matches!(
+        outcome.status,
+        aporia_sandbox::ExecStatus::Completed
+    ));
+    let reported = PathBuf::from(outcome.stdout.text.trim());
+    assert_eq!(
+        reported.canonicalize().expect("reported cwd"),
+        elsewhere.path().canonicalize().expect("expected cwd"),
+        "the child ran somewhere other than the named directory"
+    );
+    // The sandbox's own exec still uses the copy, not the source or the named directory.
+    let in_copy = sandbox.exec(&spec);
+    let reported_copy = PathBuf::from(in_copy.stdout.text.trim());
+    assert_eq!(
+        reported_copy.canonicalize().expect("copy cwd"),
+        sandbox.root().canonicalize().expect("sandbox root")
+    );
+}

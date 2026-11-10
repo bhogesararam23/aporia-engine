@@ -12,6 +12,7 @@
 use aporia_store::digest::Sha256;
 use std::fmt::Write as _;
 use std::io::Read;
+use std::path::Path;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
@@ -214,68 +215,78 @@ fn snapshot(state: &Arc<Mutex<CaptureState>>) -> (Captured, bool) {
 impl crate::copy::Sandbox {
     /// Run one command. The source of the workspace is never involved; `cwd` is the copy.
     pub fn exec(&self, spec: &ExecSpec) -> ExecOutcome {
-        let started = Instant::now();
-        if spec.argv.is_empty() {
-            return failure("the command line is empty".to_string(), started, true);
-        }
-        let mut child = match self.spawn(spec) {
-            Ok(child) => child,
-            Err(reason) => return failure(reason, started, true),
-        };
-        let spawned = Instant::now();
+        exec_in(self.root(), spec)
+    }
+}
 
-        let stdout_state = Arc::new(Mutex::new(CaptureState::new()));
-        let stderr_state = Arc::new(Mutex::new(CaptureState::new()));
-        if let Some(pipe) = child.stdout.take() {
-            drain(pipe, spec.output_limit, Arc::clone(&stdout_state));
-        }
-        if let Some(pipe) = child.stderr.take() {
-            drain(pipe, spec.output_limit, Arc::clone(&stderr_state));
-        }
+/// Run one command in `directory`, with the same scrubbed environment, deadline and bounded
+/// capture. The sandbox uses this with its own root; the agent's read-only source-context tool
+/// uses it with the source directory and a fixed, host-built argv. The caller owns the decision
+/// that the directory and command are permitted -- this function only enforces the process
+/// limits, not the permission.
+#[must_use]
+pub fn exec_in(directory: &Path, spec: &ExecSpec) -> ExecOutcome {
+    let started = Instant::now();
+    if spec.argv.is_empty() {
+        return failure("the command line is empty".to_string(), started, true);
+    }
+    let mut child = match spawn(directory, spec) {
+        Ok(child) => child,
+        Err(reason) => return failure(reason, started, true),
+    };
+    let spawned = Instant::now();
 
-        // The deadline starts when the process exists. Starting it before `spawn` meant a machine
-        // whose first launch is delayed by a policy verdict could report a 5-second child as having
-        // no timeout at all, because the launch itself had already spent the budget.
-        let deadline = spawned + Duration::from_millis(spec.timeout_ms.max(1));
-        let (exit_status, timed_out) = match wait_for(&mut child, deadline) {
-            Ok(result) => result,
-            Err(reason) => return failure(reason, started, false),
-        };
-        let (stdout, stderr, complete) = finish_capture(&stdout_state, &stderr_state);
-
-        ExecOutcome {
-            status: if timed_out {
-                ExecStatus::Timeout
-            } else {
-                ExecStatus::Completed
-            },
-            exit_code: exit_status.and_then(|status| status.code()),
-            duration_ms: elapsed(started),
-            stdout,
-            stderr,
-            output_complete: complete,
-        }
+    let stdout_state = Arc::new(Mutex::new(CaptureState::new()));
+    let stderr_state = Arc::new(Mutex::new(CaptureState::new()));
+    if let Some(pipe) = child.stdout.take() {
+        drain(pipe, spec.output_limit, Arc::clone(&stdout_state));
+    }
+    if let Some(pipe) = child.stderr.take() {
+        drain(pipe, spec.output_limit, Arc::clone(&stderr_state));
     }
 
-    fn spawn(&self, spec: &ExecSpec) -> Result<Child, String> {
-        let mut command = Command::new(&spec.argv[0]);
-        command
-            .args(&spec.argv[1..])
-            .current_dir(self.root())
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        for (name, value) in retained_environment(std::env::vars()) {
-            command.env(name, value);
-        }
-        for (name, value) in &spec.env {
-            command.env(name, value);
-        }
-        command.env("APORIA_SANDBOX", "1");
-        command
-            .spawn()
-            .map_err(|error| format!("cannot start `{}`: {error}", spec.argv[0]))
+    // The deadline starts when the process exists. Starting it before `spawn` meant a machine
+    // whose first launch is delayed by a policy verdict could report a 5-second child as having
+    // no timeout at all, because the launch itself had already spent the budget.
+    let deadline = spawned + Duration::from_millis(spec.timeout_ms.max(1));
+    let (exit_status, timed_out) = match wait_for(&mut child, deadline) {
+        Ok(result) => result,
+        Err(reason) => return failure(reason, started, false),
+    };
+    let (stdout, stderr, complete) = finish_capture(&stdout_state, &stderr_state);
+
+    ExecOutcome {
+        status: if timed_out {
+            ExecStatus::Timeout
+        } else {
+            ExecStatus::Completed
+        },
+        exit_code: exit_status.and_then(|status| status.code()),
+        duration_ms: elapsed(started),
+        stdout,
+        stderr,
+        output_complete: complete,
     }
+}
+
+fn spawn(directory: &Path, spec: &ExecSpec) -> Result<Child, String> {
+    let mut command = Command::new(&spec.argv[0]);
+    command
+        .args(&spec.argv[1..])
+        .current_dir(directory)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    for (name, value) in retained_environment(std::env::vars()) {
+        command.env(name, value);
+    }
+    for (name, value) in &spec.env {
+        command.env(name, value);
+    }
+    command.env("APORIA_SANDBOX", "1");
+    command
+        .spawn()
+        .map_err(|error| format!("cannot start `{}`: {error}", spec.argv[0]))
 }
 
 fn wait_for(child: &mut Child, deadline: Instant) -> Result<(Option<ExitStatus>, bool), String> {
