@@ -35,6 +35,8 @@ fn usage() -> &'static str {
      \x20   continue an open investigation from its journal; completed work is not re-run\n\
      \x20 aporia agent status <investigation-dir>\n\
      \x20   print an investigation's checkpoint without executing anything\n\
+     \x20 aporia agent export <investigation-dir> --out FILE [--yes]\n\
+     \x20   write the workspace's net changes as a unified diff, only with your approval\n\
      \x20 aporia agent report <investigation-dir>\n\
      \x20   print a finished investigation's report without executing anything\n\
      \x20 help | --help                  this text\n\
@@ -107,6 +109,9 @@ pub fn command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Ex
     }
     if flags.first().map(String::as_str) == Some("status") {
         return status_command(&flags[1..], out, err);
+    }
+    if flags.first().map(String::as_str) == Some("export") {
+        return export_command(&flags[1..], out, err);
     }
     if flags.first().map(String::as_str) == Some("report") {
         return report_command(&flags[1..], out, err);
@@ -768,6 +773,176 @@ fn status_command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) ->
             Exit::Integrity
         }
     }
+}
+
+/// Parse the export flags.
+fn parse_export(flags: &[String]) -> Result<(PathBuf, PathBuf, bool), String> {
+    let mut record: Option<PathBuf> = None;
+    let mut destination: Option<PathBuf> = None;
+    let mut yes = false;
+    let mut index = 0;
+    while index < flags.len() {
+        let flag = flags[index].as_str();
+        match flag {
+            "--out" => {
+                index += 1;
+                let path = flags
+                    .get(index)
+                    .ok_or_else(|| "--out needs a file path".to_string())?;
+                destination = Some(PathBuf::from(path));
+            }
+            "--yes" => yes = true,
+            other if other.starts_with("--") => {
+                return Err(format!("unknown flag `{other}`"));
+            }
+            other => {
+                if record.is_some() {
+                    return Err(format!("unexpected second path `{other}`"));
+                }
+                record = Some(PathBuf::from(other));
+            }
+        }
+        index += 1;
+    }
+    let record = record.ok_or_else(|| "an investigation directory is required".to_string())?;
+    let destination = destination.ok_or_else(|| "--out FILE is required".to_string())?;
+    Ok((record, destination, yes))
+}
+
+/// Whether the destination is outside both the source project and the workspace. The file may
+/// not exist yet, so its parent is canonicalised for the comparison.
+fn destination_outside(absolute: &Path, source: &Path, record: &Path) -> bool {
+    let near = absolute
+        .parent()
+        .and_then(|parent| parent.canonicalize().ok())
+        .and_then(|parent| absolute.file_name().map(|name| parent.join(name)))
+        .unwrap_or_else(|| absolute.to_path_buf());
+    for root in [source.to_path_buf(), record.join("workspace")] {
+        let root = root.canonicalize().unwrap_or(root);
+        if near.starts_with(&root) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Journal the export and refresh a finished record's manifest to the new head.
+fn journal_export(record: &Path, destination: &Path, files: usize) -> Result<(), String> {
+    let mut opened = aporia_agent::RecordDir::open(record).map_err(|error| error.to_string())?;
+    opened
+        .journal_mut()
+        .append(
+            "changeset.exported",
+            Json::object(vec![
+                ("destination", Json::text(destination.display().to_string())),
+                ("files", Json::count(files as u64)),
+                ("by", Json::text("cli")),
+            ]),
+        )
+        .map_err(|error| error.to_string())?;
+    opened.refresh_manifest().map_err(|error| error.to_string())
+}
+
+/// `aporia agent export <dir> --out FILE [--yes]`: the person authorises the write directly.
+fn export_command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Exit {
+    let (record, destination, yes) = match parse_export(flags) {
+        Ok(parsed) => parsed,
+        Err(reason) => {
+            let _ = writeln!(err, "aporia agent export: {reason}");
+            return Exit::Usage;
+        }
+    };
+    let (set, source) = match aporia_agent::tools::export::changeset_from_record(&record) {
+        Ok(pair) => pair,
+        Err(error) => {
+            let _ = writeln!(err, "aporia agent export: {error}");
+            return Exit::Integrity;
+        }
+    };
+    if set.is_empty() {
+        let _ = writeln!(out, "no net changes in the workspace; nothing to export");
+        return Exit::Clean;
+    }
+    // The destination is outside the source and the workspace, exactly as the tool requires.
+    let absolute = if destination.is_absolute() {
+        destination.clone()
+    } else {
+        match std::env::current_dir() {
+            Ok(cwd) => cwd.join(&destination),
+            Err(error) => {
+                let _ = writeln!(err, "aporia agent export: cannot resolve --out: {error}");
+                return Exit::Input;
+            }
+        }
+    };
+    if !destination_outside(&absolute, &source, &record) {
+        let _ = writeln!(
+            err,
+            "aporia agent export: --out is inside the source or the workspace; export writes outside them"
+        );
+        return Exit::Usage;
+    }
+    let digest = aporia_store::digest::sha256_hex(set.patch.as_bytes());
+    let _ = writeln!(
+        out,
+        "changeset: {} file(s), sha256 {digest}",
+        set.files.len()
+    );
+    for file in &set.files {
+        let _ = writeln!(out, "  {file}");
+    }
+    if !set.binary.is_empty() {
+        let _ = writeln!(
+            out,
+            "binary changes NOT in the patch: {}",
+            set.binary.join(", ")
+        );
+    }
+    if !yes {
+        let _ = write!(out, "write the patch to {}? [y/N] ", absolute.display());
+        let _ = out.flush();
+        let mut line = String::new();
+        match std::io::stdin().read_line(&mut line) {
+            Ok(0) => {
+                let _ = writeln!(out, "export refused; nothing written");
+                return Exit::Clean;
+            }
+            Ok(_) => {}
+            Err(error) => {
+                let _ = writeln!(err, "aporia agent export: cannot read the answer: {error}");
+                return Exit::Input;
+            }
+        }
+        let answer = line.trim().to_ascii_lowercase();
+        if answer != "y" && answer != "yes" {
+            let _ = writeln!(out, "export refused; nothing written");
+            return Exit::Clean;
+        }
+    }
+    if let Some(parent) = absolute.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Err(error) = std::fs::write(&absolute, set.patch.as_bytes()) {
+        let _ = writeln!(
+            err,
+            "aporia agent export: cannot write {}: {error}",
+            absolute.display()
+        );
+        return Exit::Input;
+    }
+    // The export is journalled, and a finished record's manifest is refreshed so its integrity
+    // check still passes with the new head.
+    if let Err(error) = journal_export(&record, &absolute, set.files.len()) {
+        let _ = writeln!(err, "aporia agent export: {error}");
+        return Exit::Record;
+    }
+    let _ = writeln!(
+        out,
+        "exported {} file(s) to {}",
+        set.files.len(),
+        absolute.display()
+    );
+    Exit::Clean
 }
 
 fn list_command(flags: &[String], out: &mut dyn Write) -> Exit {

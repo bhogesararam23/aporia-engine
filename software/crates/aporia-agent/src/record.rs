@@ -117,6 +117,35 @@ impl RecordDir {
         self.write_json("manifest.json", manifest)
     }
 
+    /// Refresh an existing manifest's journal head and event count after an authorised append
+    /// (an export, say). A record without a manifest is still open; there is nothing to refresh.
+    pub fn refresh_manifest(&mut self) -> Result<(), RecordError> {
+        let path = self.root.join("manifest.json");
+        if !path.is_file() {
+            return Ok(());
+        }
+        let text = fs::read_to_string(&path).map_err(|source| RecordError::Io {
+            path: path.clone(),
+            action: "read the manifest",
+            source,
+        })?;
+        let mut value = Json::parse(&text).map_err(|error| RecordError::Manifest {
+            path: path.clone(),
+            reason: error.to_string(),
+        })?;
+        if let Json::Obj(fields) = &mut value {
+            for (name, field) in fields.iter_mut() {
+                if name == "journal" {
+                    *field = Json::object(vec![
+                        ("events", Json::count(self.journal.events())),
+                        ("head", Json::text(self.journal.head())),
+                    ]);
+                }
+            }
+        }
+        self.write_json("manifest.json", &value)
+    }
+
     /// Write the session checkpoint atomically: a temporary file is synced, then renamed over
     /// the old one. A process that dies mid-write leaves either the previous checkpoint or a
     /// stray temporary file -- never a half-written `session.json`. The journal remains

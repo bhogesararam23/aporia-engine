@@ -25,6 +25,41 @@ pub fn register(registry: &mut super::Registry) -> Result<(), String> {
 /// Where the prepared patch lives inside the record, before and after any decision.
 pub const PATCH_ARTEFACT: &str = "changeset.patch";
 
+/// The changeset a record's workspace holds against its source, read from the journal alone,
+/// with the source path the record was opened against. The chain is verified first: an export
+/// never stands on bytes that are not the ones written.
+pub fn changeset_from_record(root: &Path) -> Result<(crate::diff::Changeset, PathBuf), String> {
+    let journal_path = root.join("journal.jsonl");
+    crate::journal::verify_journal(&journal_path).map_err(|error| error.to_string())?;
+    let text = std::fs::read_to_string(&journal_path).map_err(|error| error.to_string())?;
+    let mut source: Option<PathBuf> = None;
+    let mut paths: Vec<String> = Vec::new();
+    for line in text.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let value = Json::parse(line).map_err(|error| error.to_string())?;
+        let fields = json::fields(&value).ok_or_else(|| "a journal line".to_string())?;
+        let kind = json::string(fields, "kind")?;
+        let payload = json::required(fields, "payload")?;
+        match kind {
+            "session.started" => {
+                let pfields = json::fields(payload).ok_or_else(|| "session.started".to_string())?;
+                source = Some(PathBuf::from(json::string(pfields, "source")?));
+            }
+            "change.applied" => {
+                let change = crate::investigation::FileChange::from_json(payload)?;
+                paths.push(change.path);
+            }
+            _ => {}
+        }
+    }
+    let source = source.ok_or_else(|| "the record has no session.started event".to_string())?;
+    let set =
+        changeset(&source, &root.join("workspace"), &paths).map_err(|error| error.to_string())?;
+    Ok((set, source))
+}
+
 struct ExportChangeset {
     meta: ToolMeta,
 }
