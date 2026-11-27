@@ -1,6 +1,6 @@
 # The agent workbench — `aporia agent`
 
-Status: **implemented, 2026-11-10.** This page describes what the v0.2 application does today.
+Status: **implemented; updated 2026-11-27.** This page describes what the application does today.
 The contract it was built against is [iterative-agent-spec.md](iterative-agent-spec.md); the first
 slice, `aporia investigate`, still works unchanged and is described in
 [agent-workflow.md](agent-workflow.md).
@@ -12,10 +12,14 @@ with it in a terminal:
 
 ```sh
 aporia agent <project-dir> --objective TEXT --provider PROVIDER \
-    [--model NAME] [--workdir DIR] [--allow-exec PROGRAM]... [--allow-write] \
+    [--model NAME] [--api-key-env VAR] [--ca-file FILE] [--workdir DIR] \
+    [--allow-exec PROGRAM]... [--allow-write] \
     [--max-turns N] [--max-tool-calls N] [--timeout MS] [--batch]
 
 aporia agent list [--workdir DIR]
+aporia agent resume <investigation-dir> --provider PROVIDER [--model NAME] [--batch]
+aporia agent status <investigation-dir>
+aporia agent export <investigation-dir> --out FILE [--yes]
 aporia agent report <investigation-dir>
 ```
 
@@ -25,14 +29,18 @@ it runs programs, runs the instrument, reads and compares results, keeps a backl
 found but did not do, and closes with a report.
 
 `--provider` is `scripted:<transcript.json>` (a committed transcript: a test double, and the
-offline demonstration) or `http://host:port/v1` with `--model` (an OpenAI-compatible endpoint).
+offline demonstrations), `http://host:port/v1` (a local OpenAI-compatible endpoint), or
+`https://host/v1` (the same shape over TLS). HTTP and HTTPS need `--model`. HTTPS also takes
+`--api-key-env VAR` — the name of the environment variable holding the bearer key; the key itself
+never appears on the command line, in the record, or in an error message — and `--ca-file FILE` to
+add a root certificate (an enterprise CA, or a test server). Verification is never disabled.
 `--batch` runs without asking: every approval inside the ceilings is granted automatically.
-Without it, the session asks.
+Without it, the session asks, and the approval prompt shows the plan's gaps, tasks and scope.
 
 Exit statuses follow the existing list: `0` finished, `1` finished with a critical or high
-finding, `2` usage, `3` the project or workspace is unusable, `10` the plan was refused, `11`
-provider failure, `12` budget exhausted (the record is incomplete), `13` the record could not be
-written.
+finding, `2` usage, `3` the project or workspace is unusable, `5` the record failed its integrity
+check, `10` the plan was refused, `11` provider failure, `12` budget exhausted (the record is
+incomplete), `13` the record could not be written.
 
 ## The conversation
 
@@ -47,8 +55,10 @@ or a command:
 | `/gaps` | the gaps the investigation has found |
 | `/tools` | the tools this session may use |
 | `/experiments` | the improvement backlog, most valuable first |
-| `/changes` | the changes made in the workspace |
+| `/findings` | the findings recorded so far |
+| `/changes` | the changes made in the workspace, with their before/after identities |
 | `/cancel` | stop at the next opportunity |
+| `/pause` | leave the session open; resume it later from its journal |
 | `/quit` | leave; the record stays on disk |
 
 Anything else is a message to the agent, added to the conversation and seen by the model on its
@@ -69,6 +79,7 @@ and every call passes host validation before anything runs.
 | instrument | `instrument_run` — the Trust Atlas, still a separate process with its archive contract |
 | results | `read_results`, `compare_results` — a result file, and the differences between two of them |
 | control | `propose_plan`, `revise_plan`, `record_finding`, `propose_experiment`, `update_experiment`, `update_task`, `finish` |
+| export | `export_changeset` — prepares the workspace's net changes as a unified diff inside the record and asks permission to write it to a destination outside the sandbox; the write happens only after the recorded approval |
 
 Read-only tools never ask for approval. `run_command` needs its program named in the approved
 scope; the plan asks for that, and the person approves the plan.
@@ -82,7 +93,26 @@ ceiling, never more.
 
 When a revision asks for more than was approved — a new program, write access, a larger budget, a
 changed objective — the person is asked again. Nothing expands silently. Every decision is
-recorded in the journal before it takes effect.
+recorded in the journal before it takes effect. Refusing one program's expansion does not end the
+investigation: the agent continues inside the scope that is still approved. An approval can never
+grant more than the command-line ceiling; an attempt is recorded and refused.
+
+## Keeping the loop honest
+
+- **Every tool call gets its result.** A denial that raises a permission question is still
+  delivered to the model, so the transcript is one a provider can continue.
+- **Approvals name their plan version.** With two proposals waiting, the decision approves the
+  one it names, never "the first undecided".
+- **A third identical failing call is refused.** The host counts exact (name, arguments) failures
+  and tells the model to change its approach instead of burning the budget repeating itself.
+- **The conversation is bounded; the record is not.** When tool outputs pass 256 KiB in total, the
+  oldest are elided from the conversation with a notice; the journal keeps every byte. The rule is
+  a pure function of the messages, so a resume reconstructs the same bounded transcript.
+- **A nearly spent budget tells the model to converge.** With two turns or four calls left, the
+  host says so once: record what is established, keep the rest in the backlog, finish.
+- **A finished experiment must cite recorded evidence.** `update_experiment` refuses a
+  completed/failed/inconclusive status whose result cites no recorded F, I or E id. An outcome
+  without evidence is not an outcome.
 
 ## The record
 
@@ -100,8 +130,38 @@ inv-1750000000/
   manifest.json        written last: the outcome, the counts, the journal head
 ```
 
-`aporia agent list` lists the sessions and their status; `aporia agent report <dir>` prints a
-finished investigation's report without executing anything.
+`aporia agent list` lists the sessions and their status; `aporia agent status <dir>` prints one
+session's checkpoint; `aporia agent report <dir>` prints a finished investigation's report without
+executing anything.
+
+### Resume
+
+The journal is authoritative; `session.json` is a derived summary written after every step. A
+process that dies leaves either the previous checkpoint or a stray temporary file, never a
+half-written one. `aporia agent resume <dir> --provider PROVIDER` replays the journal into the
+conversation, the investigation state and the invocation ledger, and continues:
+
+- a call recorded as **completed** is answered from the ledger, never run again;
+- a call recorded as **started but never completed** is reported to the model as interrupted,
+  never run again — the previous process may have run it halfway;
+- a call **requested but never started** runs once, because it never ran;
+- a pending approval survives and is asked again;
+- a **finished** record is history, not work to resume, and a **broken chain** is a named refusal;
+- a corrupt checkpoint is rebuilt from the journal, not trusted.
+
+The resume appends a `session.resumed` event naming the interrupted calls, so the record says what
+happened. The wall-clock budget starts fresh for the continuation; turn and call budgets count the
+whole investigation.
+
+### Export
+
+`aporia agent export <dir> --out FILE` computes the workspace's net changes against the original
+project as a unified diff, shows the files and the patch's digest, and writes only after the person
+answers yes (`--yes` for scripts). The export is journalled (`changeset.exported`, `by: cli`), and a
+finished record's manifest is refreshed so its integrity check still passes. The destination may
+not be inside the source project or the workspace. Binary changes are named as not representable,
+never silently dropped. The same lifecycle is available to the model through `export_changeset`,
+which prepares the patch in the record and waits for a recorded `ChangesetExport` approval.
 
 ## The experiment backlog
 
@@ -127,14 +187,21 @@ the cancellation kill the direct child, and a grandchild can outlive it. There i
 isolation, because there are no network tools. [limitations.md](limitations.md) says the same
 things in full.
 
-## The demonstration
+## The demonstrations
 
-`software/examples/agent-demo/` is a small Python project with a real defect: the integration
-rule closes the loop over its samples, so the error approaches `-0.5` instead of shrinking, and
-no test notices. Its `transcript.json` drives the demonstration through the real registry and the
-real loop — inspect, propose, approve, run the experiment, record the finding, keep the
-follow-up, close — and the test `agent_demo` in `aporia-cli` asserts that the record contains the
-run, the approval, the finding and the backlog.
+Two committed projects, materially different, each with a real defect its own tests do not catch:
 
-The demonstration is offline: the provider is a committed transcript, and no claim is made that a
-live model was consulted.
+- `software/examples/agent-demo/` — a Python numerical project: the integration rule closes the
+  loop over its samples, so the error approaches `-0.5` instead of shrinking. The transcript drives
+  inspect → propose → approve → measure → fix → measure again → backlog → close, and the test
+  `agent_demo` in `aporia-cli` asserts the record contains the run, the approval, the finding, the
+  change and the backlog.
+- `software/examples/agent-demo-node/` — a Node.js data pipeline: the variance estimator divides by
+  `n` while the project documents the sample (`n - 1`) estimator. The transcript drives the same
+  workflow, runs the project's own tests inside the sandbox, and the test `agent_demo_node` asserts
+  the before/after measurements are both in the record.
+
+Both demonstrations are offline: the provider is a committed transcript, and no claim is made that
+a live model was consulted. The adversarial suite (`agent_adversarial`) and the definition-of-done
+chain (`agent_definition_of_done`) exercise interruption, resume, refusal, exhaustion, timeout,
+rollback, credential canaries and the authorised export round-trip through the real binary.

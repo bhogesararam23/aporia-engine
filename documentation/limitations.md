@@ -256,7 +256,8 @@ does not is named as a divergence instead of being skipped.
 ## The agent workflow (first slice)
 
 `aporia investigate` is the product's first workflow, not its finished form. These are its limits, in the
-same spirit as the rest of this page.
+same spirit as the rest of this page. The iterative workbench (`aporia agent`) superseded several of
+them; its own limits are in the next section, and the first slice keeps working unchanged.
 
 - **The sandbox is copy isolation, not an operating-system jail.** A command runs as the user, can read
   and write paths outside the workspace, and can use the network. Path containment governs the tools the
@@ -305,6 +306,41 @@ same spirit as the rest of this page.
   lines, and no experiment backlog UI. The record is the persistent surface.
 - **No command replay.** The instrument's archive remains replayable with `aporia replay`; the journal
   can be re-read and verified. Arbitrary `exec` commands are not re-executed from the record.
+
+## The iterative workbench (`aporia agent`)
+
+What the workbench does not claim, in the same spirit. Its contract is
+[`agent-workbench.md`](agent-workbench.md).
+
+- **The sandbox is still copy isolation, not an operating-system jail.** The same limits as the first
+  slice apply: a command runs as the user, the timeout kills the direct child only, and the environment
+  scrub is a name policy. The workbench adds an explicit allowlist for `run_command` (PATH, HOME, LANG,
+  LC_ALL, TMPDIR, TEMP, TMP, SYSTEMROOT, COMSPEC) and refuses credential-shaped names even when the model
+  asks for them explicitly — but a secret under an unrecognised name in the parent environment is still
+  a name-policy question, not a boundary.
+- **Resume is journal replay, not process resurrection.** A call that started but never completed is
+  reported as interrupted and never re-run; the side effects it may have had before the crash are not
+  undone. A resume continues the conversation and the budgets, not the exact process state. The
+  wall-clock budget restarts for the continuation; turn and call budgets count the whole investigation.
+- **The export is a text patch.** Binary changes are named as not representable and are not in the
+  patch. The export covers the net effect of the recorded edits; files a program wrote inside the
+  workspace are artefacts, not part of the changeset. A patch that conflicts with a moved-on target is
+  refused by `git apply`, not merged.
+- **HTTPS is tested against a local TLS endpoint, not a live vendor.** The provider uses the platform
+  trust store (`native-tls`), retries only connection failures, timeouts and 429/5xx statuses (three
+  attempts), and redacts the bearer key from echoed error bodies. No live model endpoint was available
+  on the build machine, so no live-model quality claim is made; the committed demonstrations remain
+  scripted transcripts.
+- **The conversation is bounded, the record is not.** Past 256 KiB of tool output the oldest results
+  are elided from the conversation with a notice; the model re-reads them with the tools if it needs
+  them. An elided output is a summary of what was seen, not a claim that nothing else happened.
+- **Grounding is existence, not truth.** A finished experiment must cite a recorded evidence id, and a
+  finding must cite recorded ids — but the host cannot check that the interpretation is right. The
+  repetition guard refuses a third identical failing call; it cannot recognise a *rephrased* repetition.
+- **Two project types are demonstrated, not every language.** The Python numerical demo and the Node.js
+  pipeline demo run end to end through the real binary. A Rust project's `cargo test` inside the sandbox
+  is supported by the same tools but is not part of the committed demonstrations; the build machine's
+  application-control policy makes freshly linked test binaries an unreliable demonstration there.
 
 ## Questions that come up
 

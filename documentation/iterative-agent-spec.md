@@ -1,10 +1,12 @@
 # The v0.2 iterative agent — specification, gap audit and acceptance criteria
 
-Status: **specification adopted 2026-11-10; implementation in progress.** This page is the contract
-the v0.2 build is measured against. The status table at the bottom says what is implemented today;
-everything else on this page is a commitment, not a capability. The governing product definition
+Status: **specification adopted 2026-11-10; the acceptance criteria below are met as of
+2026-11-27 except the live-model test, which remains unverified (no endpoint or credential was
+available on the build machine).** This page is the contract the build is measured against. The
+status table at the bottom says what is implemented today; the governing product definition
 remains [product-charter.md](product-charter.md); the implemented first slice remains documented in
-[agent-workflow.md](agent-workflow.md) and keeps working unchanged.
+[agent-workflow.md](agent-workflow.md) and keeps working unchanged. The application's own contract
+is [agent-workbench.md](agent-workbench.md).
 
 ## 1. What v0.2 is
 
@@ -113,20 +115,31 @@ v0.2 is done only when, through the actual application:
       success criteria — an experiment that did not run stays a proposal;
 - [x] at least one code change is applied in the workspace, with the digests before and after,
       and the original project is untouched;
-- [ ] an interrupted investigation resumes without corrupting the record or re-running completed
-      operations (the invocation ledger and the crash-safe checkpoint exist; the resume command
-      does not);
+- [x] an interrupted investigation resumes without corrupting the record or re-running completed
+      operations (`aporia agent resume <dir>` reconstructs the transcript, the investigation state
+      and the invocation ledger from the hash-chained journal; a started-but-unfinished call is
+      reported as interrupted, a requested-but-never-started call runs once; a broken chain and a
+      finished record are named refusals; tested at engine and binary level, including a full
+      workflow interrupted mid-edit and resumed to completion);
 - [x] the full history, evidence, changes and outcomes are inspectable after the session
       (`aporia agent list`, `aporia agent report`, the journal);
-- [ ] a patch export happens only with explicit authorisation (the change set is recorded and
-      revertible; exporting it to a user location is not implemented);
+- [x] a patch export happens only with explicit authorisation (the `export_changeset` tool prepares
+      the unified diff inside the record and raises a `ChangesetExport` approval; the write to the
+      user's destination happens only after the recorded decision. `aporia agent export <dir>
+      --out FILE` asks the person directly. The patch round-trips through `git apply` onto a
+      pristine copy; a conflicting target is refused; a refused export writes nothing; the source
+      project is never a valid destination; binary changes are named, not silently dropped);
 - [x] the final report includes a prioritised backlog of further experiments;
 - [x] one complete project workflow is demonstrated end to end offline through the real registry,
       loop, execution, file changes, tests and records (`software/examples/agent-demo`);
 - [x] `aporia investigate`, the instrument, the archives and all historical results still work
       and verify unchanged;
-- [ ] live-model support is tested against a real endpoint (no endpoint was available on this
-      machine: the provider is still plain HTTP, and the demonstration is offline).
+- [ ] live-model support is tested against a real endpoint (**unverified**: no provider credential
+      or live endpoint was available on this machine. What *is* tested: the HTTPS provider runs
+      real TLS handshakes and full agent sessions against a local TLS endpoint with a test-only
+      certificate — wire shape, bearer credentials from a named environment variable, redaction of
+      echoed keys, bounded retries, and a scan proving the key never reaches the record. A live
+      vendor endpoint has not been exercised, and no live-model quality claim is made).
 
 ## 6. Implementation status
 
@@ -138,7 +151,30 @@ Updated as milestones land; a row is checked only when its tests and gates pass.
 | B — tool registry and execution foundation | done (`tools/`: registry, schema validation, dispatch, invocation ledger, error classes, output limits) |
 | C — project intelligence tools | done (file listing, literal search, ranged reading, discovery, read-only source Git) |
 | D — execution and scientific tools | done (`run_command`, `instrument_run`, result reading and comparison) |
-| E — iterative agent loop | done (`engine.rs`: one loop, plan versions, scope approval, findings, backlog) |
-| F — sandbox editing and patch lifecycle | partial (create, modify, delete, revert and change tracking; no unified-diff export) |
-| G — persistence and interactive application | partial (`aporia agent` with the conversation commands; session resume and list are not yet implemented) |
-| H — provider, demonstration, release audit | partial (the offline demonstration is real and tested; HTTPS provider support and the live smoke path are not implemented) |
+| E — iterative agent loop | done (`engine.rs`: one loop, plan versions, scope approval, findings, backlog; every tool result delivered, refused expansions continue the session, a third identical failing call is refused, the conversation is bounded while the journal is not, and a nearly spent budget tells the model to converge) |
+| F — sandbox editing and patch lifecycle | done (create, modify, delete, revert with correct before/after identities, change tracking, unified-diff export through `diff.rs` and `tools/export.rs`, authorised writes, `git apply` round-trip tests) |
+| G — persistence and interactive application | done (`aporia agent` with the conversation commands including `/pause` and `/findings`; checkpoints after every step; `resume`, `status`, `list`, `report`, `export` verbs; crash-safe resume in `resume.rs`) |
+| H — provider, demonstration, release audit | done except the live-model test (HTTPS via `native-tls` with credential redaction and bounded retries, contract-tested against a local TLS endpoint; two offline demonstrations on materially different project types — Python numerical and Node.js data pipeline — plus adversarial and definition-of-done workflows; a live vendor endpoint remains unverified) |
+
+## 7. What changed after the first v0.2 build (2026-11-27)
+
+The first v0.2 build implemented the loop but left the three acceptance gaps above open, and an
+audit of the implementation found defects the status table had not caught. Both are now closed:
+
+- **Record fidelity for resume.** The journal carries the user's words, whole tool arguments, the
+  call id on every completion, and the configured budgets; the event contract in `events.rs`
+  matches what the engine writes. The engine writes a checkpoint after every step.
+- **Resume.** `resume.rs` replays the journal into the conversation, the investigation state and
+  the invocation ledger, answers trailing unanswered calls (completed from the ledger, interrupted
+  as interrupted, never-started once), and appends a `session.resumed` event. A corrupt checkpoint
+  is rebuilt from the journal; a broken chain is refused.
+- **Export.** A dependency-free unified diff (`diff.rs`), the `export_changeset` tool with a
+  recorded approval, and the `aporia agent export` verb. A finished record's manifest is refreshed
+  after an authorised append so `verify_record` still passes.
+- **HTTPS.** `provider/https.rs` on `native-tls` (the platform trust store), sharing the wire code
+  with the plain-HTTP provider. Credentials come from a named environment variable, are redacted
+  from echoed error bodies, and never appear in `describe`, the journal or any artefact.
+- **Workflow hardening.** Approvals name the plan version they decide; a refused scope expansion
+  continues the investigation; the approval prompt shows the plan; `/changes` shows the real
+  changes; experiment outcomes must cite recorded evidence; the report carries the delivery,
+  approvals, artefacts, journal identity and reproduction instructions.
