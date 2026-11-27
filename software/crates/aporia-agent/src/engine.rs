@@ -932,16 +932,12 @@ impl Engine {
 
     /// Apply an approved plan or an approved expansion.
     fn apply_approval(&mut self, request: &ApprovalRequest) -> Result<(), EngineError> {
-        if request.kind == ApprovalKind::ScopeExpansion {
-            let program = crate::json::fields(&request.detail)
-                .and_then(|fields| {
-                    fields
-                        .iter()
-                        .find(|(name, _)| name == "program")
-                        .and_then(|(_, value)| value.as_str())
-                })
-                .unwrap_or_default()
-                .to_string();
+        let detail = crate::json::fields(&request.detail);
+        let program = detail
+            .and_then(|fields| crate::json::field(fields, "program"))
+            .and_then(Json::as_str)
+            .map(str::to_string);
+        if let Some(program) = program {
             let permitted = self.config.allow_exec.contains(&program);
             if !permitted {
                 self.journal(
@@ -971,13 +967,35 @@ impl Engine {
             )?;
             return Ok(());
         }
-        let pending = self
-            .investigation
-            .revisions
-            .iter()
-            .find(|revision| revision.decision.is_none())
-            .map(|revision| revision.version);
-        if let Some(version) = pending {
+        // A plan decision names its version. Approving "the first undecided revision" would
+        // approve the wrong plan when two proposals are waiting.
+        let named = detail
+            .and_then(|fields| crate::json::field(fields, "version"))
+            .and_then(Json::as_u64);
+        let version =
+            match named {
+                Some(version)
+                    if self.investigation.revisions.iter().any(|revision| {
+                        revision.version == version && revision.decision.is_none()
+                    }) =>
+                {
+                    Some(version)
+                }
+                Some(version) => {
+                    self.journal(
+                        "approval.version_not_pending",
+                        Json::object(vec![("version", Json::count(version))]),
+                    )?;
+                    None
+                }
+                None => self
+                    .investigation
+                    .revisions
+                    .iter()
+                    .find(|revision| revision.decision.is_none())
+                    .map(|revision| revision.version),
+            };
+        if let Some(version) = version {
             let scope = {
                 let revision = self
                     .investigation

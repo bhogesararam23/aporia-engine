@@ -312,6 +312,16 @@ fn check_cycles(tasks: &[PlannedTask]) -> Result<(), ToolFailure> {
     Ok(())
 }
 
+/// The detail a plan approval carries: the version it decides, and the plan itself. The version
+/// is what the engine approves -- with two proposals waiting, the decision must name the one it
+/// is about, never "the first undecided".
+fn approval_detail(version: u64, proposal: &Proposal) -> Json {
+    Json::object(vec![
+        ("version", Json::count(version)),
+        ("plan", proposal.to_json()),
+    ])
+}
+
 fn parse_scope(fields: &json::Fields) -> Result<ScopeRequest, ToolFailure> {
     let value = json::required(fields, "scope").map_err(ToolFailure::from)?;
     let scope = json::fields(value)
@@ -402,7 +412,7 @@ impl Tool for ProposePlan {
         let request = ApprovalRequest {
             kind: ApprovalKind::Plan,
             title: format!("approve plan version {version}"),
-            detail: proposal.to_json(),
+            detail: approval_detail(version, &proposal),
         };
         session.request_approval(request);
         Ok(ToolOutput::text(format!(
@@ -486,7 +496,7 @@ impl Tool for RevisePlan {
         session.request_approval(ApprovalRequest {
             kind,
             title,
-            detail: proposal.to_json(),
+            detail: approval_detail(version, &proposal),
         });
         Ok(ToolOutput::text(format!(
             "plan version {version} was recorded; it is waiting for approval"

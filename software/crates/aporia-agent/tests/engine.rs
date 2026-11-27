@@ -252,6 +252,39 @@ fn an_unknown_tool_is_a_failure_the_model_sees() {
 }
 
 #[test]
+fn an_approval_decides_the_version_it_names_not_the_first_undecided() {
+    let source = project();
+    let workdir = Temp::new("work6");
+    let mut second = plan_call();
+    second.id = "call-plan-2".to_string();
+    second.arguments = second.arguments.replace(
+        "find out whether the rule is biased",
+        "find out whether the rule is biased, revised",
+    );
+    let responses = vec![
+        // Two proposals in one turn: the second request is the one the person sees.
+        ModelResponse::calls(vec![plan_call(), second]),
+        ModelResponse::calls(vec![call(
+            "call-finish",
+            "finish",
+            r#"{"summary":"done","next_steps":[],"unresolved":[]}"#,
+        )]),
+    ];
+    let mut engine = engine_for(&source, &workdir, responses, Vec::new());
+    let outcome = run_to_end(&mut engine);
+    assert_eq!(outcome, Outcome::Completed);
+    let investigation = engine.investigation();
+    assert_eq!(investigation.revisions.len(), 2);
+    assert_eq!(
+        investigation.approved_version,
+        Some(2),
+        "the approval named version 2; version 1 must not be approved"
+    );
+    assert_eq!(investigation.revisions[0].decision, None);
+    assert_eq!(investigation.revisions[1].decision, Some(Decision::Approve));
+}
+
+#[test]
 fn a_decision_made_by_the_host_is_recorded_with_its_kind() {
     let source = project();
     let workdir = Temp::new("work5");
