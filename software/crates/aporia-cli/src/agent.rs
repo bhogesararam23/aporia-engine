@@ -8,6 +8,7 @@
 use crate::run::Exit;
 use aporia_agent::engine::{Controller, Engine, EngineConfig, EngineEvent, Outcome, Wait};
 use aporia_agent::provider::http::HttpProvider;
+use aporia_agent::provider::https::HttpsProvider;
 use aporia_agent::provider::scripted::ScriptedProvider;
 use aporia_agent::scope::{ApprovalRequest, Decision};
 use aporia_agent::tools::{
@@ -28,7 +29,8 @@ fn usage() -> &'static str {
      \x20   [--max-turns N] [--max-tool-calls N] [--timeout MS] [--batch]\n\
      \x20 open an interactive investigation. The agent inspects the project, proposes a plan, and\n\
      \x20 waits for your approval before anything runs. PROVIDER is `scripted:<transcript.json>`\n\
-     \x20 or `http://host:port/v1` (with --model).\n\
+     \x20 or `http://host:port/v1` / `https://host/v1` (with --model; HTTPS also takes\n\
+     \x20 --api-key-env VAR, the environment variable holding the bearer key).\n\
      \x20 aporia agent list [--workdir DIR]\n\
      \x20   list the investigations this work directory holds\n\
      \x20 aporia agent resume <investigation-dir> --provider PROVIDER [--model NAME] [--batch]\n\
@@ -78,6 +80,8 @@ struct Args {
     objective: String,
     provider: ProviderArg,
     model: Option<String>,
+    api_key_env: Option<String>,
+    ca_file: Option<PathBuf>,
     workdir: PathBuf,
     allow_exec: Vec<String>,
     allow_write: bool,
@@ -90,6 +94,7 @@ struct Args {
 enum ProviderArg {
     Scripted(PathBuf),
     Http(String),
+    Https(String),
 }
 
 /// The command. `out` is for the conversation, `err` for refusals.
@@ -125,7 +130,12 @@ pub fn command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Ex
         }
     };
 
-    let provider = match build_provider(&args.provider, args.model.as_deref()) {
+    let provider = match build_provider(
+        &args.provider,
+        args.model.as_deref(),
+        args.api_key_env.as_deref(),
+        args.ca_file.as_deref(),
+    ) {
         Ok(provider) => provider,
         Err(error) => {
             let _ = writeln!(err, "aporia agent: {error}");
@@ -592,6 +602,8 @@ fn exit_for(outcome: Outcome, engine: &Engine) -> Exit {
 fn build_provider(
     arg: &ProviderArg,
     model: Option<&str>,
+    api_key_env: Option<&str>,
+    ca_file: Option<&Path>,
 ) -> Result<Box<dyn aporia_agent::ModelProvider>, String> {
     match arg {
         ProviderArg::Scripted(path) => Ok(Box::new(
@@ -603,6 +615,29 @@ fn build_provider(
                 HttpProvider::new(base, model, 120_000).map_err(|error| error.to_string())?,
             ))
         }
+        ProviderArg::Https(base) => {
+            let model = model.ok_or_else(|| "an HTTPS provider needs --model NAME".to_string())?;
+            let provider =
+                HttpsProvider::new(base, model, 120_000).map_err(|error| error.to_string())?;
+            let provider = match api_key_env {
+                Some(variable) => provider
+                    .with_api_key_env(variable)
+                    .map_err(|error| error.to_string())?,
+                None => provider,
+            };
+            let provider = match ca_file {
+                Some(path) => {
+                    let pem = std::fs::read(path).map_err(|error| {
+                        format!("cannot read --ca-file {}: {error}", path.display())
+                    })?;
+                    provider
+                        .with_root_certificate_pem(&pem)
+                        .map_err(|error| error.to_string())?
+                }
+                None => provider,
+            };
+            Ok(Box::new(provider))
+        }
     }
 }
 
@@ -610,7 +645,26 @@ struct ResumeArgs {
     record: PathBuf,
     provider: ProviderArg,
     model: Option<String>,
+    api_key_env: Option<String>,
+    ca_file: Option<PathBuf>,
     batch: bool,
+}
+
+/// The provider a `--provider` value names.
+fn parse_provider_arg(text: &str) -> Result<ProviderArg, String> {
+    if let Some(path) = text.strip_prefix("scripted:") {
+        if path.is_empty() {
+            return Err("scripted: needs a transcript path".to_string());
+        }
+        return Ok(ProviderArg::Scripted(PathBuf::from(path)));
+    }
+    if text.starts_with("http://") {
+        return Ok(ProviderArg::Http(text.to_string()));
+    }
+    if text.starts_with("https://") {
+        return Ok(ProviderArg::Https(text.to_string()));
+    }
+    Err("--provider must be `scripted:<path>` or an http(s) URL".to_string())
 }
 
 /// Parse the resume flags. Refusals are one readable sentence each.
@@ -618,6 +672,8 @@ fn parse_resume(flags: &[String]) -> Result<ResumeArgs, String> {
     let mut record: Option<PathBuf> = None;
     let mut provider: Option<ProviderArg> = None;
     let mut model: Option<String> = None;
+    let mut api_key_env: Option<String> = None;
+    let mut ca_file: Option<PathBuf> = None;
     let mut batch = false;
     let mut index = 0;
     while index < flags.len() {
@@ -632,20 +688,11 @@ fn parse_resume(flags: &[String]) -> Result<ResumeArgs, String> {
         match flag {
             "--provider" => {
                 let text = value(&mut index, "--provider")?;
-                if let Some(path) = text.strip_prefix("scripted:") {
-                    if path.is_empty() {
-                        return Err("scripted: needs a transcript path".to_string());
-                    }
-                    provider = Some(ProviderArg::Scripted(PathBuf::from(path)));
-                } else if text.starts_with("http://") || text.starts_with("https://") {
-                    provider = Some(ProviderArg::Http(text));
-                } else {
-                    return Err(
-                        "--provider must be `scripted:<path>` or an http(s) URL".to_string()
-                    );
-                }
+                provider = Some(parse_provider_arg(&text)?);
             }
             "--model" => model = Some(value(&mut index, "--model")?),
+            "--api-key-env" => api_key_env = Some(value(&mut index, "--api-key-env")?),
+            "--ca-file" => ca_file = Some(PathBuf::from(value(&mut index, "--ca-file")?)),
             "--batch" => batch = true,
             other if other.starts_with("--") => {
                 return Err(format!("unknown flag `{other}`"));
@@ -661,13 +708,21 @@ fn parse_resume(flags: &[String]) -> Result<ResumeArgs, String> {
     }
     let record = record.ok_or_else(|| "an investigation directory is required".to_string())?;
     let provider = provider.ok_or_else(|| "--provider is required".to_string())?;
-    if matches!(provider, ProviderArg::Http(_)) && model.is_none() {
-        return Err("an HTTP provider needs --model NAME".to_string());
+    if matches!(provider, ProviderArg::Http(_) | ProviderArg::Https(_)) && model.is_none() {
+        return Err("an HTTP(S) provider needs --model NAME".to_string());
+    }
+    if api_key_env.is_some() && !matches!(provider, ProviderArg::Https(_)) {
+        return Err("--api-key-env is only used by an HTTPS provider".to_string());
+    }
+    if ca_file.is_some() && !matches!(provider, ProviderArg::Https(_)) {
+        return Err("--ca-file is only used by an HTTPS provider".to_string());
     }
     Ok(ResumeArgs {
         record,
         provider,
         model,
+        api_key_env,
+        ca_file,
         batch,
     })
 }
@@ -683,7 +738,12 @@ fn resume_command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) ->
     };
     let record = args.record;
     let batch = args.batch;
-    let provider = match build_provider(&args.provider, args.model.as_deref()) {
+    let provider = match build_provider(
+        &args.provider,
+        args.model.as_deref(),
+        args.api_key_env.as_deref(),
+        args.ca_file.as_deref(),
+    ) {
         Ok(provider) => provider,
         Err(error) => {
             let _ = writeln!(err, "aporia agent resume: {error}");
@@ -1047,6 +1107,8 @@ fn parse(flags: &[String]) -> Result<Args, String> {
     let mut objective = None;
     let mut provider = None;
     let mut model = None;
+    let mut api_key_env = None;
+    let mut ca_file = None;
     let mut workdir = PathBuf::from(DEFAULT_WORKDIR);
     let mut allow_exec = Vec::new();
     let mut allow_write = false;
@@ -1068,20 +1130,11 @@ fn parse(flags: &[String]) -> Result<Args, String> {
             "--objective" => objective = Some(value(&mut index, "--objective")?),
             "--provider" => {
                 let text = value(&mut index, "--provider")?;
-                if let Some(path) = text.strip_prefix("scripted:") {
-                    if path.is_empty() {
-                        return Err("--provider scripted: needs a transcript path".to_string());
-                    }
-                    provider = Some(ProviderArg::Scripted(PathBuf::from(path)));
-                } else if text.starts_with("http://") || text.starts_with("https://") {
-                    provider = Some(ProviderArg::Http(text));
-                } else {
-                    return Err(
-                        "--provider must be `scripted:<path>` or `http://host:port/v1`".to_string(),
-                    );
-                }
+                provider = Some(parse_provider_arg(&text)?);
             }
             "--model" => model = Some(value(&mut index, "--model")?),
+            "--api-key-env" => api_key_env = Some(value(&mut index, "--api-key-env")?),
+            "--ca-file" => ca_file = Some(PathBuf::from(value(&mut index, "--ca-file")?)),
             "--workdir" => workdir = PathBuf::from(value(&mut index, "--workdir")?),
             "--allow-exec" => allow_exec.push(value(&mut index, "--allow-exec")?),
             "--allow-write" => allow_write = true,
@@ -1113,8 +1166,14 @@ fn parse(flags: &[String]) -> Result<Args, String> {
     if matches!(provider, ProviderArg::Scripted(_)) && model.is_some() {
         return Err("--model is only used by an HTTP provider".to_string());
     }
-    if matches!(provider, ProviderArg::Http(_)) && model.is_none() {
-        return Err("an HTTP provider needs --model NAME".to_string());
+    if matches!(provider, ProviderArg::Http(_) | ProviderArg::Https(_)) && model.is_none() {
+        return Err("an HTTP(S) provider needs --model NAME".to_string());
+    }
+    if api_key_env.is_some() && !matches!(provider, ProviderArg::Https(_)) {
+        return Err("--api-key-env is only used by an HTTPS provider".to_string());
+    }
+    if ca_file.is_some() && !matches!(provider, ProviderArg::Https(_)) {
+        return Err("--ca-file is only used by an HTTPS provider".to_string());
     }
     for program in &allow_exec {
         if program.is_empty()
@@ -1130,6 +1189,8 @@ fn parse(flags: &[String]) -> Result<Args, String> {
         objective,
         provider,
         model,
+        api_key_env,
+        ca_file,
         workdir,
         allow_exec,
         allow_write,

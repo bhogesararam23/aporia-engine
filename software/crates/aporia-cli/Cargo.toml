@@ -28,5 +28,9 @@ aporia-runtime = { path = "../aporia-runtime" }
 aporia-search = { path = "../aporia-search" }
 aporia-store = { path = "../aporia-store" }
 
+# The HTTPS contract test's local TLS server (the agent crate's own tests use the same client).
+[dev-dependencies]
+native-tls = "0.2"
+
 [lints]
 workspace = true

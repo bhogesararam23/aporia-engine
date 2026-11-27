@@ -6,7 +6,9 @@
 //! not require touching the orchestrator, the tools or the record.
 
 pub mod http;
+pub mod https;
 pub mod scripted;
+pub mod wire;
 
 use aporia_store::Json;
 use std::fmt;

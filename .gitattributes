@@ -32,6 +32,10 @@
 *.lib binary
 *.dll binary
 *.obj binary
+# TLS test fixtures: PEM parsers read LF literally, and a PFX is binary. A CRLF checkout would
+# break the HTTPS contract tests on a fresh clone.
+*.pem text eol=lf
+*.pfx binary
 Cargo.lock text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf

@@ -11,6 +11,10 @@ description = "The agent application layer: model-provider boundary, investigati
 [dependencies]
 aporia-sandbox = { path = "../aporia-sandbox" }
 aporia-store = { path = "../aporia-store" }
+# The HTTPS provider's TLS: a maintained client over the platform's own trust store
+# (schannel on Windows, Security Framework on macOS, OpenSSL on Linux). No provider lock-in:
+# the wire shape stays OpenAI-compatible behind the same ModelProvider trait.
+native-tls = "0.2"
 
 # The child `tests/execute.rs` uses to observe a completed task, a missing archive and a timeout.
 [[bin]]
