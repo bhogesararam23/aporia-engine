@@ -10,6 +10,7 @@ pub mod command;
 pub mod context;
 pub mod control;
 pub mod edit;
+pub mod export;
 pub mod files;
 pub mod instrument;
 pub mod intel;

@@ -11,7 +11,7 @@ use aporia_agent::provider::http::HttpProvider;
 use aporia_agent::provider::scripted::ScriptedProvider;
 use aporia_agent::scope::{ApprovalRequest, Decision};
 use aporia_agent::tools::{
-    Registry, command, control, edit, files, instrument, intel, results, source_git,
+    Registry, command, control, edit, export, files, instrument, intel, results, source_git,
 };
 use aporia_store::Json;
 use std::io::{BufRead, IsTerminal, Write};
@@ -172,6 +172,7 @@ fn registry() -> Registry {
     let mut registry = Registry::new();
     control::register(&mut registry).expect("control tools");
     edit::register(&mut registry).expect("editing tools");
+    export::register(&mut registry).expect("export tool");
     files::register(&mut registry).expect("file tools");
     intel::register(&mut registry).expect("discovery tools");
     command::register(&mut registry).expect("command tool");

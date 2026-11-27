@@ -109,19 +109,7 @@ impl RecordDir {
 
     /// Write a text artefact.
     pub fn write_text(&self, name: &str, text: &str) -> Result<(), RecordError> {
-        let path = self.path(name)?;
-        let mut file = fs::File::create(&path).map_err(|source| RecordError::Io {
-            path: path.clone(),
-            action: "create an artefact",
-            source,
-        })?;
-        file.write_all(text.as_bytes())
-            .and_then(|()| file.sync_all())
-            .map_err(|source| RecordError::Io {
-                path,
-                action: "write an artefact",
-                source,
-            })
+        write_text_at(&self.root, name, text)
     }
 
     /// Write `manifest.json` last. Its presence is what makes a record complete.
@@ -161,24 +149,42 @@ impl RecordDir {
     pub fn read_checkpoint(&self) -> Result<Option<SessionState>, RecordError> {
         read_checkpoint(&self.root)
     }
+}
 
-    fn path(&self, name: &str) -> Result<PathBuf, RecordError> {
-        if name.is_empty()
-            || name.contains('/')
-            || name.contains('\\')
-            || name.contains("..")
-            || !name
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
-        {
-            return Err(RecordError::Io {
-                path: self.root.join(name),
-                action: "use an artefact name",
-                source: std::io::Error::other("the name must be one simple file name"),
-            });
-        }
-        Ok(self.root.join(name))
+/// Validate an artefact name and resolve it under `root`: one simple file name, no traversal.
+fn artefact_path(root: &Path, name: &str) -> Result<PathBuf, RecordError> {
+    if name.is_empty()
+        || name.contains('/')
+        || name.contains('\\')
+        || name.contains("..")
+        || !name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+    {
+        return Err(RecordError::Io {
+            path: root.join(name),
+            action: "use an artefact name",
+            source: std::io::Error::other("the name must be one simple file name"),
+        });
     }
+    Ok(root.join(name))
+}
+
+/// Write a text artefact into the record at `root`, synced before the call returns.
+pub fn write_text_at(root: &Path, name: &str, text: &str) -> Result<(), RecordError> {
+    let path = artefact_path(root, name)?;
+    let mut file = fs::File::create(&path).map_err(|source| RecordError::Io {
+        path: path.clone(),
+        action: "create an artefact",
+        source,
+    })?;
+    file.write_all(text.as_bytes())
+        .and_then(|()| file.sync_all())
+        .map_err(|source| RecordError::Io {
+            path,
+            action: "write an artefact",
+            source,
+        })
 }
 
 /// What `verify_record` learned.

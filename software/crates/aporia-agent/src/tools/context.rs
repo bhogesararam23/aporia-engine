@@ -32,6 +32,12 @@ pub trait Session {
 
     /// Record the closing delivery. Returns whether the investigation may finish.
     fn deliver(&mut self, delivery: crate::orchestrator::Delivery) -> bool;
+
+    /// Write a text artefact into the investigation record. The default refuses: a session
+    /// without a record (a test harness, say) cannot hold one.
+    fn write_record_text(&mut self, _name: &str, _text: &str) -> Result<(), String> {
+        Err("this session has no investigation record to write into".to_string())
+    }
 }
 
 /// The host-controlled context of one tool invocation.

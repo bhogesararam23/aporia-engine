@@ -123,8 +123,13 @@ pub enum Event {
         path: String,
         sha256: String,
     },
-    /// A changeset was exported to an explicitly authorised destination.
-    ChangesetExported { destination: String, files: u64 },
+    /// A changeset was exported to an explicitly authorised destination. `by` names the
+    /// authorisation: an approved `ChangesetExport` decision, or the person at the CLI.
+    ChangesetExported {
+        destination: String,
+        files: u64,
+        by: String,
+    },
 }
 
 impl Event {
@@ -299,9 +304,14 @@ impl Event {
                 ("path", Json::text(path)),
                 ("sha256", Json::text(sha256)),
             ]),
-            Self::ChangesetExported { destination, files } => Json::object(vec![
+            Self::ChangesetExported {
+                destination,
+                files,
+                by,
+            } => Json::object(vec![
                 ("destination", Json::text(destination)),
                 ("files", Json::count(*files)),
+                ("by", Json::text(by)),
             ]),
         }
     }
@@ -422,6 +432,7 @@ mod tests {
             Event::ChangesetExported {
                 destination: "out/patch".to_string(),
                 files: 1,
+                by: "approval".to_string(),
             },
         ]
     }

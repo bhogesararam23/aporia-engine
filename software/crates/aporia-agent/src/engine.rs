@@ -662,7 +662,74 @@ impl Engine {
                     )?;
                 }
             }
-            ApprovalKind::ChangesetExport => {}
+            ApprovalKind::ChangesetExport => {
+                self.decide_export(&request, decision)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// An export decision: the write to the user's destination happens here, only after the
+    /// approval is journalled, and the outcome is told to the model either way.
+    fn decide_export(
+        &mut self,
+        request: &ApprovalRequest,
+        decision: Decision,
+    ) -> Result<(), EngineError> {
+        let fields = crate::json::fields(&request.detail);
+        let destination = fields
+            .and_then(|fields| crate::json::string(fields, "destination").ok())
+            .unwrap_or_default()
+            .to_string();
+        let files = fields
+            .and_then(|fields| crate::json::u64_value(fields, "files").ok())
+            .unwrap_or(0);
+        if destination.is_empty() {
+            return Ok(());
+        }
+        if decision == Decision::Refuse {
+            self.host_note(format!(
+                "The export to {destination} was refused. The patch stays in the record as {}.",
+                crate::tools::export::PATCH_ARTEFACT
+            ))?;
+            return Ok(());
+        }
+        let patch = self
+            .record
+            .root()
+            .join(crate::tools::export::PATCH_ARTEFACT);
+        let bytes = match std::fs::read(&patch) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                self.host_note(format!(
+                    "The export to {destination} could not read the prepared patch: {error}"
+                ))?;
+                return Ok(());
+            }
+        };
+        let target = std::path::Path::new(&destination);
+        if let Some(parent) = target.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match std::fs::write(target, &bytes) {
+            Ok(()) => {
+                self.journal(
+                    "changeset.exported",
+                    Json::object(vec![
+                        ("destination", Json::text(&destination)),
+                        ("files", Json::count(files)),
+                        ("by", Json::text("approval")),
+                    ]),
+                )?;
+                self.host_note(format!(
+                    "The changeset was exported to {destination} ({files} file(s))."
+                ))?;
+            }
+            Err(error) => {
+                self.host_note(format!(
+                    "The export to {destination} failed: {error}. The patch stays in the record."
+                ))?;
+            }
         }
         Ok(())
     }
@@ -1201,9 +1268,11 @@ impl Engine {
                 registry,
                 ..
             } = self;
+            let record_root = record.root().to_path_buf();
             let mut session = EngineSession {
                 investigation,
                 journal: record.journal_mut(),
+                record_root,
                 limits,
                 pending: &mut pending,
                 delivered: &mut delivered,
@@ -1253,6 +1322,7 @@ impl Engine {
 struct EngineSession<'a> {
     investigation: &'a mut Investigation,
     journal: &'a mut Journal,
+    record_root: PathBuf,
     limits: ScopeLimits,
     pending: &'a mut Option<ApprovalRequest>,
     delivered: &'a mut bool,
@@ -1282,6 +1352,11 @@ impl Session for EngineSession<'_> {
         self.investigation.delivery = Some(delivery);
         *self.delivered = true;
         true
+    }
+
+    fn write_record_text(&mut self, name: &str, text: &str) -> Result<(), String> {
+        crate::record::write_text_at(&self.record_root, name, text)
+            .map_err(|error| error.to_string())
     }
 }
 
