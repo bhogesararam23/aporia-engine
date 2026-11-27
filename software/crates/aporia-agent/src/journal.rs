@@ -153,6 +153,26 @@ impl Journal {
         })
     }
 
+    /// Reopen an existing journal for appending. The chain is verified first: a resume never
+    /// writes into a record whose bytes are not the ones that were written.
+    pub fn open(path: &Path) -> Result<Self, RecordError> {
+        let verified = verify_journal(path)?;
+        let file = OpenOptions::new()
+            .append(true)
+            .open(path)
+            .map_err(|source| RecordError::Io {
+                path: path.to_path_buf(),
+                action: "reopen the journal",
+                source,
+            })?;
+        Ok(Self {
+            path: path.to_path_buf(),
+            file,
+            seq: verified.events,
+            head: verified.head,
+        })
+    }
+
     /// Append one event and return its sequence number.
     pub fn append(&mut self, kind: &str, payload: Json) -> Result<u64, RecordError> {
         let seq = self.seq;

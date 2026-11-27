@@ -76,6 +76,23 @@ impl RecordDir {
         &self.root
     }
 
+    /// Reopen an existing investigation directory. The journal's chain is verified before it is
+    /// opened for appending; the workspace is the copy the previous process left behind.
+    pub fn open(root: &Path) -> Result<Self, RecordError> {
+        let root = root.canonicalize().map_err(|source| RecordError::Io {
+            path: root.to_path_buf(),
+            action: "resolve the investigation directory",
+            source,
+        })?;
+        let journal = Journal::open(&root.join("journal.jsonl"))?;
+        let workspace = root.join("workspace");
+        Ok(Self {
+            root,
+            workspace,
+            journal,
+        })
+    }
+
     #[must_use]
     pub fn workspace(&self) -> &Path {
         &self.workspace

@@ -8,6 +8,7 @@
 //! The plan is a set of versions, not a single document: a revision is validated against the
 //! evidence and the limits, and it only becomes permission when a person approves it.
 
+use crate::json;
 use crate::orchestrator::Delivery;
 use crate::plan::{Finding, Gap};
 use crate::scope::{ApprovalRequest, Decision, Risk, Scope};
@@ -87,6 +88,40 @@ impl PlannedTask {
             ("status", Json::text(self.status.as_str())),
         ])
     }
+
+    /// Read a task back from its recorded form.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let fields = json::fields(value).ok_or_else(|| "a task must be an object".to_string())?;
+        json::only(
+            fields,
+            &[
+                "id",
+                "title",
+                "question",
+                "gap_ids",
+                "depends_on",
+                "method",
+                "expected_evidence",
+                "success_criteria",
+                "estimated_cost",
+                "risk",
+                "status",
+            ],
+        )?;
+        Ok(Self {
+            id: json::string(fields, "id")?.to_string(),
+            title: json::string(fields, "title")?.to_string(),
+            question: json::string(fields, "question")?.to_string(),
+            gap_ids: json::string_array(fields, "gap_ids")?,
+            depends_on: json::string_array(fields, "depends_on")?,
+            method: json::string(fields, "method")?.to_string(),
+            expected_evidence: json::string(fields, "expected_evidence")?.to_string(),
+            success_criteria: json::string(fields, "success_criteria")?.to_string(),
+            estimated_cost: json::string(fields, "estimated_cost")?.to_string(),
+            risk: json::string(fields, "risk")?.to_string(),
+            status: TaskStatus::parse(json::string(fields, "status")?)?,
+        })
+    }
 }
 
 /// What a plan asks to be permitted to do.
@@ -144,6 +179,39 @@ impl Proposal {
             ("scope", self.scope.to_json()),
             ("success_criteria", Json::text(&self.success_criteria)),
         ])
+    }
+
+    /// Read a proposal back from its recorded form.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let fields =
+            json::fields(value).ok_or_else(|| "a proposal must be an object".to_string())?;
+        json::only(
+            fields,
+            &["objective", "gaps", "tasks", "scope", "success_criteria"],
+        )?;
+        let gaps = json::array(fields, "gaps")?
+            .iter()
+            .map(Gap::from_json)
+            .collect::<Result<Vec<_>, _>>()?;
+        let tasks = json::array(fields, "tasks")?
+            .iter()
+            .map(PlannedTask::from_json)
+            .collect::<Result<Vec<_>, _>>()?;
+        let scope_value = json::required(fields, "scope")?;
+        let scope = Scope::from_json(scope_value)?;
+        Ok(Self {
+            objective: json::string(fields, "objective")?.to_string(),
+            gaps,
+            tasks,
+            scope: ScopeRequest {
+                allow_exec: scope.allow_exec,
+                allow_write: scope.allow_write,
+                max_turns: scope.max_turns,
+                max_tool_calls: scope.max_tool_calls,
+                timeout_ms: scope.timeout_ms,
+            },
+            success_criteria: json::string(fields, "success_criteria")?.to_string(),
+        })
     }
 }
 
@@ -300,6 +368,55 @@ impl Experiment {
             ),
         ])
     }
+
+    /// Read a backlog item back from its recorded form.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let fields =
+            json::fields(value).ok_or_else(|| "an experiment must be an object".to_string())?;
+        json::only(
+            fields,
+            &[
+                "id",
+                "title",
+                "question",
+                "reason",
+                "evidence",
+                "priority",
+                "methodology",
+                "variables",
+                "dependencies",
+                "required_data",
+                "expected_outcomes",
+                "metrics",
+                "estimated_cost",
+                "success_criteria",
+                "risks",
+                "status",
+                "result",
+                "follow_up",
+            ],
+        )?;
+        Ok(Self {
+            id: json::string(fields, "id")?.to_string(),
+            title: json::string(fields, "title")?.to_string(),
+            question: json::string(fields, "question")?.to_string(),
+            reason: json::string(fields, "reason")?.to_string(),
+            evidence: json::string_array(fields, "evidence")?,
+            priority: json::string(fields, "priority")?.to_string(),
+            methodology: json::string(fields, "methodology")?.to_string(),
+            variables: json::string_array(fields, "variables")?,
+            dependencies: json::string_array(fields, "dependencies")?,
+            required_data: json::string_array(fields, "required_data")?,
+            expected_outcomes: json::string(fields, "expected_outcomes")?.to_string(),
+            metrics: json::string_array(fields, "metrics")?,
+            estimated_cost: json::string(fields, "estimated_cost")?.to_string(),
+            success_criteria: json::string(fields, "success_criteria")?.to_string(),
+            risks: json::string(fields, "risks")?.to_string(),
+            status: ExperimentStatus::parse(json::string(fields, "status")?)?,
+            result: json::optional_string(fields, "result")?.map(str::to_string),
+            follow_up: json::optional_string(fields, "follow_up")?.map(str::to_string),
+        })
+    }
 }
 
 /// One recorded piece of evidence the model may cite.
@@ -338,6 +455,15 @@ impl ChangeKind {
             Self::Deleted => "deleted",
         }
     }
+
+    pub fn parse(text: &str) -> Result<Self, String> {
+        match text {
+            "created" => Ok(Self::Created),
+            "modified" => Ok(Self::Modified),
+            "deleted" => Ok(Self::Deleted),
+            other => Err(format!("unknown change kind `{other}`")),
+        }
+    }
 }
 
 /// One change the agent made inside the workspace, with the identities before and after.
@@ -363,6 +489,18 @@ impl FileChange {
             ),
             ("after", self.after.as_ref().map_or(Json::Null, Json::text)),
         ])
+    }
+
+    /// Read a change back from its recorded form.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let fields = json::fields(value).ok_or_else(|| "a change must be an object".to_string())?;
+        json::only(fields, &["path", "kind", "before", "after"])?;
+        Ok(Self {
+            path: json::string(fields, "path")?.to_string(),
+            kind: ChangeKind::parse(json::string(fields, "kind")?)?,
+            before: json::optional_string(fields, "before")?.map(str::to_string),
+            after: json::optional_string(fields, "after")?.map(str::to_string),
+        })
     }
 }
 

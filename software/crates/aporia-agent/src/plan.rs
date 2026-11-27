@@ -143,6 +143,27 @@ impl Gap {
             ),
         ])
     }
+
+    /// Read a gap back from its recorded form. The record was validated when it was written;
+    /// a reader still refuses a shape it does not know.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let fields = json::fields(value).ok_or_else(|| "a gap must be an object".to_string())?;
+        json::only(
+            fields,
+            &["id", "title", "priority", "why", "condition", "evidence"],
+        )?;
+        let priority_text = json::string(fields, "priority")?;
+        let priority = Priority::parse(priority_text)
+            .ok_or_else(|| format!("unknown priority `{priority_text}`"))?;
+        Ok(Self {
+            id: json::string(fields, "id")?.to_string(),
+            title: json::string(fields, "title")?.to_string(),
+            priority,
+            why: json::string(fields, "why")?.to_string(),
+            condition: json::string(fields, "condition")?.to_string(),
+            evidence: json::string_array(fields, "evidence")?,
+        })
+    }
 }
 
 impl Task {
@@ -633,6 +654,29 @@ impl Finding {
             ),
             ("uncertainty", Json::text(&self.uncertainty)),
         ])
+    }
+
+    /// Read a finding back from its recorded form.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let fields =
+            json::fields(value).ok_or_else(|| "a finding must be an object".to_string())?;
+        json::only(
+            fields,
+            &["kind", "severity", "text", "evidence", "uncertainty"],
+        )?;
+        let kind_text = json::string(fields, "kind")?;
+        let kind = FindingKind::parse(kind_text)
+            .ok_or_else(|| format!("unknown finding kind `{kind_text}`"))?;
+        let severity_text = json::string(fields, "severity")?;
+        let severity = Severity::parse(severity_text)
+            .ok_or_else(|| format!("unknown severity `{severity_text}`"))?;
+        Ok(Self {
+            kind,
+            severity,
+            text: json::string(fields, "text")?.to_string(),
+            evidence: json::string_array(fields, "evidence")?,
+            uncertainty: json::string(fields, "uncertainty")?.to_string(),
+        })
     }
 }
 

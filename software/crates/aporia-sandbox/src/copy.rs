@@ -160,6 +160,26 @@ impl Sandbox {
         Self::create_with_limits(source, workspace, CopyLimits::default())
     }
 
+    /// Reopen an existing workspace without copying anything. A resume continues in the copy the
+    /// previous process left behind, edits and all; making a fresh copy would discard the work.
+    pub fn open(workspace: &Path) -> Result<Self, SandboxError> {
+        let canonical = workspace.canonicalize().map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                SandboxError::SourceMissing(workspace.to_path_buf())
+            } else {
+                SandboxError::Io {
+                    path: workspace.to_path_buf(),
+                    action: "resolve the workspace",
+                    source: error,
+                }
+            }
+        })?;
+        if !canonical.is_dir() {
+            return Err(SandboxError::NotADirectory(workspace.to_path_buf()));
+        }
+        Ok(Self { root: canonical })
+    }
+
     /// The same copy with explicit limits, for tests and for a caller with a different budget.
     pub fn create_with_limits(
         source: &Path,

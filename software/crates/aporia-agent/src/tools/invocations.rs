@@ -64,6 +64,18 @@ impl InvocationTable {
         self.complete(call_id, result);
     }
 
+    /// The recorded result of a completed call, if there is one.
+    #[must_use]
+    pub fn recorded(&self, call_id: &str) -> Option<&ToolResult> {
+        self.completed.get(call_id)
+    }
+
+    /// Whether a call was started but has no recorded completion.
+    #[must_use]
+    pub fn was_started(&self, call_id: &str) -> bool {
+        self.started.contains(call_id)
+    }
+
     /// The ids that were started but never completed -- what a resume reports as interrupted.
     #[must_use]
     pub fn interrupted(&self) -> Vec<String> {

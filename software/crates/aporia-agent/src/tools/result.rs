@@ -108,6 +108,23 @@ impl ErrorClass {
             Self::Internal => "internal",
         }
     }
+
+    pub fn parse(text: &str) -> Result<Self, String> {
+        match text {
+            "invalid_arguments" => Ok(Self::InvalidArguments),
+            "unknown_tool" => Ok(Self::UnknownTool),
+            "denied" => Ok(Self::Denied),
+            "not_found" => Ok(Self::NotFound),
+            "io" => Ok(Self::Io),
+            "execution" => Ok(Self::Execution),
+            "timeout" => Ok(Self::Timeout),
+            "budget" => Ok(Self::Budget),
+            "cancelled" => Ok(Self::Cancelled),
+            "unsupported" => Ok(Self::Unsupported),
+            "internal" => Ok(Self::Internal),
+            other => Err(format!("unknown error class `{other}`")),
+        }
+    }
 }
 
 /// A classified tool failure.

@@ -27,6 +27,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+/// What a call that started before an interruption but never completed is told. It is never
+/// run again: the previous process may have run it halfway.
+pub(crate) const INTERRUPTED_TEXT: &str = "error[interrupted]: this call was started before an interruption and never completed; it was not run again";
+
 /// Why an investigation could not be started or recorded.
 #[derive(Debug)]
 pub enum EngineError {
@@ -238,29 +242,30 @@ impl Controller for ScriptedDecisions {
 
 /// The engine.
 pub struct Engine {
-    config: EngineConfig,
-    record: RecordDir,
-    sandbox: Sandbox,
-    copy: CopyReport,
-    registry: Registry,
-    controller: Box<dyn Controller>,
-    messages: Vec<Message>,
-    invocations: InvocationTable,
-    investigation: Investigation,
-    scope: Option<Scope>,
-    approvals: Vec<(ApprovalKind, Decision)>,
-    artifacts: Vec<ArtifactRef>,
-    pending: Option<ApprovalRequest>,
-    turns: usize,
-    calls: usize,
-    phase: Phase,
-    status: SessionStatus,
-    failure: Option<String>,
-    deadline: Instant,
-    cancel: Arc<AtomicBool>,
-    started: String,
-    provider_name: String,
-    queued_messages: Vec<String>,
+    pub(crate) config: EngineConfig,
+    pub(crate) record: RecordDir,
+    pub(crate) sandbox: Sandbox,
+    pub(crate) copy: CopyReport,
+    pub(crate) registry: Registry,
+    pub(crate) controller: Box<dyn Controller>,
+    pub(crate) messages: Vec<Message>,
+    pub(crate) invocations: InvocationTable,
+    pub(crate) investigation: Investigation,
+    pub(crate) scope: Option<Scope>,
+    pub(crate) approvals: Vec<(ApprovalKind, Decision)>,
+    pub(crate) artifacts: Vec<ArtifactRef>,
+    pub(crate) pending: Option<ApprovalRequest>,
+    /// Calls a previous process requested but never started; a resume runs them once.
+    pub(crate) resume_calls: Vec<ToolCall>,
+    pub(crate) turns: usize,
+    pub(crate) calls: usize,
+    pub(crate) phase: Phase,
+    pub(crate) status: SessionStatus,
+    pub(crate) failure: Option<String>,
+    pub(crate) deadline: Instant,
+    pub(crate) cancel: Arc<AtomicBool>,
+    pub(crate) started: String,
+    pub(crate) provider_name: String,
 }
 
 // The engine's own state is in the investigation record; the debug form is for a person reading a
@@ -367,6 +372,7 @@ impl Engine {
             approvals: Vec::new(),
             artifacts: Vec::new(),
             pending: None,
+            resume_calls: Vec::new(),
             turns: 0,
             calls: 0,
             phase: Phase::Inspecting,
@@ -376,15 +382,22 @@ impl Engine {
             cancel: Arc::new(AtomicBool::new(false)),
             started,
             provider_name,
-            queued_messages: Vec::new(),
         };
         engine.checkpoint()?;
         Ok(engine)
     }
 
-    /// Queue a message from the user for the next turn.
-    pub fn say(&mut self, text: impl Into<String>) {
-        self.queued_messages.push(text.into());
+    /// A message from the user, journalled and added to the conversation at once. The model
+    /// reads it on its next turn; a crash before then loses nothing, because the words are
+    /// already in the record.
+    pub fn say(&mut self, text: impl Into<String>) -> Result<(), EngineError> {
+        let text = text.into();
+        self.journal(
+            "user.message",
+            Json::object(vec![("text", Json::text(&text))]),
+        )?;
+        self.messages.push(Message::user(text));
+        Ok(())
     }
 
     /// Ask the investigation to stop at the next opportunity.
@@ -473,7 +486,7 @@ impl Engine {
     /// Write the derived checkpoint. The journal stays authoritative; this file exists so
     /// `list` and `status` do not replay every event, and a stale or corrupt one is rebuilt
     /// from the journal on resume rather than trusted.
-    fn checkpoint(&self) -> Result<(), EngineError> {
+    pub(crate) fn checkpoint(&self) -> Result<(), EngineError> {
         let id = self.record.root().file_name().map_or_else(
             || "investigation".to_string(),
             |name| name.to_string_lossy().to_string(),
@@ -529,15 +542,25 @@ impl Engine {
                 None => return Ok(Step::Approval(request)),
             }
         }
-        if !self.queued_messages.is_empty() {
-            let message = self.queued_messages.remove(0);
-            // The journal carries the words themselves: a resume reconstructs the conversation
-            // from the record, and a placeholder would reconstruct a different conversation.
-            self.journal(
-                "user.message",
-                Json::object(vec![("text", Json::text(&message))]),
-            )?;
-            self.messages.push(Message::user(message));
+        // Calls a previous process requested but never started run here, once, before the model
+        // is asked again. A call that was started but never completed is not in this queue: the
+        // ledger reports it as interrupted instead.
+        if !self.resume_calls.is_empty() {
+            let calls = std::mem::take(&mut self.resume_calls);
+            for call in calls {
+                match self.run_call(&call)? {
+                    CallOutcome::Continue => {}
+                    CallOutcome::Stop => {
+                        return Ok(Step::Finished(self.finish(SessionStatus::Completed, None)));
+                    }
+                    CallOutcome::NeedsApproval => {
+                        return Ok(Step::Approval(
+                            self.pending.clone().expect("a pending approval"),
+                        ));
+                    }
+                }
+            }
+            return Ok(Step::Turn);
         }
         let Some(response) = self.ask()? else {
             return Ok(Step::Finished(self.finish(
@@ -901,9 +924,7 @@ impl Engine {
                 return Ok(CallOutcome::Continue);
             }
             Begin::Interrupted => {
-                let text = "error[interrupted]: this call was started before an interruption and \
-                            never completed; it was not run again"
-                    .to_string();
+                let text = INTERRUPTED_TEXT.to_string();
                 self.journal(
                     "tool.replayed",
                     Json::object(vec![
@@ -989,6 +1010,7 @@ impl Engine {
                     ("kind", Json::text(&artifact.kind)),
                     ("path", Json::text(&artifact.path)),
                     ("sha256", Json::text(&artifact.sha256)),
+                    ("bytes", Json::count(artifact.bytes)),
                 ]),
             )?;
         }
@@ -1199,7 +1221,7 @@ impl Engine {
         (outcome, delivered, pending)
     }
 
-    fn journal(&mut self, kind: &str, payload: Json) -> Result<(), EngineError> {
+    pub(crate) fn journal(&mut self, kind: &str, payload: Json) -> Result<(), EngineError> {
         self.record
             .journal_mut()
             .append(kind, payload)

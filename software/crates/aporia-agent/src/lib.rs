@@ -26,6 +26,7 @@ pub mod prompt;
 pub mod provider;
 pub mod record;
 pub mod report;
+pub mod resume;
 pub mod scope;
 pub mod session;
 pub mod tools;

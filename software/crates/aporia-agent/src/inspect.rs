@@ -566,3 +566,33 @@ pub fn inspection_from_json(value: &Json) -> Option<Vec<Fact>> {
         })
         .collect()
 }
+
+impl Inspection {
+    /// Read a whole inspection back from `inspection.json`. A resume re-presents the facts the
+    /// first scan recorded, not a fresh scan of a source that may have changed since.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let fields =
+            json::fields(value).ok_or_else(|| "the inspection must be an object".to_string())?;
+        json::only(fields, &["facts", "summary"])?;
+        let facts = inspection_from_json(value)
+            .ok_or_else(|| "the inspection facts are not readable".to_string())?;
+        let summary_value = json::required(fields, "summary")?;
+        let summary_fields = json::fields(summary_value)
+            .ok_or_else(|| "the summary must be an object".to_string())?;
+        let entries = json::u64_value(summary_fields, "entries")?;
+        let files = json::u64_value(summary_fields, "files")?;
+        Ok(Self {
+            facts,
+            summary: InspectionSummary {
+                entries: usize::try_from(entries).unwrap_or(usize::MAX),
+                files: usize::try_from(files).unwrap_or(usize::MAX),
+                bytes: json::u64_value(summary_fields, "bytes")?,
+                truncated: json::required(summary_fields, "truncated")?
+                    .as_bool()
+                    .ok_or_else(|| "field `truncated` must be a boolean".to_string())?,
+                skipped: json::string_array(summary_fields, "skipped")?,
+                git_head: json::optional_string(summary_fields, "git_head")?.map(str::to_string),
+            },
+        })
+    }
+}

@@ -418,7 +418,10 @@ fn conversation(engine: &mut Engine, out: &mut dyn Write, err: &mut dyn Write) -
             }
             continue;
         }
-        engine.say(text.to_string());
+        if let Err(error) = engine.say(text.to_string()) {
+            let _ = writeln!(err, "aporia agent: {error}");
+            return Some(Exit::Record);
+        }
         return None;
     }
 }

@@ -533,7 +533,9 @@ fn the_journal_carries_the_users_words_and_whole_arguments() {
         )]),
     ];
     let mut engine = engine_for(&source, &workdir, responses, Vec::new());
-    engine.say("please also check the boundary case");
+    engine
+        .say("please also check the boundary case")
+        .expect("say");
     run_to_end(&mut engine);
     let records: Vec<PathBuf> = fs::read_dir(workdir.path())
         .expect("records")

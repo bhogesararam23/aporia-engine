@@ -90,6 +90,18 @@ impl Delivery {
             ),
         ])
     }
+
+    /// Read a delivery back from its recorded form.
+    pub fn from_json(value: &Json) -> Result<Self, String> {
+        let fields =
+            crate::json::fields(value).ok_or_else(|| "a delivery must be an object".to_string())?;
+        crate::json::only(fields, &["summary", "next_steps", "unresolved"])?;
+        Ok(Self {
+            summary: crate::json::string(fields, "summary")?.to_string(),
+            next_steps: crate::json::string_array(fields, "next_steps")?,
+            unresolved: crate::json::string_array(fields, "unresolved")?,
+        })
+    }
 }
 
 /// A follow-up the model suggested but did not run.
