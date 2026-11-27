@@ -702,6 +702,26 @@ impl Tool for UpdateExperiment {
         if let Some(follow_up) = follow_up {
             updated.follow_up = Some(follow_up);
         }
+        // A finished experiment is a claim about what happened, so it must point at something
+        // that happened: a result citing recorded evidence. Completing a run is not a result.
+        if matches!(
+            updated.status,
+            ExperimentStatus::Completed | ExperimentStatus::Failed | ExperimentStatus::Inconclusive
+        ) {
+            let known = session.investigation().evidence_ids();
+            let cites = updated
+                .result
+                .as_deref()
+                .unwrap_or("")
+                .split(|c: char| !c.is_ascii_alphanumeric())
+                .any(|token| known.contains(token));
+            if !cites {
+                return Err(ToolFailure::new(
+                    ErrorClass::InvalidArguments,
+                    "a finished experiment needs a result that cites recorded evidence (an F, I or E id); an outcome without evidence is not an outcome",
+                ));
+            }
+        }
         session
             .journal("experiment.changed", updated.to_json())
             .map_err(|reason| ToolFailure::new(ErrorClass::Internal, reason))?;

@@ -186,6 +186,92 @@ fn an_update_reports_the_state_the_record_now_holds() {
 }
 
 #[test]
+fn a_finished_experiment_must_cite_recorded_evidence() {
+    let source = Temp::new("src3");
+    fs::write(source.path().join("a.txt"), b"a").expect("file");
+    let workspace = Temp::new("ws3");
+    let (sandbox, _) =
+        Sandbox::create(source.path(), &workspace.path().join("copy")).expect("sandbox");
+    let instrument = std::env::current_exe().expect("exe");
+    let mut registry = Registry::new();
+    control::register(&mut registry).expect("control tools");
+    let mut session = TestSession {
+        investigation: Investigation::default(),
+        events: Vec::new(),
+    };
+    session.investigation.add_evidence("invocation", "a run");
+    let cancel = AtomicBool::new(false);
+    {
+        let mut context = ToolContext::new(&sandbox, source.path(), &instrument, None, &cancel)
+            .with_session(&mut session);
+        dispatch(
+            &registry,
+            &mut context,
+            &call("c1", "propose_experiment", PROPOSAL),
+        )
+        .expect("propose");
+
+        // No result at all: completing is a claim, and a claim needs evidence.
+        let failure = dispatch(
+            &registry,
+            &mut context,
+            &call(
+                "c2",
+                "update_experiment",
+                r#"{"id":"X1","status":"completed"}"#,
+            ),
+        )
+        .expect_err("no result");
+        assert_eq!(
+            failure.class,
+            aporia_agent::tools::ErrorClass::InvalidArguments
+        );
+
+        // A result that cites nothing recorded is still not an outcome.
+        let failure = dispatch(
+            &registry,
+            &mut context,
+            &call(
+                "c3",
+                "update_experiment",
+                r#"{"id":"X1","status":"completed","result":"it worked great (I999)"}"#,
+            ),
+        )
+        .expect_err("unknown evidence");
+        assert_eq!(
+            failure.class,
+            aporia_agent::tools::ErrorClass::InvalidArguments
+        );
+    }
+
+    // The item is still a proposal: the refused updates changed nothing.
+    assert_eq!(
+        session.investigation.experiment("X1").expect("X1").status,
+        ExperimentStatus::Proposed
+    );
+
+    // A grounded outcome is accepted, for every terminal status.
+    let mut context = ToolContext::new(&sandbox, source.path(), &instrument, None, &cancel)
+        .with_session(&mut session);
+    for (id, status) in [
+        ("c4", "completed"),
+        ("c5", "failed"),
+        ("c6", "inconclusive"),
+    ] {
+        dispatch(
+            &registry,
+            &mut context,
+            &call(
+                id,
+                "update_experiment",
+                &format!(r#"{{"id":"X1","status":"{status}","result":"the run showed it (I1)"}}"#),
+            ),
+        )
+        .expect("grounded outcome");
+    }
+}
+
+#[test]
 fn an_update_of_an_unknown_experiment_is_a_not_found_failure() {
     let source = Temp::new("src2");
     fs::write(source.path().join("a.txt"), b"a").expect("file");
