@@ -947,6 +947,20 @@ impl Engine {
         // The conversation stays bounded; the journal keeps everything. Pruning is a pure
         // function of the messages, so a resume reconstructs the same bounded transcript.
         crate::context::prune(&mut self.messages, crate::context::CONTEXT_LIMIT);
+        // Near the end of the budget the model is told to converge, once. An agent that knows
+        // it is running out of room should record and finish, not start new work.
+        let remaining_turns = self.config.max_turns.saturating_sub(self.turns);
+        let remaining_calls = self.config.max_tool_calls.saturating_sub(self.calls);
+        if (remaining_turns <= 2 || remaining_calls <= 4)
+            && !self
+                .messages
+                .iter()
+                .any(|message| message.content.starts_with("Budget notice:"))
+        {
+            self.host_note(format!(
+                "Budget notice: {remaining_turns} model turns and {remaining_calls} tool calls remain. Converge: record what is established, keep the rest in the backlog, and finish."
+            ))?;
+        }
         let tools = self.allowed_tools();
         let names: Vec<String> = tools.iter().map(|tool| tool.name.clone()).collect();
         let event = Event::ModelRequest {

@@ -709,6 +709,54 @@ fn a_third_identical_failing_call_is_refused_with_guidance() {
 }
 
 #[test]
+fn a_nearly_spent_budget_tells_the_model_to_converge_once() {
+    let source = project();
+    let workdir = Temp::new("work14");
+    let responses = vec![
+        ModelResponse::calls(vec![call("c1", "read_file", r#"{"path":"notes.md"}"#)]),
+        ModelResponse::calls(vec![call("c2", "read_file", r#"{"path":"notes.md"}"#)]),
+        ModelResponse::calls(vec![call("c3", "read_file", r#"{"path":"notes.md"}"#)]),
+        ModelResponse::calls(vec![call(
+            "call-finish",
+            "finish",
+            r#"{"summary":"converged","next_steps":[],"unresolved":[]}"#,
+        )]),
+    ];
+    let provider = ScriptedProvider::from_responses(responses);
+    let config = EngineConfig {
+        source: source.0.clone(),
+        objective: "find out whether the rule is biased".to_string(),
+        provider: Box::new(provider),
+        allow_exec: Vec::new(),
+        allow_write: false,
+        max_turns: 4,
+        max_tool_calls: 32,
+        total_timeout_ms: 120_000,
+        workdir: workdir.0.clone(),
+        instrument: std::env::current_exe().expect("exe"),
+    };
+    let mut engine = Engine::start(
+        config,
+        Box::new(aporia_agent::engine::AutoApprove),
+        registry(),
+    )
+    .expect("engine");
+    let outcome = run_to_end(&mut engine);
+    assert_eq!(outcome, Outcome::Completed);
+    let records: Vec<PathBuf> = fs::read_dir(workdir.path())
+        .expect("records")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    let journal = fs::read_to_string(records[0].join("journal.jsonl")).expect("journal");
+    assert_eq!(
+        journal.matches("Budget notice:").count(),
+        1,
+        "the convergence notice fired more than once: {journal}"
+    );
+}
+
+#[test]
 fn a_decision_made_by_the_host_is_recorded_with_its_kind() {
     let source = project();
     let workdir = Temp::new("work5");
