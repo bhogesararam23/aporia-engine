@@ -671,6 +671,44 @@ fn a_long_investigation_keeps_its_conversation_bounded() {
 }
 
 #[test]
+fn a_third_identical_failing_call_is_refused_with_guidance() {
+    let source = project();
+    let workdir = Temp::new("work13");
+    let bad =
+        |id: &str| ModelResponse::calls(vec![call(id, "no_such_tool", r#"{"same":"arguments"}"#)]);
+    let responses = vec![
+        bad("call-a"),
+        bad("call-b"),
+        bad("call-c"),
+        ModelResponse::calls(vec![call(
+            "call-finish",
+            "finish",
+            r#"{"summary":"stopped repeating","next_steps":[],"unresolved":[]}"#,
+        )]),
+    ];
+    let mut engine = engine_for(&source, &workdir, responses, Vec::new());
+    let outcome = run_to_end(&mut engine);
+    assert_eq!(outcome, Outcome::Completed);
+    let records: Vec<PathBuf> = fs::read_dir(workdir.path())
+        .expect("records")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    let journal = fs::read_to_string(records[0].join("journal.jsonl")).expect("journal");
+    // The first two attempts ran and failed as unknown tools; the third was refused as a
+    // repetition, with guidance instead of another identical failure.
+    assert_eq!(
+        journal.matches("\"class\":\"unknown_tool\"").count(),
+        2,
+        "{journal}"
+    );
+    assert!(
+        journal.contains("already failed 2 times"),
+        "the repetition guard did not fire: {journal}"
+    );
+}
+
+#[test]
 fn a_decision_made_by_the_host_is_recorded_with_its_kind() {
     let source = project();
     let workdir = Temp::new("work5");

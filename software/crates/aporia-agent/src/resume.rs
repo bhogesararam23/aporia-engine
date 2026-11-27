@@ -164,6 +164,7 @@ struct Replay {
     artifacts: Vec<ArtifactRef>,
     pending: Option<ApprovalRequest>,
     requested: BTreeMap<String, ToolCall>,
+    failed_signatures: BTreeMap<String, u32>,
     turns: usize,
     calls: usize,
     phase: Phase,
@@ -183,6 +184,7 @@ fn replay_events(text: &str) -> Result<Replay, EngineError> {
     let mut artifacts: Vec<ArtifactRef> = Vec::new();
     let mut pending: Option<ApprovalRequest> = None;
     let mut requested: BTreeMap<String, ToolCall> = BTreeMap::new();
+    let mut failed_signatures: BTreeMap<String, u32> = BTreeMap::new();
     let mut turns = 0usize;
     let mut calls = 0usize;
     let mut phase = Phase::Inspecting;
@@ -278,6 +280,10 @@ fn replay_events(text: &str) -> Result<Replay, EngineError> {
                     .flatten();
                 let completion_text = pstr("text")?;
                 let result = recorded_result(ok, class, &completion_text)?;
+                if !ok && let Some(requested_call) = requested.get(&call) {
+                    let signature = format!("{}:{}", requested_call.name, requested_call.arguments);
+                    *failed_signatures.entry(signature).or_insert(0) += 1;
+                }
                 invocations.replay_completed(&call, result);
                 let detail = evidence_detail(ok, class, &completion_text);
                 let evidence_id =
@@ -428,6 +434,7 @@ fn replay_events(text: &str) -> Result<Replay, EngineError> {
         artifacts,
         pending,
         requested,
+        failed_signatures,
         turns,
         calls,
         phase,
@@ -568,6 +575,7 @@ pub fn resume_session(
         artifacts: replay.artifacts,
         pending: replay.pending,
         resume_calls,
+        failed_signatures: replay.failed_signatures,
         turns: replay.turns,
         calls: replay.calls,
         phase: replay.phase,

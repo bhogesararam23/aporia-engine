@@ -257,6 +257,9 @@ pub struct Engine {
     pub(crate) pending: Option<ApprovalRequest>,
     /// Calls a previous process requested but never started; a resume runs them once.
     pub(crate) resume_calls: Vec<ToolCall>,
+    /// How many times each exact (name, arguments) call has failed. A third identical attempt
+    /// is refused: the model must change its approach, not burn the budget repeating itself.
+    pub(crate) failed_signatures: std::collections::BTreeMap<String, u32>,
     pub(crate) turns: usize,
     pub(crate) calls: usize,
     pub(crate) phase: Phase,
@@ -373,6 +376,7 @@ impl Engine {
             artifacts: Vec::new(),
             pending: None,
             resume_calls: Vec::new(),
+            failed_signatures: std::collections::BTreeMap::new(),
             turns: 0,
             calls: 0,
             phase: Phase::Inspecting,
@@ -1036,6 +1040,14 @@ impl Engine {
         )?;
 
         let (outcome, delivered, requested) = self.dispatch(call);
+        if outcome.is_err() {
+            let signature = call_signature(call);
+            if self.failed_signatures.len() < 1024
+                || self.failed_signatures.contains_key(&signature)
+            {
+                *self.failed_signatures.entry(signature).or_insert(0) += 1;
+            }
+        }
         if let Some(request) = requested {
             self.raise_approval(request)?;
         }
@@ -1257,6 +1269,21 @@ impl Engine {
 
     /// Dispatch one call with the session attached.
     fn dispatch(&mut self, call: &ToolCall) -> (ToolResult, bool, Option<ApprovalRequest>) {
+        let signature = call_signature(call);
+        if let Some(count) = self.failed_signatures.get(&signature).copied()
+            && count >= 2
+        {
+            return (
+                Err(crate::tools::ToolFailure::new(
+                    crate::tools::result::ErrorClass::InvalidArguments,
+                    format!(
+                        "this exact call already failed {count} times; read the recorded failure and change the approach instead of repeating it"
+                    ),
+                )),
+                false,
+                None,
+            );
+        }
         let scope = self.scope.clone();
         let limits = self.limits();
         let mut pending: Option<ApprovalRequest> = None;
@@ -1368,6 +1395,12 @@ enum CallOutcome {
     Continue,
     Stop,
     NeedsApproval,
+}
+
+/// The identity of an exact call: its name and its arguments, byte for byte. Tool names carry
+/// no colon, so the pair is unambiguous.
+fn call_signature(call: &ToolCall) -> String {
+    format!("{}:{}", call.name, call.arguments)
 }
 
 /// The program a call asked for, if it named one.
