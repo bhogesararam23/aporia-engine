@@ -31,6 +31,10 @@ fn usage() -> &'static str {
      \x20 or `http://host:port/v1` (with --model).\n\
      \x20 aporia agent list [--workdir DIR]\n\
      \x20   list the investigations this work directory holds\n\
+     \x20 aporia agent resume <investigation-dir> --provider PROVIDER [--model NAME] [--batch]\n\
+     \x20   continue an open investigation from its journal; completed work is not re-run\n\
+     \x20 aporia agent status <investigation-dir>\n\
+     \x20   print an investigation's checkpoint without executing anything\n\
      \x20 aporia agent report <investigation-dir>\n\
      \x20   print a finished investigation's report without executing anything\n\
      \x20 help | --help                  this text\n\
@@ -98,6 +102,12 @@ pub fn command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Ex
     if flags.first().map(String::as_str) == Some("list") {
         return list_command(&flags[1..], out);
     }
+    if flags.first().map(String::as_str) == Some("resume") {
+        return resume_command(&flags[1..], out, err);
+    }
+    if flags.first().map(String::as_str) == Some("status") {
+        return status_command(&flags[1..], out, err);
+    }
     if flags.first().map(String::as_str) == Some("report") {
         return report_command(&flags[1..], out, err);
     }
@@ -110,26 +120,11 @@ pub fn command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Ex
         }
     };
 
-    let provider: Box<dyn aporia_agent::ModelProvider> = match &args.provider {
-        ProviderArg::Scripted(path) => match ScriptedProvider::load(path) {
-            Ok(provider) => Box::new(provider),
-            Err(error) => {
-                let _ = writeln!(err, "aporia agent: {error}");
-                return Exit::Provider;
-            }
-        },
-        ProviderArg::Http(base) => {
-            let Some(model) = &args.model else {
-                let _ = writeln!(err, "aporia agent: an HTTP provider needs --model NAME");
-                return Exit::Usage;
-            };
-            match HttpProvider::new(base, model, 120_000) {
-                Ok(provider) => Box::new(provider),
-                Err(error) => {
-                    let _ = writeln!(err, "aporia agent: {error}");
-                    return Exit::Provider;
-                }
-            }
+    let provider = match build_provider(&args.provider, args.model.as_deref()) {
+        Ok(provider) => provider,
+        Err(error) => {
+            let _ = writeln!(err, "aporia agent: {error}");
+            return Exit::Provider;
         }
     };
 
@@ -442,6 +437,33 @@ fn conversation_command(
             engine.cancel();
             let _ = writeln!(out, "the investigation will stop at the next opportunity");
         }
+        "pause" => {
+            if let Err(error) = engine.pause() {
+                let _ = writeln!(err, "aporia agent: {error}");
+                return Some(Exit::Record);
+            }
+            let _ = writeln!(
+                out,
+                "paused; continue with: aporia agent resume {} --provider PROVIDER",
+                engine.record_root().display()
+            );
+            return Some(Exit::Clean);
+        }
+        "approve" | "deny" | "save" => {
+            let _ = writeln!(out, "`{command}` has nothing to do at this moment");
+        }
+        other => {
+            if !show_state(engine, other, out) {
+                let _ = writeln!(err, "aporia agent: unknown command `/{other}`; try /help");
+            }
+        }
+    }
+    None
+}
+
+/// The commands that show the investigation's state. Returns whether the command was recognized.
+fn show_state(engine: &Engine, command: &str, out: &mut dyn Write) -> bool {
+    match command {
         "status" => {
             let _ = writeln!(
                 out,
@@ -517,14 +539,9 @@ fn conversation_command(
                 );
             }
         }
-        "approve" | "deny" | "save" => {
-            let _ = writeln!(out, "`{command}` has nothing to do at this moment");
-        }
-        other => {
-            let _ = writeln!(err, "aporia agent: unknown command `/{other}`; try /help");
-        }
+        _ => return false,
     }
-    None
+    true
 }
 
 fn commands_help() -> &'static str {
@@ -537,6 +554,7 @@ fn commands_help() -> &'static str {
      /findings    the findings recorded so far\n\
      /changes     the changes made in the workspace\n\
      /cancel      stop at the next opportunity\n\
+     /pause       leave the session open; resume it later from its journal\n\
      /quit        leave; the record stays on disk\n\
      \n\
      Anything else is a message to the agent, added to the conversation.\n"
@@ -561,6 +579,193 @@ fn exit_for(outcome: Outcome, engine: &Engine) -> Exit {
         Outcome::Refused => Exit::Refused,
         Outcome::Failed => Exit::Provider,
         Outcome::BudgetExhausted => Exit::Budget,
+    }
+}
+
+/// Build the provider the flags name. The model check happened at parse time.
+fn build_provider(
+    arg: &ProviderArg,
+    model: Option<&str>,
+) -> Result<Box<dyn aporia_agent::ModelProvider>, String> {
+    match arg {
+        ProviderArg::Scripted(path) => Ok(Box::new(
+            ScriptedProvider::load(path).map_err(|error| error.to_string())?,
+        )),
+        ProviderArg::Http(base) => {
+            let model = model.ok_or_else(|| "an HTTP provider needs --model NAME".to_string())?;
+            Ok(Box::new(
+                HttpProvider::new(base, model, 120_000).map_err(|error| error.to_string())?,
+            ))
+        }
+    }
+}
+
+struct ResumeArgs {
+    record: PathBuf,
+    provider: ProviderArg,
+    model: Option<String>,
+    batch: bool,
+}
+
+/// Parse the resume flags. Refusals are one readable sentence each.
+fn parse_resume(flags: &[String]) -> Result<ResumeArgs, String> {
+    let mut record: Option<PathBuf> = None;
+    let mut provider: Option<ProviderArg> = None;
+    let mut model: Option<String> = None;
+    let mut batch = false;
+    let mut index = 0;
+    while index < flags.len() {
+        let flag = flags[index].as_str();
+        let value = |index: &mut usize, name: &str| -> Result<String, String> {
+            *index += 1;
+            flags
+                .get(*index)
+                .cloned()
+                .ok_or_else(|| format!("{name} needs a value"))
+        };
+        match flag {
+            "--provider" => {
+                let text = value(&mut index, "--provider")?;
+                if let Some(path) = text.strip_prefix("scripted:") {
+                    if path.is_empty() {
+                        return Err("scripted: needs a transcript path".to_string());
+                    }
+                    provider = Some(ProviderArg::Scripted(PathBuf::from(path)));
+                } else if text.starts_with("http://") || text.starts_with("https://") {
+                    provider = Some(ProviderArg::Http(text));
+                } else {
+                    return Err(
+                        "--provider must be `scripted:<path>` or an http(s) URL".to_string()
+                    );
+                }
+            }
+            "--model" => model = Some(value(&mut index, "--model")?),
+            "--batch" => batch = true,
+            other if other.starts_with("--") => {
+                return Err(format!("unknown flag `{other}`"));
+            }
+            other => {
+                if record.is_some() {
+                    return Err(format!("unexpected second path `{other}`"));
+                }
+                record = Some(PathBuf::from(other));
+            }
+        }
+        index += 1;
+    }
+    let record = record.ok_or_else(|| "an investigation directory is required".to_string())?;
+    let provider = provider.ok_or_else(|| "--provider is required".to_string())?;
+    if matches!(provider, ProviderArg::Http(_)) && model.is_none() {
+        return Err("an HTTP provider needs --model NAME".to_string());
+    }
+    Ok(ResumeArgs {
+        record,
+        provider,
+        model,
+        batch,
+    })
+}
+
+/// `aporia agent resume <dir> --provider PROVIDER [--model NAME] [--batch]`.
+fn resume_command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Exit {
+    let args = match parse_resume(flags) {
+        Ok(args) => args,
+        Err(reason) => {
+            let _ = writeln!(err, "aporia agent resume: {reason}");
+            return Exit::Usage;
+        }
+    };
+    let record = args.record;
+    let batch = args.batch;
+    let provider = match build_provider(&args.provider, args.model.as_deref()) {
+        Ok(provider) => provider,
+        Err(error) => {
+            let _ = writeln!(err, "aporia agent resume: {error}");
+            return Exit::Provider;
+        }
+    };
+    let instrument = match std::env::current_exe() {
+        Ok(path) => path,
+        Err(error) => {
+            let _ = writeln!(
+                err,
+                "aporia agent resume: cannot find this executable: {error}"
+            );
+            return Exit::Input;
+        }
+    };
+    let config = aporia_agent::resume::ResumeConfig {
+        record: record.clone(),
+        provider,
+        instrument,
+    };
+    let controller: Box<dyn Controller> = if batch {
+        Box::new(ApproveAll)
+    } else {
+        Box::new(Interactive)
+    };
+    let mut engine = match aporia_agent::resume::resume_session(config, controller, registry()) {
+        Ok(engine) => engine,
+        Err(error) => {
+            let _ = writeln!(err, "aporia agent resume: {error}");
+            return match error {
+                aporia_agent::engine::EngineError::Record(_) => Exit::Integrity,
+                _ => Exit::Input,
+            };
+        }
+    };
+    let _ = writeln!(
+        out,
+        "APORIA resumed {}.\nType a message to add context, /help for the commands.",
+        record.display()
+    );
+    run_session(&mut engine, out, err, batch)
+}
+
+/// `aporia agent status <dir>`: the checkpoint, without executing anything.
+fn status_command(flags: &[String], out: &mut dyn Write, err: &mut dyn Write) -> Exit {
+    let positional: Vec<&String> = flags.iter().filter(|arg| !arg.starts_with("--")).collect();
+    if positional.len() != 1 {
+        let _ = writeln!(err, "aporia agent status: expected exactly one directory");
+        return Exit::Usage;
+    }
+    let root = Path::new(positional[0]);
+    match aporia_agent::read_checkpoint(root) {
+        Ok(Some(state)) => {
+            let _ = writeln!(out, "investigation {}", state.id);
+            let _ = writeln!(out, "status {}", state.status.as_str());
+            let _ = writeln!(out, "phase {}", state.phase.as_str());
+            let _ = writeln!(out, "objective {}", state.objective);
+            let _ = writeln!(out, "source {}", state.source);
+            let _ = writeln!(out, "provider {}", state.provider);
+            let _ = writeln!(
+                out,
+                "turns {}, tool calls {}, plan version {}, approved {}",
+                state.turns, state.calls, state.plan_version, state.approved_version
+            );
+            let _ = writeln!(out, "started {}", state.started);
+            let _ = writeln!(out, "updated {}", state.updated);
+            if state.status.is_open() {
+                let _ = writeln!(
+                    out,
+                    "resumable: aporia agent resume {} --provider PROVIDER",
+                    root.display()
+                );
+            }
+            Exit::Clean
+        }
+        Ok(None) => {
+            let _ = writeln!(
+                err,
+                "aporia agent status: {} has no session checkpoint",
+                root.display()
+            );
+            Exit::Input
+        }
+        Err(error) => {
+            let _ = writeln!(err, "aporia agent status: {error}");
+            Exit::Integrity
+        }
     }
 }
 
@@ -731,6 +936,9 @@ fn parse(flags: &[String]) -> Result<Args, String> {
     let provider = provider.ok_or_else(|| "--provider is required".to_string())?;
     if matches!(provider, ProviderArg::Scripted(_)) && model.is_some() {
         return Err("--model is only used by an HTTP provider".to_string());
+    }
+    if matches!(provider, ProviderArg::Http(_)) && model.is_none() {
+        return Err("an HTTP provider needs --model NAME".to_string());
     }
     for program in &allow_exec {
         if program.is_empty()
