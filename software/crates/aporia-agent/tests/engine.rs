@@ -519,6 +519,39 @@ fn an_approval_decides_the_version_it_names_not_the_first_undecided() {
 }
 
 #[test]
+fn the_journal_carries_the_users_words_and_whole_arguments() {
+    let source = project();
+    let workdir = Temp::new("work10");
+    let long_tail = "z".repeat(5000);
+    let arguments = format!(r#"{{"note":"{long_tail}"}}"#);
+    let responses = vec![
+        ModelResponse::calls(vec![call("call-long", "no_such_tool", &arguments)]),
+        ModelResponse::calls(vec![call(
+            "call-finish",
+            "finish",
+            r#"{"summary":"done","next_steps":[],"unresolved":[]}"#,
+        )]),
+    ];
+    let mut engine = engine_for(&source, &workdir, responses, Vec::new());
+    engine.say("please also check the boundary case");
+    run_to_end(&mut engine);
+    let records: Vec<PathBuf> = fs::read_dir(workdir.path())
+        .expect("records")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    let journal = fs::read_to_string(records[0].join("journal.jsonl")).expect("journal");
+    assert!(
+        journal.contains("please also check the boundary case"),
+        "the user's words are not in the record"
+    );
+    assert!(
+        journal.contains(&long_tail),
+        "the arguments were truncated in the record; a resume could not re-run the call"
+    );
+}
+
+#[test]
 fn a_decision_made_by_the_host_is_recorded_with_its_kind() {
     let source = project();
     let workdir = Temp::new("work5");

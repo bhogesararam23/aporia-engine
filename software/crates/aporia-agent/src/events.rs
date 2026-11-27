@@ -7,19 +7,28 @@
 //! literals through the engine.
 //!
 //! Payloads that already have a contract elsewhere (a plan, a finding, an experiment item, a file
-//! change) travel as their JSON form; this module does not restate their schemas.
+//! change, a task, a delivery) travel as their JSON form directly; this module does not restate
+//! their schemas. Every variant here is written by the engine, the tools or the resume path --
+//! an event kind nobody writes is not a contract, it is a wish.
 
 use aporia_store::Json;
 
 /// One event the engine can journal.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Event {
-    /// A new investigation began. `limits` is the user's configured ceiling, as JSON.
+    /// A new investigation began: the objective, the source, the provider, and the user's
+    /// configured ceilings. A resume reads its permissions and budgets from here.
     SessionStarted {
         objective: String,
         source: String,
         provider: String,
-        limits: Json,
+        allow_exec: Vec<String>,
+        allow_write: bool,
+        max_turns: u64,
+        max_tool_calls: u64,
+        timeout_ms: u64,
+        facts: u64,
+        started: String,
     },
     /// An existing investigation was reopened. `interrupted` lists invocation ids that were
     /// started but never completed before the previous process ended.
@@ -27,10 +36,8 @@ pub enum Event {
         events: u64,
         interrupted: Vec<String>,
     },
-    /// The user paused the session.
+    /// The user paused the session; a resume continues from the recorded state.
     SessionPaused,
-    /// The user cancelled; nothing further runs.
-    SessionCancelled { reason: String },
     /// The session reached an end state.
     SessionFinished {
         status: String,
@@ -38,49 +45,53 @@ pub enum Event {
         turns: u64,
         calls: u64,
     },
-    /// The user said something, in or between turns.
+    /// The user said something, in or between turns. The words themselves: a resume reconstructs
+    /// the conversation from the record.
     UserMessage { text: String },
+    /// The host said something into the conversation (an approval outcome, a ceiling refusal).
+    HostNote { text: String },
     /// What the model was asked. `tools` names the schemas offered on this turn.
     ModelRequest {
         turn: u64,
         messages: u64,
         tools: Vec<String>,
     },
-    /// What the model answered. `calls` is the array of `{id, name, arguments}` objects.
+    /// What the model answered. `calls` is the array of `{id, name, arguments}` objects, with
+    /// the arguments whole -- a resume may still need to run a call that was never started.
     ModelResponse {
         content: Option<String>,
         calls: Json,
     },
-    /// A requested call passed validation and got an invocation identity.
+    /// A call the model asked for, with its arguments whole.
     ToolRequested {
-        invocation: String,
         call: String,
         name: String,
         arguments: String,
     },
-    /// The host refused a call before running it: bad arguments, unknown tool, or no permission.
-    ToolRejected {
-        call: String,
-        name: String,
-        class: String,
-        reason: String,
-    },
     /// A permitted invocation began. A resume that finds this without a completion reports the
     /// invocation as interrupted; it never runs it again blindly.
-    ToolStarted { invocation: String, name: String },
-    /// The invocation ended. `ok` false is a result the model sees, not a host failure.
+    ToolStarted { call: String, name: String },
+    /// The invocation ended. `ok` false is a result the model sees, not a host failure. `call`
+    /// is the model's call id; `invocation` is the evidence id the finding may cite.
     ToolCompleted {
+        call: String,
         invocation: String,
         name: String,
         ok: bool,
+        class: Option<String>,
         text: String,
-        data: Json,
-        duration_ms: u64,
     },
+    /// A repeated call id was answered from the ledger instead of running again. The text is
+    /// what the model was shown, so a resume reconstructs the same conversation.
+    ToolReplayed { call: String, text: String },
     /// A plan version was proposed. `plan` carries the plan's own JSON contract.
     PlanProposed { version: u64, plan: Json },
-    /// A person decided a plan version.
-    PlanDecided { version: u64, decision: String },
+    /// A person decided a plan version. The version is absent only when a refused revision
+    /// could not be named.
+    PlanDecided {
+        version: Option<u64>,
+        decision: String,
+    },
     /// The engine paused to ask for a decision.
     ApprovalRequested {
         kind: String,
@@ -89,27 +100,31 @@ pub enum Event {
     },
     /// The decision arrived and was recorded before anything it permits runs.
     ApprovalDecided { kind: String, decision: String },
-    /// A backlog item was created or updated; `item` is its full JSON form, so the latest event
-    /// per id is the item's state.
+    /// An approval named a program the session's configured ceiling does not allow.
+    ApprovalOutsideCeiling { program: String },
+    /// An approval named a plan version that was not pending.
+    ApprovalVersionNotPending { version: u64 },
+    /// The approved scope grew by one program.
+    ScopeExpanded { program: String },
+    /// A backlog item was created or updated; the payload is its full JSON form, so the latest
+    /// event per id is the item's state.
     ExperimentChanged { item: Json },
-    /// An approved experiment began running.
-    ExperimentStarted { id: String },
-    /// An experiment ended: completed, failed or inconclusive, with its result JSON.
-    ExperimentFinished {
-        id: String,
-        status: String,
-        result: Json,
-    },
-    /// A file change was applied in the workspace; `change` carries before/after identities.
+    /// A file change was applied in the workspace; the payload carries before/after identities.
     ChangeApplied { change: Json },
-    /// A change was rolled back to its recorded before-state.
-    ChangeReverted { path: String },
-    /// A changeset was exported to an explicitly authorised destination.
-    ChangesetExported { destination: String, files: u64 },
+    /// A planned task's status changed; the payload is the task's full JSON form.
+    TaskChanged { task: Json },
     /// A grounded finding, in the finding's own JSON contract.
     FindingRecorded { finding: Json },
     /// The model's closing delivery.
     Delivery { delivery: Json },
+    /// A tool produced an artefact, identified by its digest.
+    ArtifactRegistered {
+        kind: String,
+        path: String,
+        sha256: String,
+    },
+    /// A changeset was exported to an explicitly authorised destination.
+    ChangesetExported { destination: String, files: u64 },
 }
 
 impl Event {
@@ -120,27 +135,29 @@ impl Event {
             Self::SessionStarted { .. } => "session.started",
             Self::SessionResumed { .. } => "session.resumed",
             Self::SessionPaused => "session.paused",
-            Self::SessionCancelled { .. } => "session.cancelled",
             Self::SessionFinished { .. } => "session.finished",
             Self::UserMessage { .. } => "user.message",
+            Self::HostNote { .. } => "host.note",
             Self::ModelRequest { .. } => "model.request",
             Self::ModelResponse { .. } => "model.response",
             Self::ToolRequested { .. } => "tool.requested",
-            Self::ToolRejected { .. } => "tool.rejected",
             Self::ToolStarted { .. } => "tool.started",
             Self::ToolCompleted { .. } => "tool.completed",
+            Self::ToolReplayed { .. } => "tool.replayed",
             Self::PlanProposed { .. } => "plan.proposed",
             Self::PlanDecided { .. } => "plan.decided",
             Self::ApprovalRequested { .. } => "approval.requested",
             Self::ApprovalDecided { .. } => "approval.decided",
+            Self::ApprovalOutsideCeiling { .. } => "approval.outside_the_ceiling",
+            Self::ApprovalVersionNotPending { .. } => "approval.version_not_pending",
+            Self::ScopeExpanded { .. } => "scope.expanded",
             Self::ExperimentChanged { .. } => "experiment.changed",
-            Self::ExperimentStarted { .. } => "experiment.started",
-            Self::ExperimentFinished { .. } => "experiment.finished",
             Self::ChangeApplied { .. } => "change.applied",
-            Self::ChangeReverted { .. } => "change.reverted",
-            Self::ChangesetExported { .. } => "changeset.exported",
+            Self::TaskChanged { .. } => "task.changed",
             Self::FindingRecorded { .. } => "finding.recorded",
             Self::Delivery { .. } => "delivery",
+            Self::ArtifactRegistered { .. } => "artifact.registered",
+            Self::ChangesetExported { .. } => "changeset.exported",
         }
     }
 
@@ -155,12 +172,27 @@ impl Event {
                 objective,
                 source,
                 provider,
-                limits,
+                allow_exec,
+                allow_write,
+                max_turns,
+                max_tool_calls,
+                timeout_ms,
+                facts,
+                started,
             } => Json::object(vec![
                 ("objective", Json::text(objective)),
                 ("source", Json::text(source)),
                 ("provider", Json::text(provider)),
-                ("limits", limits.clone()),
+                (
+                    "allow_exec",
+                    Json::Arr(allow_exec.iter().map(Json::text).collect()),
+                ),
+                ("allow_write", Json::Bool(*allow_write)),
+                ("max_turns", Json::count(*max_turns)),
+                ("max_tool_calls", Json::count(*max_tool_calls)),
+                ("timeout_ms", Json::count(*timeout_ms)),
+                ("facts", Json::count(*facts)),
+                ("started", Json::text(started)),
             ]),
             Self::SessionResumed {
                 events,
@@ -173,7 +205,6 @@ impl Event {
                 ),
             ]),
             Self::SessionPaused => Json::object(Vec::new()),
-            Self::SessionCancelled { reason } => Json::object(vec![("reason", Json::text(reason))]),
             Self::SessionFinished {
                 status,
                 failure,
@@ -185,7 +216,9 @@ impl Event {
                 ("turns", Json::count(*turns)),
                 ("calls", Json::count(*calls)),
             ]),
-            Self::UserMessage { text } => Json::object(vec![("text", Json::text(text))]),
+            Self::UserMessage { text } | Self::HostNote { text } => {
+                Json::object(vec![("text", Json::text(text))])
+            }
             Self::ModelRequest {
                 turn,
                 messages,
@@ -200,52 +233,41 @@ impl Event {
                 ("tool_calls", calls.clone()),
             ]),
             Self::ToolRequested {
-                invocation,
                 call,
                 name,
                 arguments,
             } => Json::object(vec![
-                ("invocation", Json::text(invocation)),
                 ("call", Json::text(call)),
                 ("name", Json::text(name)),
                 ("arguments", Json::text(arguments)),
             ]),
-            Self::ToolRejected {
-                call,
-                name,
-                class,
-                reason,
-            } => Json::object(vec![
-                ("call", Json::text(call)),
-                ("name", Json::text(name)),
-                ("class", Json::text(class)),
-                ("reason", Json::text(reason)),
-            ]),
-            Self::ToolStarted { invocation, name } => Json::object(vec![
-                ("invocation", Json::text(invocation)),
-                ("name", Json::text(name)),
-            ]),
+            Self::ToolStarted { call, name } => {
+                Json::object(vec![("call", Json::text(call)), ("name", Json::text(name))])
+            }
             Self::ToolCompleted {
+                call,
                 invocation,
                 name,
                 ok,
+                class,
                 text,
-                data,
-                duration_ms,
             } => Json::object(vec![
+                ("call", Json::text(call)),
                 ("invocation", Json::text(invocation)),
                 ("name", Json::text(name)),
                 ("ok", Json::Bool(*ok)),
+                ("class", class.as_ref().map_or(Json::Null, Json::text)),
                 ("text", Json::text(text)),
-                ("data", data.clone()),
-                ("duration_ms", Json::count(*duration_ms)),
             ]),
+            Self::ToolReplayed { call, text } => {
+                Json::object(vec![("call", Json::text(call)), ("text", Json::text(text))])
+            }
             Self::PlanProposed { version, plan } => Json::object(vec![
                 ("version", Json::count(*version)),
                 ("plan", plan.clone()),
             ]),
             Self::PlanDecided { version, decision } => Json::object(vec![
-                ("version", Json::count(*version)),
+                ("version", version.map_or(Json::Null, Json::count)),
                 ("decision", Json::text(decision)),
             ]),
             Self::ApprovalRequested {
@@ -261,21 +283,26 @@ impl Event {
                 ("kind", Json::text(kind)),
                 ("decision", Json::text(decision)),
             ]),
-            Self::ExperimentChanged { item } => Json::object(vec![("item", item.clone())]),
-            Self::ExperimentStarted { id } => Json::object(vec![("id", Json::text(id))]),
-            Self::ExperimentFinished { id, status, result } => Json::object(vec![
-                ("id", Json::text(id)),
-                ("status", Json::text(status)),
-                ("result", result.clone()),
+            Self::ApprovalOutsideCeiling { program } | Self::ScopeExpanded { program } => {
+                Json::object(vec![("program", Json::text(program))])
+            }
+            Self::ApprovalVersionNotPending { version } => {
+                Json::object(vec![("version", Json::count(*version))])
+            }
+            Self::ExperimentChanged { item } => item.clone(),
+            Self::ChangeApplied { change } => change.clone(),
+            Self::TaskChanged { task } => task.clone(),
+            Self::FindingRecorded { finding } => finding.clone(),
+            Self::Delivery { delivery } => delivery.clone(),
+            Self::ArtifactRegistered { kind, path, sha256 } => Json::object(vec![
+                ("kind", Json::text(kind)),
+                ("path", Json::text(path)),
+                ("sha256", Json::text(sha256)),
             ]),
-            Self::ChangeApplied { change } => Json::object(vec![("change", change.clone())]),
-            Self::ChangeReverted { path } => Json::object(vec![("path", Json::text(path))]),
             Self::ChangesetExported { destination, files } => Json::object(vec![
                 ("destination", Json::text(destination)),
                 ("files", Json::count(*files)),
             ]),
-            Self::FindingRecorded { finding } => Json::object(vec![("finding", finding.clone())]),
-            Self::Delivery { delivery } => Json::object(vec![("delivery", delivery.clone())]),
         }
     }
 }
@@ -293,16 +320,19 @@ mod tests {
                 objective: "improve the integration rule".to_string(),
                 source: "example".to_string(),
                 provider: "scripted".to_string(),
-                limits: Json::object(Vec::new()),
+                allow_exec: vec!["python".to_string()],
+                allow_write: true,
+                max_turns: 32,
+                max_tool_calls: 64,
+                timeout_ms: 600_000,
+                facts: 7,
+                started: "2026-11-27T00:00:00Z".to_string(),
             },
             Event::SessionResumed {
                 events: 12,
                 interrupted: vec!["I3".to_string()],
             },
             Event::SessionPaused,
-            Event::SessionCancelled {
-                reason: "user asked".to_string(),
-            },
             Event::SessionFinished {
                 status: "completed".to_string(),
                 failure: None,
@@ -311,6 +341,9 @@ mod tests {
             },
             Event::UserMessage {
                 text: "also check the boundary case".to_string(),
+            },
+            Event::HostNote {
+                text: "The scope now permits `python`.".to_string(),
             },
             Event::ModelRequest {
                 turn: 1,
@@ -322,35 +355,32 @@ mod tests {
                 calls: Json::Arr(Vec::new()),
             },
             Event::ToolRequested {
-                invocation: "I1".to_string(),
                 call: "call-1".to_string(),
                 name: "read_file".to_string(),
                 arguments: "{}".to_string(),
             },
-            Event::ToolRejected {
-                call: "call-2".to_string(),
-                name: "run_command".to_string(),
-                class: "denied".to_string(),
-                reason: "program not approved".to_string(),
-            },
             Event::ToolStarted {
-                invocation: "I1".to_string(),
+                call: "call-1".to_string(),
                 name: "read_file".to_string(),
             },
             Event::ToolCompleted {
+                call: "call-1".to_string(),
                 invocation: "I1".to_string(),
                 name: "read_file".to_string(),
                 ok: true,
+                class: None,
                 text: "contents".to_string(),
-                data: Json::Null,
-                duration_ms: 2,
+            },
+            Event::ToolReplayed {
+                call: "call-1".to_string(),
+                text: "contents".to_string(),
             },
             Event::PlanProposed {
                 version: 1,
                 plan: Json::object(Vec::new()),
             },
             Event::PlanDecided {
-                version: 1,
+                version: Some(1),
                 decision: "approve".to_string(),
             },
             Event::ApprovalRequested {
@@ -362,32 +392,36 @@ mod tests {
                 kind: "plan".to_string(),
                 decision: "approve".to_string(),
             },
+            Event::ApprovalOutsideCeiling {
+                program: "curl".to_string(),
+            },
+            Event::ApprovalVersionNotPending { version: 3 },
+            Event::ScopeExpanded {
+                program: "python".to_string(),
+            },
             Event::ExperimentChanged {
                 item: Json::object(vec![("id", Json::text("X1"))]),
-            },
-            Event::ExperimentStarted {
-                id: "X1".to_string(),
-            },
-            Event::ExperimentFinished {
-                id: "X1".to_string(),
-                status: "completed".to_string(),
-                result: Json::Null,
             },
             Event::ChangeApplied {
                 change: Json::object(Vec::new()),
             },
-            Event::ChangeReverted {
-                path: "src/rule.py".to_string(),
-            },
-            Event::ChangesetExported {
-                destination: "out/patch".to_string(),
-                files: 1,
+            Event::TaskChanged {
+                task: Json::object(vec![("id", Json::text("T1"))]),
             },
             Event::FindingRecorded {
                 finding: Json::object(Vec::new()),
             },
             Event::Delivery {
                 delivery: Json::object(Vec::new()),
+            },
+            Event::ArtifactRegistered {
+                kind: "file".to_string(),
+                path: "workspace/out.json".to_string(),
+                sha256: "ab".to_string(),
+            },
+            Event::ChangesetExported {
+                destination: "out/patch".to_string(),
+                files: 1,
             },
         ]
     }
@@ -407,7 +441,7 @@ mod tests {
                 event.kind()
             );
         }
-        assert_eq!(kinds.len(), 24);
+        assert_eq!(kinds.len(), 26);
     }
 
     #[test]

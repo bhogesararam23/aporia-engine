@@ -27,8 +27,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-const DETAIL_LIMIT: usize = 4096;
-
 /// Why an investigation could not be started or recorded.
 #[derive(Debug)]
 pub enum EngineError {
@@ -345,6 +343,9 @@ impl Engine {
                         Json::Arr(config.allow_exec.iter().map(Json::text).collect()),
                     ),
                     ("allow_write", Json::Bool(config.allow_write)),
+                    ("max_turns", Json::count(config.max_turns as u64)),
+                    ("max_tool_calls", Json::count(config.max_tool_calls as u64)),
+                    ("timeout_ms", Json::count(config.total_timeout_ms)),
                     ("facts", Json::count(inspection.facts.len() as u64)),
                     ("started", Json::text(&started)),
                 ]),
@@ -477,11 +478,13 @@ impl Engine {
         }
         if !self.queued_messages.is_empty() {
             let message = self.queued_messages.remove(0);
-            self.messages.push(Message::user(message));
+            // The journal carries the words themselves: a resume reconstructs the conversation
+            // from the record, and a placeholder would reconstruct a different conversation.
             self.journal(
                 "user.message",
-                Json::object(vec![("text", Json::text("a message from the user"))]),
+                Json::object(vec![("text", Json::text(&message))]),
             )?;
+            self.messages.push(Message::user(message));
         }
         let Some(response) = self.ask()? else {
             return Ok(Step::Finished(self.finish(
@@ -834,6 +837,13 @@ impl Engine {
                     Ok(output) => output.text.clone(),
                     Err(failure) => failure.model_text(),
                 };
+                self.journal(
+                    "tool.replayed",
+                    Json::object(vec![
+                        ("call", Json::text(&call.id)),
+                        ("text", Json::text(&text)),
+                    ]),
+                )?;
                 self.messages.push(Message::tool(&call.id, text));
                 return Ok(CallOutcome::Continue);
             }
@@ -841,6 +851,13 @@ impl Engine {
                 let text = "error[interrupted]: this call was started before an interruption and \
                             never completed; it was not run again"
                     .to_string();
+                self.journal(
+                    "tool.replayed",
+                    Json::object(vec![
+                        ("call", Json::text(&call.id)),
+                        ("text", Json::text(&text)),
+                    ]),
+                )?;
                 self.messages.push(Message::tool(&call.id, text));
                 return Ok(CallOutcome::Continue);
             }
@@ -903,6 +920,7 @@ impl Engine {
         self.journal(
             "tool.completed",
             Json::object(vec![
+                ("call", Json::text(&call.id)),
                 ("invocation", Json::text(&evidence_id)),
                 ("name", Json::text(&name)),
                 ("ok", Json::Bool(ok)),
@@ -1224,22 +1242,13 @@ fn calls_json(calls: &[ToolCall]) -> Json {
                 Json::object(vec![
                     ("id", Json::text(&call.id)),
                     ("name", Json::text(&call.name)),
-                    ("arguments", Json::text(cap(&call.arguments, DETAIL_LIMIT))),
+                    // The arguments are journalled whole: a resume must be able to re-run a
+                    // call that was requested but never started, byte for byte.
+                    ("arguments", Json::text(&call.arguments)),
                 ])
             })
             .collect(),
     )
-}
-
-fn cap(text: &str, limit: usize) -> String {
-    if text.len() <= limit {
-        return text.to_string();
-    }
-    let mut end = limit;
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    format!("{}\n[truncated]", &text[..end])
 }
 
 fn copy_json(copy: &CopyReport) -> Json {
