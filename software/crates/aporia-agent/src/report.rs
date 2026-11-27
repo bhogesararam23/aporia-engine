@@ -435,6 +435,11 @@ pub struct V2Summary<'a> {
     pub changes: &'a [FileChange],
     pub failure: Option<&'a str>,
     pub root: &'a std::path::Path,
+    pub delivery: Option<&'a Delivery>,
+    pub artifacts: &'a [crate::tools::ArtifactRef],
+    pub approvals: &'a [(crate::scope::ApprovalKind, crate::scope::Decision)],
+    pub journal_events: u64,
+    pub journal_head: &'a str,
 }
 
 /// Render the v0.2 investigation report from the structured record.
@@ -474,28 +479,7 @@ pub fn render_v2_report(summary: &V2Summary<'_>) -> String {
         }
     }
 
-    out.push_str("\n## Experiment backlog\n\n");
-    if summary.experiments.is_empty() {
-        out.push_str("The backlog is empty.\n");
-    } else {
-        for experiment in &summary.experiments {
-            let _ = writeln!(
-                out,
-                "- {} [{}] {} — {}",
-                experiment.id,
-                experiment.status.as_str(),
-                experiment.priority,
-                experiment.title
-            );
-            let _ = writeln!(out, "  question: {}", experiment.question);
-            if let Some(result) = &experiment.result {
-                let _ = writeln!(out, "  result: {result}");
-            }
-            if let Some(follow_up) = &experiment.follow_up {
-                let _ = writeln!(out, "  follow-up: {follow_up}");
-            }
-        }
-    }
+    v2_backlog(&mut out, &summary.experiments);
 
     out.push_str("\n## Changes in the workspace\n\n");
     if summary.changes.is_empty() {
@@ -511,13 +495,93 @@ pub fn render_v2_report(summary: &V2Summary<'_>) -> String {
                 change.after.as_deref().unwrap_or("absent")
             );
         }
+        out.push_str(
+            "\nThe original project was never written. To take these changes home, review and\n\
+             authorise an export: `aporia agent export <this-directory> --out <patch-file>`.\n",
+        );
     }
 
+    out.push_str("\n## Approvals\n\n");
+    if summary.approvals.is_empty() {
+        out.push_str("No approval was requested.\n");
+    } else {
+        for (kind, decision) in summary.approvals {
+            let _ = writeln!(out, "- {}: {}", kind.as_str(), decision.as_str());
+        }
+    }
+
+    out.push_str("\n## Artefacts\n\n");
+    if summary.artifacts.is_empty() {
+        out.push_str("No artefact was registered.\n");
+    } else {
+        for artifact in summary.artifacts {
+            let _ = writeln!(
+                out,
+                "- {} `{}` ({} bytes, sha256 `{}`)",
+                artifact.kind, artifact.path, artifact.bytes, artifact.sha256
+            );
+        }
+    }
+
+    out.push_str("\n## Delivery\n\n");
+    match summary.delivery {
+        None => out.push_str("The model did not deliver a closing summary.\n"),
+        Some(delivery) => {
+            let _ = writeln!(out, "{}\n", delivery.summary);
+            list(&mut out, "Next steps", &delivery.next_steps);
+            list(&mut out, "Unresolved", &delivery.unresolved);
+        }
+    }
+
+    v2_record(&mut out, summary);
+    out
+}
+
+/// The backlog section: every item with its method and success criterion, not just its title.
+fn v2_backlog(out: &mut String, experiments: &[&Experiment]) {
+    out.push_str("\n## Experiment backlog\n\n");
+    if experiments.is_empty() {
+        out.push_str("The backlog is empty.\n");
+        return;
+    }
+    for experiment in experiments {
+        let _ = writeln!(
+            out,
+            "- {} [{}] {} — {}",
+            experiment.id,
+            experiment.status.as_str(),
+            experiment.priority,
+            experiment.title
+        );
+        let _ = writeln!(out, "  question: {}", experiment.question);
+        let _ = writeln!(out, "  method: {}", experiment.methodology);
+        let _ = writeln!(out, "  success: {}", experiment.success_criteria);
+        if let Some(result) = &experiment.result {
+            let _ = writeln!(out, "  result: {result}");
+        }
+        if let Some(follow_up) = &experiment.follow_up {
+            let _ = writeln!(out, "  follow-up: {follow_up}");
+        }
+    }
+}
+
+/// The record section: where the bytes are, and how to inspect them without executing anything.
+fn v2_record(out: &mut String, summary: &V2Summary<'_>) {
     out.push_str("\n## Record\n\n");
     let _ = writeln!(out, "Investigation directory: {}", shown(summary.root));
+    let _ = writeln!(
+        out,
+        "Journal: {} events, head `{}`",
+        summary.journal_events, summary.journal_head
+    );
     out.push_str(
         "The journal, the plan and the artefacts are in that directory. The report is generated \
-         from them; the model's own words are not the source of any fact above.\n",
+         from them; the model's own words are not the source of any fact above.\n\
+         \n\
+         To inspect this record without executing anything:\n\
+         - `aporia agent report <this-directory>` prints this report after verifying the journal.\n\
+         - `aporia agent status <this-directory>` prints the session checkpoint.\n\
+         - The workspace copy is `workspace/` inside the directory; `sandbox.json` lists every \
+           copied file with its digest.\n",
     );
-    out
 }

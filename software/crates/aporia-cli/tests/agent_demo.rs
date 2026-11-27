@@ -167,6 +167,13 @@ fn assert_record(root: &Path, project: &Path) {
     assert!(report.contains("does not shrink"), "{report}");
     assert!(report.contains("non-uniform"), "{report}");
     assert!(report.contains("rule.py"), "{report}");
+    // The report carries the whole record: the delivery, the approvals, the journal identity,
+    // and how to take the change home.
+    assert!(report.contains("## Delivery"), "{report}");
+    assert!(report.contains("## Approvals"), "{report}");
+    assert!(report.contains("plan: approve"), "{report}");
+    assert!(report.contains("Journal:"), "{report}");
+    assert!(report.contains("aporia agent export"), "{report}");
 
     let summary = std::fs::read_to_string(root.join("investigation.json")).expect("summary");
     let document = Json::parse(&summary).expect("json");

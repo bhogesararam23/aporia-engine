@@ -102,6 +102,11 @@ impl RecordDir {
         &mut self.journal
     }
 
+    #[must_use]
+    pub fn journal(&self) -> &Journal {
+        &self.journal
+    }
+
     /// Write a JSON artefact. Names are simple: no separators, no traversal.
     pub fn write_json(&self, name: &str, value: &Json) -> Result<(), RecordError> {
         self.write_text(name, &value.to_pretty())

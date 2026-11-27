@@ -36,6 +36,7 @@
 # break the HTTPS contract tests on a fresh clone.
 *.pem text eol=lf
 *.pfx binary
+*.txt text eol=lf
 Cargo.lock text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf

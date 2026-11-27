@@ -825,6 +825,13 @@ impl Engine {
                 "failure",
                 self.failure.as_ref().map_or(Json::Null, Json::text),
             ),
+            (
+                "journal",
+                Json::object(vec![
+                    ("events", Json::count(self.record.journal().events())),
+                    ("head", Json::text(self.record.journal().head())),
+                ]),
+            ),
             ("workspace", Json::text("workspace")),
         ])
     }
@@ -842,6 +849,11 @@ impl Engine {
             changes: &self.investigation.changes,
             failure: self.failure.as_deref(),
             root: self.record.root(),
+            delivery: self.investigation.delivery.as_ref(),
+            artifacts: &self.artifacts,
+            approvals: &self.approvals,
+            journal_events: self.record.journal().events(),
+            journal_head: self.record.journal().head(),
         }
     }
 
