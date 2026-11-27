@@ -353,7 +353,7 @@ impl Engine {
             .map_err(EngineError::Record)?;
 
         let deadline = Instant::now() + Duration::from_millis(config.total_timeout_ms.max(1));
-        Ok(Self {
+        let engine = Self {
             config,
             record,
             sandbox,
@@ -377,7 +377,9 @@ impl Engine {
             started,
             provider_name,
             queued_messages: Vec::new(),
-        })
+        };
+        engine.checkpoint()?;
+        Ok(engine)
     }
 
     /// Queue a message from the user for the next turn.
@@ -444,8 +446,59 @@ impl Engine {
     /// One step of the loop: a model turn, a decision to make, or the end.
     ///
     /// The interactive workbench drives this step by step, so the person can speak between turns
-    /// and answer approvals as they arrive; a batch run simply loops over it.
+    /// and answer approvals as they arrive; a batch run simply loops over it. Every step leaves a
+    /// checkpoint behind it, so a process that dies between steps leaves a readable summary.
     pub fn step(&mut self) -> Result<Step, EngineError> {
+        let outcome = self.step_inner();
+        self.checkpoint()?;
+        outcome
+    }
+
+    /// Pause the session: the record stays open and a resume continues from it.
+    pub fn pause(&mut self) -> Result<(), EngineError> {
+        if !self.status.is_open() {
+            return Ok(());
+        }
+        self.journal("session.paused", Json::object(Vec::new()))?;
+        self.status = SessionStatus::Paused;
+        self.checkpoint()
+    }
+
+    /// The directory this investigation's record lives in.
+    #[must_use]
+    pub fn record_root(&self) -> &std::path::Path {
+        self.record.root()
+    }
+
+    /// Write the derived checkpoint. The journal stays authoritative; this file exists so
+    /// `list` and `status` do not replay every event, and a stale or corrupt one is rebuilt
+    /// from the journal on resume rather than trusted.
+    fn checkpoint(&self) -> Result<(), EngineError> {
+        let id = self.record.root().file_name().map_or_else(
+            || "investigation".to_string(),
+            |name| name.to_string_lossy().to_string(),
+        );
+        let state = crate::session::SessionState {
+            schema: crate::session::SESSION_SCHEMA,
+            id,
+            phase: self.phase,
+            status: self.status,
+            objective: self.investigation.objective.clone(),
+            source: self.config.source.display().to_string(),
+            provider: self.provider_name.clone(),
+            started: self.started.clone(),
+            updated: format_utc(now_seconds()),
+            turns: self.turns as u64,
+            calls: self.calls as u64,
+            plan_version: self.investigation.revisions.len() as u64,
+            approved_version: self.investigation.approved_version.unwrap_or(0),
+        };
+        self.record
+            .write_checkpoint(&state)
+            .map_err(EngineError::Record)
+    }
+
+    fn step_inner(&mut self) -> Result<Step, EngineError> {
         if self.cancel.load(Ordering::SeqCst) {
             return Ok(Step::Finished(self.finish(SessionStatus::Cancelled, None)));
         }

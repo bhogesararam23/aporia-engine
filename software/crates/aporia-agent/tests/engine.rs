@@ -552,6 +552,75 @@ fn the_journal_carries_the_users_words_and_whole_arguments() {
 }
 
 #[test]
+fn every_step_leaves_a_checkpoint_and_pause_records_itself() {
+    let source = project();
+    let workdir = Temp::new("work11");
+    let responses = vec![ModelResponse::calls(vec![plan_call()])];
+    let mut engine = pausing_engine_for(&source, &workdir, responses, Vec::new());
+    let records: Vec<PathBuf> = fs::read_dir(workdir.path())
+        .expect("records")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    let root = &records[0];
+
+    // Start already wrote one.
+    let state = aporia_agent::read_checkpoint(root)
+        .expect("read")
+        .expect("checkpoint after start");
+    assert_eq!(state.status, aporia_agent::SessionStatus::Active);
+    assert_eq!(state.turns, 0);
+
+    match engine.resume().expect("resume") {
+        Wait::Approval(_) => {}
+        other @ Wait::Done(_) => panic!("expected the plan approval, got {other:?}"),
+    }
+    let state = aporia_agent::read_checkpoint(root)
+        .expect("read")
+        .expect("checkpoint after the turn");
+    assert_eq!(state.turns, 1);
+    assert_eq!(state.plan_version, 1);
+    assert_eq!(state.approved_version, 0);
+
+    engine.pause().expect("pause");
+    assert_eq!(engine.status(), aporia_agent::SessionStatus::Paused);
+    let state = aporia_agent::read_checkpoint(root)
+        .expect("read")
+        .expect("checkpoint after pause");
+    assert_eq!(state.status, aporia_agent::SessionStatus::Paused);
+    let journal = fs::read_to_string(root.join("journal.jsonl")).expect("journal");
+    assert!(journal.contains("\"kind\":\"session.paused\""), "{journal}");
+}
+
+#[test]
+fn a_finished_session_leaves_a_terminal_checkpoint() {
+    let source = project();
+    let workdir = Temp::new("work12");
+    let responses = vec![
+        ModelResponse::calls(vec![plan_call()]),
+        ModelResponse::calls(vec![call(
+            "call-finish",
+            "finish",
+            r#"{"summary":"done","next_steps":[],"unresolved":[]}"#,
+        )]),
+    ];
+    let mut engine = engine_for(&source, &workdir, responses, Vec::new());
+    run_to_end(&mut engine);
+    let records: Vec<PathBuf> = fs::read_dir(workdir.path())
+        .expect("records")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    let state = aporia_agent::read_checkpoint(&records[0])
+        .expect("read")
+        .expect("terminal checkpoint");
+    assert_eq!(state.status, aporia_agent::SessionStatus::Completed);
+    assert_eq!(state.phase, aporia_agent::Phase::Finished);
+    assert_eq!(state.approved_version, 1);
+    assert!(state.turns >= 2);
+}
+
+#[test]
 fn a_decision_made_by_the_host_is_recorded_with_its_kind() {
     let source = project();
     let workdir = Temp::new("work5");
