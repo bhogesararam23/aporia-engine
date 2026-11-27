@@ -252,7 +252,6 @@ pub struct Engine {
     approvals: Vec<(ApprovalKind, Decision)>,
     artifacts: Vec<ArtifactRef>,
     pending: Option<ApprovalRequest>,
-    pending_call: Option<ToolCall>,
     turns: usize,
     calls: usize,
     phase: Phase,
@@ -366,7 +365,6 @@ impl Engine {
             approvals: Vec::new(),
             artifacts: Vec::new(),
             pending: None,
-            pending_call: None,
             turns: 0,
             calls: 0,
             phase: Phase::Inspecting,
@@ -406,6 +404,13 @@ impl Engine {
     #[must_use]
     pub fn investigation(&self) -> &Investigation {
         &self.investigation
+    }
+
+    /// The conversation as the provider sees it. A host can render it; a test can check that
+    /// every assistant tool call has its tool result.
+    #[must_use]
+    pub fn transcript(&self) -> &[Message] {
+        &self.messages
     }
 
     /// The approved scope, if any.
@@ -515,7 +520,6 @@ impl Engine {
         let Some(request) = self.pending.take() else {
             return Ok(());
         };
-        self.pending_call = None;
         self.journal(
             "approval.decided",
             Json::object(vec![
@@ -528,8 +532,12 @@ impl Engine {
             decision: decision.as_str().to_string(),
         });
         self.approvals.push((request.kind, decision));
+        let program = crate::json::fields(&request.detail)
+            .and_then(|fields| crate::json::field(fields, "program"))
+            .and_then(Json::as_str)
+            .map(str::to_string);
         match request.kind {
-            ApprovalKind::Plan | ApprovalKind::ScopeExpansion => {
+            ApprovalKind::Plan => {
                 if decision == Decision::Approve {
                     self.apply_approval(&request)?;
                 } else {
@@ -537,8 +545,52 @@ impl Engine {
                     self.failure = Some("the plan was refused".to_string());
                 }
             }
+            ApprovalKind::ScopeExpansion => {
+                if decision == Decision::Approve {
+                    self.apply_approval(&request)?;
+                } else if let Some(program) = program {
+                    // Refusing one program is not refusing the investigation: the agent
+                    // continues inside the scope that is still approved.
+                    self.host_note(format!(
+                        "The request to run `{program}` was refused. Continue within the approved scope."
+                    ))?;
+                } else {
+                    // A refused revision: record the refusal against the version it named and
+                    // keep working under the previously approved scope.
+                    let named = crate::json::fields(&request.detail)
+                        .and_then(|fields| crate::json::field(fields, "version"))
+                        .and_then(Json::as_u64);
+                    if let Some(version) = named
+                        && let Some(revision) = self
+                            .investigation
+                            .revisions
+                            .iter_mut()
+                            .find(|revision| revision.version == version)
+                    {
+                        revision.decision = Some(Decision::Refuse);
+                    }
+                    self.journal(
+                        "plan.decided",
+                        Json::object(vec![
+                            ("version", named.map_or(Json::Null, Json::count)),
+                            ("decision", Json::text("refuse")),
+                        ]),
+                    )?;
+                    self.host_note(
+                        "The plan revision was refused. Continue under the approved plan."
+                            .to_string(),
+                    )?;
+                }
+            }
             ApprovalKind::ChangesetExport => {}
         }
+        Ok(())
+    }
+
+    /// A statement from the host into the conversation, journalled so a resume reconstructs it.
+    fn host_note(&mut self, text: String) -> Result<(), EngineError> {
+        self.journal("host.note", Json::object(vec![("text", Json::text(&text))]))?;
+        self.messages.push(Message::user(text));
         Ok(())
     }
 
@@ -887,6 +939,13 @@ impl Engine {
             detail: text.chars().take(200).collect(),
         });
 
+        // The invocation id goes into the message the model reads, so a finding can cite the
+        // call that produced the evidence. Every call gets its result delivered -- including a
+        // denial that raises a question -- because an assistant tool call without its tool
+        // message is not a transcript a provider can continue.
+        self.messages
+            .push(Message::tool(&call.id, format!("[{evidence_id}] {text}")));
+
         // A denial that names a permission gap becomes a question, not a dead end.
         if let Err(failure) = &outcome
             && failure.class == crate::tools::result::ErrorClass::Denied
@@ -894,14 +953,8 @@ impl Engine {
             && let Some(request) = Self::approval_for(call, failure)
         {
             self.pending = Some(request);
-            self.pending_call = Some(call.clone());
             return Ok(CallOutcome::NeedsApproval);
         }
-
-        // The invocation id goes into the message the model reads, so a finding can cite the
-        // call that produced the evidence.
-        self.messages
-            .push(Message::tool(&call.id, format!("[{evidence_id}] {text}")));
         if delivered {
             return Ok(CallOutcome::Stop);
         }
@@ -944,9 +997,11 @@ impl Engine {
                     "approval.outside_the_ceiling",
                     Json::object(vec![("program", Json::text(&program))]),
                 )?;
-                self.failure = Some(format!(
-                    "`{program}` is outside this session's configured permissions; it cannot be approved here"
-                ));
+                // The ceiling is the user's configuration, not a decision this approval can
+                // change. The investigation continues; the model is told the truth.
+                self.host_note(format!(
+                    "`{program}` is outside this session's configured permissions; it cannot be approved here. Continue with the configured programs."
+                ))?;
                 return Ok(());
             }
             let mut scope = self.scope.clone().unwrap_or_else(|| Scope {
@@ -965,6 +1020,9 @@ impl Engine {
                 "scope.expanded",
                 Json::object(vec![("program", Json::text(&program))]),
             )?;
+            self.host_note(format!(
+                "The scope now permits `{program}`. You may call it again."
+            ))?;
             return Ok(());
         }
         // A plan decision names its version. Approving "the first undecided revision" would
@@ -1018,6 +1076,9 @@ impl Engine {
                     ("decision", Json::text("approve")),
                 ]),
             )?;
+            self.host_note(format!(
+                "Plan version {version} is approved. The tools its scope permits are now available."
+            ))?;
         }
         Ok(())
     }

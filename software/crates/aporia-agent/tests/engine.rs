@@ -10,7 +10,7 @@ use aporia_agent::provider::scripted::ScriptedProvider;
 use aporia_agent::provider::{ModelResponse, ToolCall};
 use aporia_agent::scope::Decision;
 use aporia_agent::tools::control;
-use aporia_agent::tools::{Registry, files, instrument, results};
+use aporia_agent::tools::{Registry, command, files, instrument, results};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -53,6 +53,7 @@ fn registry() -> Registry {
     let mut registry = Registry::new();
     control::register(&mut registry).expect("control tools");
     files::register(&mut registry).expect("file tools");
+    command::register(&mut registry).expect("command tool");
     instrument::register(&mut registry).expect("instrument tool");
     results::register(&mut registry).expect("result tools");
     registry
@@ -249,6 +250,239 @@ fn an_unknown_tool_is_a_failure_the_model_sees() {
         .collect();
     let journal = fs::read_to_string(records[0].join("journal.jsonl")).expect("journal");
     assert!(journal.contains("unknown_tool"), "{journal}");
+}
+
+/// A plan whose scope permits python, for the permission-expansion tests.
+fn python_plan_call() -> ToolCall {
+    let mut call = plan_call();
+    call.arguments = call
+        .arguments
+        .replace("\"allow_exec\":[]", "\"allow_exec\":[\"python\"]");
+    call
+}
+
+/// A controller that never decides: the test answers each approval itself.
+struct Pause;
+
+impl aporia_agent::engine::Controller for Pause {
+    fn decide(&mut self, _request: &aporia_agent::scope::ApprovalRequest) -> Option<Decision> {
+        None
+    }
+}
+
+fn pausing_engine_for(
+    source: &Temp,
+    workdir: &Temp,
+    responses: Vec<ModelResponse>,
+    allow_exec: Vec<String>,
+) -> Engine {
+    let provider = ScriptedProvider::from_responses(responses);
+    let config = EngineConfig {
+        source: source.0.clone(),
+        objective: "find out whether the rule is biased".to_string(),
+        provider: Box::new(provider),
+        allow_exec,
+        allow_write: false,
+        max_turns: 16,
+        max_tool_calls: 32,
+        total_timeout_ms: 120_000,
+        workdir: workdir.0.clone(),
+        instrument: std::env::current_exe().expect("exe"),
+    };
+    Engine::start(config, Box::new(Pause), registry()).expect("engine")
+}
+
+/// Every assistant tool call must have a tool result: a transcript a provider can continue.
+fn assert_transcript_is_complete(engine: &Engine) {
+    let messages = engine.transcript();
+    for message in messages {
+        for call in &message.tool_calls {
+            assert!(
+                messages.iter().any(|other| {
+                    other.role == aporia_agent::provider::Role::Tool
+                        && other.tool_call_id.as_deref() == Some(call.id.as_str())
+                }),
+                "tool call {} has no tool result in the transcript",
+                call.id
+            );
+        }
+    }
+}
+
+#[test]
+fn a_denied_program_raises_a_question_and_the_retry_runs_under_the_expanded_scope() {
+    let source = project();
+    let workdir = Temp::new("work7");
+    let responses = vec![
+        ModelResponse::calls(vec![python_plan_call()]),
+        ModelResponse::calls(vec![call(
+            "call-node-1",
+            "run_command",
+            r#"{"argv":["aporia-no-such-program","--version"]}"#,
+        )]),
+        ModelResponse::calls(vec![call(
+            "call-node-2",
+            "run_command",
+            r#"{"argv":["aporia-no-such-program","--version"]}"#,
+        )]),
+        ModelResponse::calls(vec![call(
+            "call-finish",
+            "finish",
+            r#"{"summary":"done","next_steps":[],"unresolved":[]}"#,
+        )]),
+    ];
+    let mut engine = pausing_engine_for(
+        &source,
+        &workdir,
+        responses,
+        vec!["python".to_string(), "aporia-no-such-program".to_string()],
+    );
+    // The plan is approved.
+    match engine.resume().expect("resume") {
+        Wait::Approval(request) => {
+            assert_eq!(request.kind, aporia_agent::scope::ApprovalKind::Plan);
+            engine.decide(Decision::Approve).expect("decide");
+        }
+        other @ Wait::Done(_) => panic!("expected the plan approval, got {other:?}"),
+    }
+    // The unapproved program raises a scope question, and its denial is still delivered.
+    match engine.resume().expect("resume") {
+        Wait::Approval(request) => {
+            assert_eq!(
+                request.kind,
+                aporia_agent::scope::ApprovalKind::ScopeExpansion
+            );
+            engine.decide(Decision::Approve).expect("decide");
+        }
+        other @ Wait::Done(_) => panic!("expected the scope question, got {other:?}"),
+    }
+    let outcome = run_to_end(&mut engine);
+    assert_eq!(outcome, Outcome::Completed);
+    assert!(
+        engine
+            .investigation()
+            .scope
+            .as_ref()
+            .expect("scope")
+            .permits_exec("aporia-no-such-program")
+    );
+    assert_transcript_is_complete(&engine);
+    let records: Vec<PathBuf> = fs::read_dir(workdir.path())
+        .expect("records")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    let journal = fs::read_to_string(records[0].join("journal.jsonl")).expect("journal");
+    assert!(journal.contains("\"kind\":\"scope.expanded\""), "{journal}");
+    assert!(journal.contains("\"kind\":\"host.note\""), "{journal}");
+}
+
+#[test]
+fn refusing_one_program_does_not_end_the_investigation() {
+    let source = project();
+    let workdir = Temp::new("work8");
+    let responses = vec![
+        ModelResponse::calls(vec![python_plan_call()]),
+        ModelResponse::calls(vec![call(
+            "call-node-1",
+            "run_command",
+            r#"{"argv":["aporia-no-such-program","--version"]}"#,
+        )]),
+        ModelResponse::calls(vec![call(
+            "call-finish",
+            "finish",
+            r#"{"summary":"continued without the program","next_steps":[],"unresolved":[]}"#,
+        )]),
+    ];
+    let mut engine = pausing_engine_for(
+        &source,
+        &workdir,
+        responses,
+        vec!["python".to_string(), "aporia-no-such-program".to_string()],
+    );
+    match engine.resume().expect("resume") {
+        Wait::Approval(_) => engine.decide(Decision::Approve).expect("decide"),
+        other @ Wait::Done(_) => panic!("expected the plan approval, got {other:?}"),
+    }
+    match engine.resume().expect("resume") {
+        Wait::Approval(request) => {
+            assert_eq!(
+                request.kind,
+                aporia_agent::scope::ApprovalKind::ScopeExpansion
+            );
+            engine.decide(Decision::Refuse).expect("decide");
+        }
+        other @ Wait::Done(_) => panic!("expected the scope question, got {other:?}"),
+    }
+    let outcome = run_to_end(&mut engine);
+    assert_eq!(
+        outcome,
+        Outcome::Completed,
+        "refusing one program must not refuse the investigation"
+    );
+    assert!(
+        !engine
+            .investigation()
+            .scope
+            .as_ref()
+            .expect("scope")
+            .permits_exec("aporia-no-such-program")
+    );
+    assert_transcript_is_complete(&engine);
+}
+
+#[test]
+fn an_expansion_outside_the_ceiling_is_refused_and_the_model_hears_why() {
+    let source = project();
+    let workdir = Temp::new("work9");
+    let responses = vec![
+        ModelResponse::calls(vec![python_plan_call()]),
+        ModelResponse::calls(vec![call(
+            "call-node-1",
+            "run_command",
+            r#"{"argv":["aporia-no-such-program","--version"]}"#,
+        )]),
+        ModelResponse::calls(vec![call(
+            "call-finish",
+            "finish",
+            r#"{"summary":"the ceiling held","next_steps":[],"unresolved":[]}"#,
+        )]),
+    ];
+    // The ceiling names python only: even an approval cannot grant the other program.
+    let mut engine = pausing_engine_for(&source, &workdir, responses, vec!["python".to_string()]);
+    match engine.resume().expect("resume") {
+        Wait::Approval(_) => engine.decide(Decision::Approve).expect("decide"),
+        other @ Wait::Done(_) => panic!("expected the plan approval, got {other:?}"),
+    }
+    match engine.resume().expect("resume") {
+        Wait::Approval(_) => engine.decide(Decision::Approve).expect("decide"),
+        other @ Wait::Done(_) => panic!("expected the scope question, got {other:?}"),
+    }
+    let outcome = run_to_end(&mut engine);
+    assert_eq!(outcome, Outcome::Completed);
+    assert!(
+        !engine
+            .investigation()
+            .scope
+            .as_ref()
+            .expect("scope")
+            .permits_exec("aporia-no-such-program")
+    );
+    assert_transcript_is_complete(&engine);
+    let records: Vec<PathBuf> = fs::read_dir(workdir.path())
+        .expect("records")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    let journal = fs::read_to_string(records[0].join("journal.jsonl")).expect("journal");
+    assert!(
+        journal.contains("\"kind\":\"approval.outside_the_ceiling\""),
+        "{journal}"
+    );
+    assert!(
+        !journal.contains("\"kind\":\"scope.expanded\""),
+        "{journal}"
+    );
 }
 
 #[test]
