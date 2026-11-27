@@ -1,0 +1,9 @@
+{
+  "n": 8,
+  "mean": 5,
+  "variance": 4,
+  "exact_mean": 5,
+  "exact_sample_variance": 4.571428571428571,
+  "mean_error": 0,
+  "variance_error": -0.5714285714285712
+}
