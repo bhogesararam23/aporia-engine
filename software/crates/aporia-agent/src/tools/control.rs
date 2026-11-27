@@ -679,7 +679,7 @@ impl Tool for UpdateExperiment {
                     format!("there is no experiment `{id}` in the backlog"),
                 )
             })?;
-        let mut updated = existing.clone();
+        let mut updated = existing;
         if let Some(status) = status {
             updated.status = status;
         }
@@ -696,9 +696,15 @@ impl Tool for UpdateExperiment {
             .journal("experiment.changed", updated.to_json())
             .map_err(|reason| ToolFailure::new(ErrorClass::Internal, reason))?;
         session.investigation().upsert_experiment(updated);
+        // Report the state that was stored, not the state that was asked for: the upsert keeps
+        // a finished experiment's outcome, and the model must hear what the record now says.
+        let stored = session
+            .investigation()
+            .experiment(&id)
+            .expect("the item was just upserted");
         Ok(ToolOutput::text(format!(
             "experiment {id} is now {}",
-            existing.status.as_str()
+            stored.status.as_str()
         )))
     }
 }
