@@ -96,6 +96,7 @@ pub enum EngineEvent {
     ApprovalRequested {
         kind: String,
         title: String,
+        detail: Json,
     },
     ApprovalDecided {
         kind: String,
@@ -875,19 +876,7 @@ impl Engine {
 
         let (outcome, delivered, requested) = self.dispatch(call);
         if let Some(request) = requested {
-            self.journal(
-                "approval.requested",
-                Json::object(vec![
-                    ("kind", Json::text(request.kind.as_str())),
-                    ("title", Json::text(&request.title)),
-                    ("detail", request.detail.clone()),
-                ]),
-            )?;
-            self.controller.event(&EngineEvent::ApprovalRequested {
-                kind: request.kind.as_str().to_string(),
-                title: request.title.clone(),
-            });
-            self.pending = Some(request);
+            self.raise_approval(request)?;
         }
         let (ok, text, artifacts, class) = match &outcome {
             Ok(output) => (
@@ -946,19 +935,39 @@ impl Engine {
         self.messages
             .push(Message::tool(&call.id, format!("[{evidence_id}] {text}")));
 
-        // A denial that names a permission gap becomes a question, not a dead end.
+        // A denial that names a permission gap becomes a question, not a dead end. The question
+        // is journalled and rendered like any other approval.
         if let Err(failure) = &outcome
             && failure.class == crate::tools::result::ErrorClass::Denied
             && self.pending.is_none()
             && let Some(request) = Self::approval_for(call, failure)
         {
-            self.pending = Some(request);
+            self.raise_approval(request)?;
             return Ok(CallOutcome::NeedsApproval);
         }
         if delivered {
             return Ok(CallOutcome::Stop);
         }
         Ok(CallOutcome::Continue)
+    }
+
+    /// Record a question for the person: journal it, render it, and pause on it.
+    fn raise_approval(&mut self, request: ApprovalRequest) -> Result<(), EngineError> {
+        self.journal(
+            "approval.requested",
+            Json::object(vec![
+                ("kind", Json::text(request.kind.as_str())),
+                ("title", Json::text(&request.title)),
+                ("detail", request.detail.clone()),
+            ]),
+        )?;
+        self.controller.event(&EngineEvent::ApprovalRequested {
+            kind: request.kind.as_str().to_string(),
+            title: request.title.clone(),
+            detail: request.detail.clone(),
+        });
+        self.pending = Some(request);
+        Ok(())
     }
 
     /// The question a denial raises, when it is about permission.

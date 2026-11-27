@@ -101,14 +101,28 @@ fn the_demonstration_runs_a_complete_project_workflow() {
         String::from_utf8_lossy(&err)
     );
 
+    // The approval showed the plan: a person must be able to see what they are approving.
+    let conversation = String::from_utf8_lossy(&out);
+    assert!(
+        conversation.contains("the rule's error never shrinks"),
+        "the approval did not show the gap: {conversation}"
+    );
+    assert!(
+        conversation.contains(&format!("scope: run [{python}]")),
+        "the approval did not show the scope: {conversation}"
+    );
+
     let records: Vec<PathBuf> = std::fs::read_dir(workdir.path().join("investigations"))
         .expect("records")
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .collect();
     assert_eq!(records.len(), 1, "one investigation directory");
-    let root = &records[0];
+    assert_record(&records[0], &project);
+}
 
+/// What the record on disk must contain after the demonstration.
+fn assert_record(root: &Path, project: &Path) {
     let journal = std::fs::read_to_string(root.join("journal.jsonl")).expect("journal");
     assert!(journal.contains("\"name\":\"read_file\""), "{journal}");
     assert!(journal.contains("\"name\":\"propose_plan\""), "{journal}");

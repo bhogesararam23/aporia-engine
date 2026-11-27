@@ -13,6 +13,7 @@ use aporia_agent::scope::{ApprovalRequest, Decision};
 use aporia_agent::tools::{
     Registry, command, control, edit, files, instrument, intel, results, source_git,
 };
+use aporia_store::Json;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
@@ -51,12 +52,14 @@ impl Controller for Interactive {
     }
 }
 
-/// The controller that approves everything inside the ceilings, for `--batch`.
+/// The controller for `--batch`: it pauses at every approval so the batch loop can render the
+/// request through the conversation writer and then grant it. The ceilings still bind: an
+/// approval outside them is refused by the engine, not by this controller.
 struct ApproveAll;
 
 impl Controller for ApproveAll {
     fn decide(&mut self, _request: &ApprovalRequest) -> Option<Decision> {
-        Some(Decision::Approve)
+        None
     }
 
     fn event(&mut self, event: &EngineEvent) {
@@ -196,7 +199,7 @@ fn run_session(engine: &mut Engine, out: &mut dyn Write, err: &mut dyn Write, ba
                 }
             }
             Ok(aporia_agent::engine::Step::Approval(request)) => {
-                render_approval(out, &request);
+                render_approval(out, &request.title, &request.detail);
                 let decision = ask_approval(out, err).unwrap_or(Decision::Refuse);
                 if let Err(error) = engine.decide(decision) {
                     let _ = writeln!(err, "aporia agent: {error}");
@@ -220,7 +223,7 @@ fn run_batch(engine: &mut Engine, out: &mut dyn Write, err: &mut dyn Write) -> E
     loop {
         match engine.resume() {
             Ok(Wait::Approval(request)) => {
-                render_approval(out, &request);
+                render_approval(out, &request.title, &request.detail);
                 if let Err(error) = engine.decide(Decision::Approve) {
                     let _ = writeln!(err, "aporia agent: {error}");
                     return Exit::Record;
@@ -238,14 +241,112 @@ fn run_batch(engine: &mut Engine, out: &mut dyn Write, err: &mut dyn Write) -> E
     }
 }
 
-fn render_approval(out: &mut dyn Write, request: &ApprovalRequest) {
-    let _ = writeln!(out, "\n--- approval needed: {}", request.title);
-    if request.kind == aporia_agent::scope::ApprovalKind::Plan {
+fn render_approval(out: &mut dyn Write, title: &str, detail: &Json) {
+    let _ = writeln!(out, "\n--- approval needed: {title}");
+    let Some(fields) = aporia_agent::json::fields(detail) else {
+        return;
+    };
+    if let Some(program) = aporia_agent::json::field(fields, "program").and_then(Json::as_str) {
+        let _ = writeln!(out, "program: {program}");
+        if let Some(reason) = aporia_agent::json::field(fields, "reason").and_then(Json::as_str) {
+            let _ = writeln!(out, "reason: {reason}");
+        }
+        return;
+    }
+    // A plan decision must show the plan: a person cannot approve what they cannot see.
+    let Some(plan) = aporia_agent::json::field(fields, "plan").and_then(aporia_agent::json::fields)
+    else {
+        return;
+    };
+    if let Some(objective) = aporia_agent::json::field(plan, "objective").and_then(Json::as_str) {
+        let _ = writeln!(out, "objective: {objective}");
+    }
+    if let Some(gaps) = aporia_agent::json::field(plan, "gaps").and_then(Json::as_array) {
+        let _ = writeln!(out, "gaps:");
+        for gap in gaps {
+            let Some(gap) = aporia_agent::json::fields(gap) else {
+                continue;
+            };
+            let id = aporia_agent::json::field(gap, "id")
+                .and_then(Json::as_str)
+                .unwrap_or("?");
+            let priority = aporia_agent::json::field(gap, "priority")
+                .and_then(Json::as_str)
+                .unwrap_or("?");
+            let title = aporia_agent::json::field(gap, "title")
+                .and_then(Json::as_str)
+                .unwrap_or("");
+            let evidence = aporia_agent::json::string_array(gap, "evidence").unwrap_or_default();
+            let _ = writeln!(
+                out,
+                "  {id} [{priority}] {title} (evidence: {})",
+                evidence.join(", ")
+            );
+        }
+    }
+    if let Some(tasks) = aporia_agent::json::field(plan, "tasks").and_then(Json::as_array) {
+        let _ = writeln!(out, "tasks:");
+        for task in tasks {
+            let Some(task) = aporia_agent::json::fields(task) else {
+                continue;
+            };
+            let id = aporia_agent::json::field(task, "id")
+                .and_then(Json::as_str)
+                .unwrap_or("?");
+            let title = aporia_agent::json::field(task, "title")
+                .and_then(Json::as_str)
+                .unwrap_or("");
+            let method = aporia_agent::json::field(task, "method")
+                .and_then(Json::as_str)
+                .unwrap_or("");
+            let _ = writeln!(out, "  {id} {title} -- {method}");
+        }
+    }
+    if let Some(scope) =
+        aporia_agent::json::field(plan, "scope").and_then(aporia_agent::json::fields)
+    {
+        let programs = aporia_agent::json::string_array(scope, "allow_exec").unwrap_or_default();
+        let write = aporia_agent::json::field(scope, "allow_write")
+            .and_then(Json::as_bool)
+            .unwrap_or(false);
         let _ = writeln!(
             out,
-            "The plan, its gaps and its tasks are in the investigation record."
+            "scope: run [{}], edit workspace: {write}",
+            programs.join(", ")
         );
     }
+    if let Some(criteria) =
+        aporia_agent::json::field(plan, "success_criteria").and_then(Json::as_str)
+    {
+        let _ = writeln!(out, "success: {criteria}");
+    }
+}
+
+/// The changes the investigation made in the workspace, as the person reads them.
+#[must_use]
+pub fn render_changes(investigation: &aporia_agent::investigation::Investigation) -> String {
+    use std::fmt::Write as _;
+    if investigation.changes.is_empty() {
+        return "no changes have been made to the workspace yet\n".to_string();
+    }
+    let mut out = String::new();
+    for change in &investigation.changes {
+        let short = |digest: &Option<String>| {
+            digest.as_deref().map_or_else(
+                || "absent".to_string(),
+                |text| text.chars().take(12).collect(),
+            )
+        };
+        let _ = writeln!(
+            out,
+            "{} ({}): {} -> {}",
+            change.path,
+            change.kind.as_str(),
+            short(&change.before),
+            short(&change.after)
+        );
+    }
+    out
 }
 
 fn ask_approval(out: &mut dyn Write, err: &mut dyn Write) -> Option<Decision> {
@@ -312,86 +413,115 @@ fn conversation(engine: &mut Engine, out: &mut dyn Write, err: &mut dyn Write) -
             continue;
         }
         if let Some(command) = text.strip_prefix('/') {
-            match command {
-                "help" => {
-                    let _ = write!(out, "{}", commands_help());
-                }
-                "quit" | "exit" => return Some(Exit::Clean),
-                "cancel" => {
-                    engine.cancel();
-                    let _ = writeln!(out, "the investigation will stop at the next opportunity");
-                }
-                "status" => {
-                    let _ = writeln!(
-                        out,
-                        "status {}, phase {}, tools: {}",
-                        engine.status().as_str(),
-                        engine.phase().as_str(),
-                        engine.tool_names().join(", ")
-                    );
-                }
-                "plan" => {
-                    let investigation = engine.investigation();
-                    if let Some(revision) = investigation.approved_revision() {
-                        let _ = writeln!(
-                            out,
-                            "approved plan version {} with {} gaps and {} tasks",
-                            revision.version,
-                            revision.proposal.gaps.len(),
-                            revision.proposal.tasks.len()
-                        );
-                    } else {
-                        let _ = writeln!(out, "no plan has been approved yet");
-                    }
-                }
-                "gaps" => {
-                    let investigation = engine.investigation();
-                    for revision in &investigation.revisions {
-                        for gap in &revision.proposal.gaps {
-                            let _ = writeln!(
-                                out,
-                                "{} [{}] {} (evidence: {})",
-                                gap.id,
-                                gap.priority.as_str(),
-                                gap.title,
-                                gap.evidence.join(", ")
-                            );
-                        }
-                    }
-                }
-                "tools" => {
-                    for name in engine.tool_names() {
-                        let _ = writeln!(out, "{name}");
-                    }
-                }
-                "experiments" => {
-                    let investigation = engine.investigation();
-                    for experiment in investigation.ranked_experiments() {
-                        let _ = writeln!(
-                            out,
-                            "{} [{}] {} — {}",
-                            experiment.id,
-                            experiment.status.as_str(),
-                            experiment.priority,
-                            experiment.title
-                        );
-                    }
-                }
-                "changes" => {
-                    let _ = writeln!(out, "no changes have been made to the workspace yet");
-                }
-                "approve" | "deny" | "save" => {
-                    let _ = writeln!(out, "`{command}` has nothing to do at this moment");
-                }
-                other => {
-                    let _ = writeln!(err, "aporia agent: unknown command `/{other}`; try /help");
-                }
+            if let Some(exit) = conversation_command(engine, command, out, err) {
+                return Some(exit);
             }
             continue;
         }
         engine.say(text.to_string());
         return None;
     }
+}
+
+/// One `/command`. `Some(exit)` means the conversation is over.
+fn conversation_command(
+    engine: &mut Engine,
+    command: &str,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> Option<Exit> {
+    match command {
+        "help" => {
+            let _ = write!(out, "{}", commands_help());
+        }
+        "quit" | "exit" => return Some(Exit::Clean),
+        "cancel" => {
+            engine.cancel();
+            let _ = writeln!(out, "the investigation will stop at the next opportunity");
+        }
+        "status" => {
+            let _ = writeln!(
+                out,
+                "status {}, phase {}, tools: {}",
+                engine.status().as_str(),
+                engine.phase().as_str(),
+                engine.tool_names().join(", ")
+            );
+        }
+        "plan" => {
+            let investigation = engine.investigation();
+            if let Some(revision) = investigation.approved_revision() {
+                let _ = writeln!(
+                    out,
+                    "approved plan version {} with {} gaps and {} tasks",
+                    revision.version,
+                    revision.proposal.gaps.len(),
+                    revision.proposal.tasks.len()
+                );
+            } else {
+                let _ = writeln!(out, "no plan has been approved yet");
+            }
+        }
+        "gaps" => {
+            let investigation = engine.investigation();
+            for revision in &investigation.revisions {
+                for gap in &revision.proposal.gaps {
+                    let _ = writeln!(
+                        out,
+                        "{} [{}] {} (evidence: {})",
+                        gap.id,
+                        gap.priority.as_str(),
+                        gap.title,
+                        gap.evidence.join(", ")
+                    );
+                }
+            }
+        }
+        "tools" => {
+            for name in engine.tool_names() {
+                let _ = writeln!(out, "{name}");
+            }
+        }
+        "experiments" => {
+            let investigation = engine.investigation();
+            for experiment in investigation.ranked_experiments() {
+                let _ = writeln!(
+                    out,
+                    "{} [{}] {} — {}",
+                    experiment.id,
+                    experiment.status.as_str(),
+                    experiment.priority,
+                    experiment.title
+                );
+            }
+        }
+        "changes" => {
+            let _ = write!(out, "{}", render_changes(engine.investigation()));
+        }
+        "findings" => {
+            let investigation = engine.investigation();
+            if investigation.findings.is_empty() {
+                let _ = writeln!(out, "no findings have been recorded yet");
+            }
+            for finding in &investigation.findings {
+                let _ = writeln!(
+                    out,
+                    "[{} / {}] {} (evidence: {})",
+                    finding.kind.as_str(),
+                    finding.severity.as_str(),
+                    finding.text,
+                    finding.evidence.join(", ")
+                );
+            }
+        }
+        "approve" | "deny" | "save" => {
+            let _ = writeln!(out, "`{command}` has nothing to do at this moment");
+        }
+        other => {
+            let _ = writeln!(err, "aporia agent: unknown command `/{other}`; try /help");
+        }
+    }
+    None
 }
 
 fn commands_help() -> &'static str {
@@ -401,6 +531,7 @@ fn commands_help() -> &'static str {
      /gaps        the gaps the investigation has found\n\
      /tools       the tools available in this session\n\
      /experiments the improvement backlog\n\
+     /findings    the findings recorded so far\n\
      /changes     the changes made in the workspace\n\
      /cancel      stop at the next opportunity\n\
      /quit        leave; the record stays on disk\n\
