@@ -940,6 +940,9 @@ impl Engine {
 
     fn ask(&mut self) -> Result<Option<ModelResponse>, EngineError> {
         self.turns += 1;
+        // The conversation stays bounded; the journal keeps everything. Pruning is a pure
+        // function of the messages, so a resume reconstructs the same bounded transcript.
+        crate::context::prune(&mut self.messages, crate::context::CONTEXT_LIMIT);
         let tools = self.allowed_tools();
         let names: Vec<String> = tools.iter().map(|tool| tool.name.clone()).collect();
         let event = Event::ModelRequest {

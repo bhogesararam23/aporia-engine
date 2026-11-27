@@ -623,6 +623,54 @@ fn a_finished_session_leaves_a_terminal_checkpoint() {
 }
 
 #[test]
+fn a_long_investigation_keeps_its_conversation_bounded() {
+    let source = Temp::new("bigsrc");
+    fs::write(source.path().join("big.txt"), "line\n".repeat(6000)).expect("file");
+    let workdir = Temp::new("bigwork");
+    let mut responses: Vec<ModelResponse> = (0..12)
+        .map(|n| {
+            ModelResponse::calls(vec![call(
+                &format!("call-read-{n}"),
+                "read_file",
+                r#"{"path":"big.txt"}"#,
+            )])
+        })
+        .collect();
+    responses.push(ModelResponse::calls(vec![call(
+        "call-finish",
+        "finish",
+        r#"{"summary":"done","next_steps":[],"unresolved":[]}"#,
+    )]));
+    let mut engine = engine_for(&source, &workdir, responses, Vec::new());
+    let outcome = run_to_end(&mut engine);
+    assert_eq!(outcome, Outcome::Completed);
+    let total: usize = engine
+        .transcript()
+        .iter()
+        .map(|message| message.content.len())
+        .sum();
+    assert!(
+        total <= aporia_agent::context::CONTEXT_LIMIT + 2000,
+        "the conversation grew to {total} bytes"
+    );
+    assert!(
+        engine
+            .transcript()
+            .iter()
+            .any(|message| message.content.contains("elided from the conversation")),
+        "no output was elided although the limit was passed"
+    );
+    // The journal still holds the full outputs: the record is not pruned.
+    let records: Vec<PathBuf> = fs::read_dir(workdir.path())
+        .expect("records")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .collect();
+    let journal = fs::read_to_string(records[0].join("journal.jsonl")).expect("journal");
+    assert!(journal.len() > total, "the journal was pruned too");
+}
+
+#[test]
 fn a_decision_made_by_the_host_is_recorded_with_its_kind() {
     let source = project();
     let workdir = Temp::new("work5");
