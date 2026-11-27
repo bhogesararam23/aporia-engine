@@ -220,6 +220,26 @@ fn a_change_can_be_put_back_and_a_new_file_can_be_removed() {
         "the created file was not removed"
     );
     assert_eq!(session.investigation.changes.len(), 4);
+
+    // The revert records the identity it replaced, not the identity it restored.
+    let digest = |bytes: &[u8]| aporia_store::digest::sha256_hex(bytes);
+    let revert = &session.investigation.changes[2];
+    assert_eq!(revert.path, "rule.py");
+    assert_eq!(
+        revert.before.as_deref(),
+        Some(digest(b"changed\n").as_str())
+    );
+    assert_eq!(
+        revert.after.as_deref(),
+        Some(digest(b"original\n").as_str())
+    );
+    let removal = &session.investigation.changes[3];
+    assert_eq!(removal.path, "extra.txt");
+    assert_eq!(
+        removal.before.as_deref(),
+        Some(digest(b"new file\n").as_str())
+    );
+    assert_eq!(removal.after, None);
 }
 
 #[test]

@@ -208,6 +208,9 @@ impl Tool for RevertFile {
         // The original bytes live in the source project, which the copy was made from and which
         // the agent never writes.
         let original = context.source().join(path);
+        // The identity before the revert is read before anything is written or removed; reading
+        // it afterwards would record the restored state as the state that was replaced.
+        let before = digest_of(&resolved);
         let change = if original.is_file() {
             let bytes = fs::read(&original).map_err(|error| {
                 ToolFailure::new(ErrorClass::Io, format!("cannot read the original: {error}"))
@@ -217,7 +220,7 @@ impl Tool for RevertFile {
             crate::investigation::FileChange {
                 path: path.to_string(),
                 kind: ChangeKind::Modified,
-                before: digest_of(&resolved),
+                before,
                 after: Some(sha256_hex(&bytes)),
             }
         } else {
@@ -225,7 +228,7 @@ impl Tool for RevertFile {
             crate::investigation::FileChange {
                 path: path.to_string(),
                 kind: ChangeKind::Deleted,
-                before: digest_of(&resolved),
+                before,
                 after: None,
             }
         };
